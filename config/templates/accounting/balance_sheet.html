@@ -1,0 +1,418 @@
+{% extends "accounting/base.html" %}
+
+{% block title %}Баланс | Buxgalteriya tizimi{% endblock %}
+
+{% block accounting_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Баланс</h1>
+    <div>
+        <button type="button" class="btn btn-outline-primary mr-2" id="printReportBtn">
+            <i class="fas fa-print mr-2"></i> Печать
+        </button>
+        <button type="button" class="btn btn-primary" id="exportReportBtn">
+            <i class="fas fa-file-export mr-2"></i> Экспорт
+        </button>
+    </div>
+</div>
+
+<!-- Фильтры отчета -->
+<div class="card card-accounting mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Параметры отчета</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row">
+            <div class="form-group col-md-4">
+                <label for="date">Дата баланса</label>
+                <input type="text" class="form-control datepicker" id="date" name="date" value="{{ request.GET.date|default:'' }}" placeholder="дд.мм.гггг">
+            </div>
+            <div class="form-group col-md-4">
+                <label for="compare_date">Сравнить с датой</label>
+                <input type="text" class="form-control datepicker" id="compare_date" name="compare_date" value="{{ request.GET.compare_date|default:'' }}" placeholder="дд.мм.гггг">
+            </div>
+            <div class="form-group col-md-4 align-self-end">
+                <button type="submit" class="btn btn-primary mr-2">
+                    <i class="fas fa-filter mr-2"></i> Применить
+                </button>
+                <a href="{% url 'accounting:balance_sheet' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-undo mr-2"></i> Сбросить
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Сводные показатели -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card card-accounting">
+            <div class="card-body dashboard-stats">
+                <div class="stat-icon">
+                    <i class="fas fa-money-bill-wave text-success"></i>
+                </div>
+                <div class="stat-value text-success">{{ total_assets|floatformat:2 }}</div>
+                <div class="stat-label">Итого активы</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-accounting">
+            <div class="card-body dashboard-stats">
+                <div class="stat-icon">
+                    <i class="fas fa-landmark text-danger"></i>
+                </div>
+                <div class="stat-value text-danger">{{ total_liabilities|floatformat:2 }}</div>
+                <div class="stat-label">Итого обязательства</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-accounting">
+            <div class="card-body dashboard-stats">
+                <div class="stat-icon">
+                    <i class="fas fa-wallet text-primary"></i>
+                </div>
+                <div class="stat-value {% if equity >= 0 %}text-success{% else %}text-danger{% endif %}">{{ equity|floatformat:2 }}</div>
+                <div class="stat-label">Собственный капитал</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Визуализация баланса -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card card-accounting">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Структура баланса</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="balanceChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Таблица с данными - Активы -->
+<div class="card card-accounting mb-4">
+    <div class="card-header bg-light">
+        <h5 class="card-title mb-0">Активы</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 50%">Наименование</th>
+                        <th class="text-right">Сумма</th>
+                        {% if compare_date %}
+                        <th class="text-right">{{ compare_date_display }}</th>
+                        <th class="text-right">Изменение</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="table-secondary">
+                        <th colspan="{% if compare_date %}4{% else %}2{% endif %}">Оборотные активы</th>
+                    </tr>
+                    {% for asset in current_assets %}
+                    <tr>
+                        <td>{{ asset.name }}</td>
+                        <td class="text-right">{{ asset.amount|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ asset.compare_amount|floatformat:2 }}</td>
+                        <td class="text-right {% if asset.change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ asset.change|floatformat:2 }}
+                            ({{ asset.change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    <tr class="font-weight-bold">
+                        <td>Итого оборотные активы</td>
+                        <td class="text-right">{{ total_current_assets|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ total_current_assets_compare|floatformat:2 }}</td>
+                        <td class="text-right {% if current_assets_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ current_assets_change|floatformat:2 }}
+                            ({{ current_assets_change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                    
+                    <tr class="table-secondary">
+                        <th colspan="{% if compare_date %}4{% else %}2{% endif %}">Внеоборотные активы</th>
+                    </tr>
+                    {% for asset in non_current_assets %}
+                    <tr>
+                        <td>{{ asset.name }}</td>
+                        <td class="text-right">{{ asset.amount|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ asset.compare_amount|floatformat:2 }}</td>
+                        <td class="text-right {% if asset.change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ asset.change|floatformat:2 }}
+                            ({{ asset.change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    <tr class="font-weight-bold">
+                        <td>Итого внеоборотные активы</td>
+                        <td class="text-right">{{ total_non_current_assets|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ total_non_current_assets_compare|floatformat:2 }}</td>
+                        <td class="text-right {% if non_current_assets_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ non_current_assets_change|floatformat:2 }}
+                            ({{ non_current_assets_change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="font-weight-bold bg-light">
+                        <td>ИТОГО АКТИВЫ</td>
+                        <td class="text-right">{{ total_assets|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ total_assets_compare|floatformat:2 }}</td>
+                        <td class="text-right {% if assets_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ assets_change|floatformat:2 }}
+                            ({{ assets_change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Таблица с данными - Обязательства и капитал -->
+<div class="card card-accounting">
+    <div class="card-header bg-light">
+        <h5 class="card-title mb-0">Обязательства и собственный капитал</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 50%">Наименование</th>
+                        <th class="text-right">Сумма</th>
+                        {% if compare_date %}
+                        <th class="text-right">{{ compare_date_display }}</th>
+                        <th class="text-right">Изменение</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="table-secondary">
+                        <th colspan="{% if compare_date %}4{% else %}2{% endif %}">Краткосрочные обязательства</th>
+                    </tr>
+                    {% for liability in current_liabilities %}
+                    <tr>
+                        <td>{{ liability.name }}</td>
+                        <td class="text-right">{{ liability.amount|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ liability.compare_amount|floatformat:2 }}</td>
+                        <td class="text-right {% if liability.change <= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ liability.change|floatformat:2 }}
+                            ({{ liability.change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    <tr class="font-weight-bold">
+                        <td>Итого краткосрочные обязательства</td>
+                        <td class="text-right">{{ total_current_liabilities|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ total_current_liabilities_compare|floatformat:2 }}</td>
+                        <td class="text-right {% if current_liabilities_change <= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ current_liabilities_change|floatformat:2 }}
+                            ({{ current_liabilities_change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                    
+                    <tr class="table-secondary">
+                        <th colspan="{% if compare_date %}4{% else %}2{% endif %}">Долгосрочные обязательства</th>
+                    </tr>
+                    {% for liability in non_current_liabilities %}
+                    <tr>
+                        <td>{{ liability.name }}</td>
+                        <td class="text-right">{{ liability.amount|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ liability.compare_amount|floatformat:2 }}</td>
+                        <td class="text-right {% if liability.change <= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ liability.change|floatformat:2 }}
+                            ({{ liability.change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    <tr class="font-weight-bold">
+                        <td>Итого долгосрочные обязательства</td>
+                        <td class="text-right">{{ total_non_current_liabilities|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ total_non_current_liabilities_compare|floatformat:2 }}</td>
+                        <td class="text-right {% if non_current_liabilities_change <= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ non_current_liabilities_change|floatformat:2 }}
+                            ({{ non_current_liabilities_change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                    
+                    <tr class="font-weight-bold">
+                        <td>Итого обязательства</td>
+                        <td class="text-right">{{ total_liabilities|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ total_liabilities_compare|floatformat:2 }}</td>
+                        <td class="text-right {% if liabilities_change <= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ liabilities_change|floatformat:2 }}
+                            ({{ liabilities_change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                    
+                    <tr class="table-secondary">
+                        <th colspan="{% if compare_date %}4{% else %}2{% endif %}">Собственный капитал</th>
+                    </tr>
+                    {% for equity_item in equity_items %}
+                    <tr>
+                        <td>{{ equity_item.name }}</td>
+                        <td class="text-right">{{ equity_item.amount|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ equity_item.compare_amount|floatformat:2 }}</td>
+                        <td class="text-right {% if equity_item.change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ equity_item.change|floatformat:2 }}
+                            ({{ equity_item.change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    <tr class="font-weight-bold">
+                        <td>Итого собственный капитал</td>
+                        <td class="text-right">{{ equity|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ equity_compare|floatformat:2 }}</td>
+                        <td class="text-right {% if equity_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ equity_change|floatformat:2 }}
+                            ({{ equity_change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="font-weight-bold bg-light">
+                        <td>ИТОГО ОБЯЗАТЕЛЬСТВА И КАПИТАЛ</td>
+                        <td class="text-right">{{ total_liabilities_and_equity|floatformat:2 }}</td>
+                        {% if compare_date %}
+                        <td class="text-right">{{ total_liabilities_and_equity_compare|floatformat:2 }}</td>
+                        <td class="text-right {% if liabilities_and_equity_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ liabilities_and_equity_change|floatformat:2 }}
+                            ({{ liabilities_and_equity_change_percent|floatformat:1 }}%)
+                        </td>
+                        {% endif %}
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize datepicker
+        $('.datepicker').datepicker({
+            format: 'dd.mm.yyyy',
+            autoclose: true,
+            language: 'ru',
+            todayHighlight: true
+        });
+        
+        // Chart for balance visualization
+        var ctx = document.getElementById('balanceChart').getContext('2d');
+        var balanceChart = new Chart(ctx, {
+            type: 'horizontalBar',
+            data: {
+                labels: ['Активы', 'Обязательства и капитал'],
+                datasets: [
+                    {
+                        label: 'Оборотные активы',
+                        data: [{{ total_current_assets|default:0 }}, 0],
+                        backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Внеоборотные активы',
+                        data: [{{ total_non_current_assets|default:0 }}, 0],
+                        backgroundColor: 'rgba(26, 188, 156, 0.7)',
+                        borderColor: 'rgba(26, 188, 156, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Краткосрочные обязательства',
+                        data: [0, {{ total_current_liabilities|default:0 }}],
+                        backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                        borderColor: 'rgba(231, 76, 60, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Долгосрочные обязательства',
+                        data: [0, {{ total_non_current_liabilities|default:0 }}],
+                        backgroundColor: 'rgba(230, 126, 34, 0.7)',
+                        borderColor: 'rgba(230, 126, 34, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Собственный капитал',
+                        data: [0, {{ equity|default:0 }}],
+                        backgroundColor: 'rgba(46, 204, 113, 0.7)',
+                        borderColor: 'rgba(46, 204, 113, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    xAxes: [{
+                        stacked: true,
+                        ticks: {
+                            beginAtZero: true,
+                            callback: function(value) {
+                                return value.toLocaleString() + ' UZS';
+                            }
+                        }
+                    }],
+                    yAxes: [{
+                        stacked: true
+                    }]
+                },
+                tooltips: {
+                    callbacks: {
+                        label: function(tooltipItem, data) {
+                            var dataset = data.datasets[tooltipItem.datasetIndex];
+                            var value = dataset.data[tooltipItem.index] || 0;
+                            return dataset.label + ': ' + value.toLocaleString() + ' UZS';
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Print report
+        $('#printReportBtn').click(function() {
+            window.print();
+        });
+        
+        // Export report (mock functionality)
+        $('#exportReportBtn').click(function() {
+            alert('Отчет будет экспортирован в Excel');
+        });
+    });
+</script>
+{% endblock %} 

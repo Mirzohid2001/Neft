@@ -1,0 +1,374 @@
+{% extends 'accounting/base.html' %}
+
+{% block accounting_content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h2 class="h3">
+            {% if form.instance.id %}
+                Редактирование операции
+            {% else %}
+                Новая финансовая операция
+            {% endif %}
+        </h2>
+        <a href="{% url 'accounting:transaction_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left mr-1"></i> К списку операций
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card card-accounting">
+            <div class="card-body">
+                <form method="post" id="transactionForm">
+                    {% csrf_token %}
+                    
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <h5 class="alert-heading">Ошибки в форме:</h5>
+                        <ul class="mb-0">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <li>{{ field }}: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Тип операции -->
+                    <div class="form-group">
+                        <label for="id_transaction_type">Тип операции</label>
+                        <div class="btn-group btn-group-toggle w-100" data-toggle="buttons">
+                            <label class="btn btn-outline-success {% if form.instance.transaction_type == 'income' or not form.instance.transaction_type %}active{% endif %}">
+                                <input type="radio" name="transaction_type" id="transaction_type_income" value="income" {% if form.instance.transaction_type == 'income' or not form.instance.transaction_type %}checked{% endif %}>
+                                <i class="fas fa-arrow-down mr-1"></i> Доход
+                            </label>
+                            <label class="btn btn-outline-danger {% if form.instance.transaction_type == 'expense' %}active{% endif %}">
+                                <input type="radio" name="transaction_type" id="transaction_type_expense" value="expense" {% if form.instance.transaction_type == 'expense' %}checked{% endif %}>
+                                <i class="fas fa-arrow-up mr-1"></i> Расход
+                            </label>
+                            <label class="btn btn-outline-info {% if form.instance.transaction_type == 'transfer' %}active{% endif %}">
+                                <input type="radio" name="transaction_type" id="transaction_type_transfer" value="transfer" {% if form.instance.transaction_type == 'transfer' %}checked{% endif %}>
+                                <i class="fas fa-exchange-alt mr-1"></i> Перевод
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Дата -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_date">Дата</label>
+                                <input type="text" name="date" id="id_date" class="form-control datepicker" value="{{ form.date.value|date:'d.m.Y' }}" required>
+                                {% if form.date.errors %}
+                                <div class="invalid-feedback d-block">{{ form.date.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Сумма -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_amount">Сумма</label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                    <input type="text" name="amount" id="id_amount" class="form-control money-input" value="{{ form.amount.value|default:'' }}" required>
+                                </div>
+                                {% if form.amount.errors %}
+                                <div class="invalid-feedback d-block">{{ form.amount.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Счет -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_account">Счет</label>
+                                <select name="account" id="id_account" class="form-control select2" required>
+                                    <option value="">Выберите счет</option>
+                                    {% for account in accounts %}
+                                    <option value="{{ account.id }}" {% if form.account.value == account.id %}selected{% endif %}>
+                                        {{ account.name }} ({{ account.get_balance|floatformat:2 }} ₽)
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.account.errors %}
+                                <div class="invalid-feedback d-block">{{ form.account.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Счет назначения (для переводов) -->
+                        <div class="col-md-6 transfer-field" style="display: {% if form.instance.transaction_type == 'transfer' %}block{% else %}none{% endif %};">
+                            <div class="form-group">
+                                <label for="id_to_account">Счет назначения</label>
+                                <select name="to_account" id="id_to_account" class="form-control select2" {% if form.instance.transaction_type == 'transfer' %}required{% endif %}>
+                                    <option value="">Выберите счет назначения</option>
+                                    {% for account in accounts %}
+                                    <option value="{{ account.id }}" {% if form.to_account.value == account.id %}selected{% endif %}>
+                                        {{ account.name }} ({{ account.get_balance|floatformat:2 }} ₽)
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.to_account.errors %}
+                                <div class="invalid-feedback d-block">{{ form.to_account.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Категория (для доходов и расходов) -->
+                        <div class="col-md-6 category-field" style="display: {% if form.instance.transaction_type != 'transfer' %}block{% else %}none{% endif %};">
+                            <div class="form-group">
+                                <label for="id_category">Категория</label>
+                                <select name="category" id="id_category" class="form-control select2" {% if form.instance.transaction_type != 'transfer' %}required{% endif %}>
+                                    <option value="">Выберите категорию</option>
+                                    <optgroup label="Доходы" class="income-categories" style="display: {% if form.instance.transaction_type == 'income' or not form.instance.transaction_type %}block{% else %}none{% endif %};">
+                                        {% for category in income_categories %}
+                                        <option value="{{ category.id }}" {% if form.category.value == category.id %}selected{% endif %}>
+                                            {{ category.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    <optgroup label="Расходы" class="expense-categories" style="display: {% if form.instance.transaction_type == 'expense' %}block{% else %}none{% endif %};">
+                                        {% for category in expense_categories %}
+                                        <option value="{{ category.id }}" {% if form.category.value == category.id %}selected{% endif %}>
+                                            {{ category.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </optgroup>
+                                </select>
+                                {% if form.category.errors %}
+                                <div class="invalid-feedback d-block">{{ form.category.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Описание -->
+                    <div class="form-group">
+                        <label for="id_description">Описание</label>
+                        <input type="text" name="description" id="id_description" class="form-control" value="{{ form.description.value|default:'' }}">
+                        {% if form.description.errors %}
+                        <div class="invalid-feedback d-block">{{ form.description.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Примечания -->
+                    <div class="form-group">
+                        <label for="id_notes">Примечания</label>
+                        <textarea name="notes" id="id_notes" class="form-control" rows="3">{{ form.notes.value|default:'' }}</textarea>
+                        {% if form.notes.errors %}
+                        <div class="invalid-feedback d-block">{{ form.notes.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group text-right">
+                        <button type="button" class="btn btn-secondary mr-2" onclick="window.history.back();">Отмена</button>
+                        <button type="submit" class="btn btn-primary">
+                            {% if form.instance.id %}
+                                Сохранить изменения
+                            {% else %}
+                                Создать операцию
+                            {% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card card-accounting mb-4">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Информация</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-3">
+                    <h6 class="alert-heading"><i class="fas fa-info-circle mr-1"></i> Типы финансовых операций:</h6>
+                    <ul class="mb-0">
+                        <li><strong>Доход</strong> - поступление средств на счет</li>
+                        <li><strong>Расход</strong> - списание средств со счета</li>
+                        <li><strong>Перевод</strong> - перемещение средств между счетами</li>
+                    </ul>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <h6 class="alert-heading"><i class="fas fa-exclamation-triangle mr-1"></i> Внимание:</h6>
+                    <p class="mb-0">Все финансовые операции влияют на балансы счетов. После создания операции проверьте правильность указанных сумм.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Недавние операции -->
+        <div class="card card-accounting">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Последние операции</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for transaction in recent_transactions %}
+                    <a href="{% url 'accounting:transaction_detail' transaction.id %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">
+                                {% if transaction.transaction_type == 'income' %}
+                                    <span class="badge badge-success">Доход</span>
+                                {% elif transaction.transaction_type == 'expense' %}
+                                    <span class="badge badge-danger">Расход</span>
+                                {% else %}
+                                    <span class="badge badge-info">Перевод</span>
+                                {% endif %}
+                                {{ transaction.description }}
+                            </h6>
+                            <small>{{ transaction.date|date:"d.m.Y" }}</small>
+                        </div>
+                        <p class="mb-1">{{ transaction.account.name }}</p>
+                        <small class="{% if transaction.transaction_type == 'income' %}text-success{% elif transaction.transaction_type == 'expense' %}text-danger{% endif %}">
+                            {% if transaction.transaction_type == 'income' %}+{% elif transaction.transaction_type == 'expense' %}-{% endif %}
+                            {{ transaction.amount|floatformat:2 }} ₽
+                        </small>
+                    </a>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted">
+                        Нет недавних операций
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-footer bg-white text-center">
+                <a href="{% url 'accounting:transaction_list' %}" class="btn btn-sm btn-outline-primary">
+                    Показать все операции
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения удаления, если это редактирование -->
+{% if form.instance.id %}
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Подтверждение удаления</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Вы уверены, что хотите удалить эту финансовую операцию?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                <form method="post" action="{% url 'accounting:transaction_delete' form.instance.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    $(document).ready(function() {
+        // Инициализация datepicker
+        $('.datepicker').datepicker({
+            format: 'dd.mm.yyyy',
+            autoclose: true,
+            language: 'ru',
+            todayHighlight: true
+        });
+        
+        // Форматирование полей для ввода денежных значений
+        $('.money-input').on('input', function() {
+            var value = $(this).val().replace(/[^\d.,]/g, '');
+            value = value.replace(/,/g, '.');
+            $(this).val(value);
+        });
+        
+        // Изменение типа операции
+        $('input[name="transaction_type"]').change(function() {
+            var type = $(this).val();
+            
+            // Показываем/скрываем поля в зависимости от типа
+            if (type === 'transfer') {
+                $('.transfer-field').show();
+                $('.category-field').hide();
+                $('#id_to_account').prop('required', true);
+                $('#id_category').prop('required', false);
+            } else {
+                $('.transfer-field').hide();
+                $('.category-field').show();
+                $('#id_to_account').prop('required', false);
+                $('#id_category').prop('required', true);
+                
+                // Показываем соответствующие категории
+                if (type === 'income') {
+                    $('.income-categories').show();
+                    $('.expense-categories').hide();
+                } else {
+                    $('.income-categories').hide();
+                    $('.expense-categories').show();
+                }
+                
+                // Сбрасываем значение категории если не соответствует типу
+                var $selectedOption = $('#id_category option:selected');
+                var $selectedOptgroup = $selectedOption.closest('optgroup');
+                
+                if ($selectedOptgroup.length && 
+                   ((type === 'income' && !$selectedOptgroup.hasClass('income-categories')) || 
+                    (type === 'expense' && !$selectedOptgroup.hasClass('expense-categories')))) {
+                    $('#id_category').val('');
+                }
+            }
+        });
+        
+        // Валидация формы перед отправкой
+        $('#transactionForm').on('submit', function(e) {
+            var type = $('input[name="transaction_type"]:checked').val();
+            var isValid = true;
+            
+            // Проверка выбора счета
+            if (!$('#id_account').val()) {
+                alert('Пожалуйста, выберите счет');
+                isValid = false;
+            }
+            
+            // Проверка суммы
+            if (!$('#id_amount').val() || parseFloat($('#id_amount').val()) <= 0) {
+                alert('Пожалуйста, укажите корректную сумму');
+                isValid = false;
+            }
+            
+            // Для переводов проверяем счет назначения
+            if (type === 'transfer') {
+                if (!$('#id_to_account').val()) {
+                    alert('Пожалуйста, выберите счет назначения');
+                    isValid = false;
+                } else if ($('#id_account').val() === $('#id_to_account').val()) {
+                    alert('Счет и счет назначения не могут совпадать');
+                    isValid = false;
+                }
+            }
+            
+            // Для доходов и расходов проверяем категорию
+            if (type !== 'transfer' && !$('#id_category').val()) {
+                alert('Пожалуйста, выберите категорию');
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,210 @@
+{% extends "accounting/base.html" %}
+
+{% block title %}Экспорт данных | Buxgalteriya tizimi{% endblock %}
+
+{% block accounting_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Экспорт данных</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Транзакции</h5>
+            </div>
+            <div class="card-body">
+                <p>Экспорт всех транзакций (операций) за выбранный период.</p>
+                <form method="get" action="{% url 'accounting:export_transactions' %}">
+                    <div class="form-group">
+                        <label for="transactions_date_from">Дата с</label>
+                        <input type="text" class="form-control datepicker" id="transactions_date_from" name="date_from" placeholder="дд.мм.гггг">
+                    </div>
+                    <div class="form-group">
+                        <label for="transactions_date_to">Дата по</label>
+                        <input type="text" class="form-control datepicker" id="transactions_date_to" name="date_to" placeholder="дд.мм.гггг">
+                    </div>
+                    <div class="form-group">
+                        <label for="transactions_format">Формат</label>
+                        <select class="form-control" id="transactions_format" name="format">
+                            <option value="excel">Excel</option>
+                            <option value="csv">CSV</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fas fa-download mr-2"></i> Скачать
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Счета и категории</h5>
+            </div>
+            <div class="card-body">
+                <p>Экспорт всех счетов и категорий с текущими балансами.</p>
+                <form method="get" action="{% url 'accounting:export_accounts' %}">
+                    <div class="form-group">
+                        <label for="accounts_format">Формат</label>
+                        <select class="form-control" id="accounts_format" name="format">
+                            <option value="excel">Excel</option>
+                            <option value="csv">CSV</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="include_inactive" name="include_inactive" value="1">
+                            <label class="custom-control-label" for="include_inactive">Включить неактивные счета</label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fas fa-download mr-2"></i> Скачать
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Отчеты</h5>
+            </div>
+            <div class="card-body">
+                <p>Экспорт готовых отчетов в выбранном формате.</p>
+                <form method="get" action="{% url 'accounting:export_report' %}">
+                    <div class="form-group">
+                        <label for="report_type">Тип отчета</label>
+                        <select class="form-control" id="report_type" name="type">
+                            <option value="income">Отчет о доходах</option>
+                            <option value="expense">Отчет о расходах</option>
+                            <option value="cash_flow">Движение денежных средств</option>
+                            <option value="budget">Бюджет</option>
+                            <option value="balance">Баланс</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="report_date_from">Дата с</label>
+                        <input type="text" class="form-control datepicker" id="report_date_from" name="date_from" placeholder="дд.мм.гггг">
+                    </div>
+                    <div class="form-group">
+                        <label for="report_date_to">Дата по</label>
+                        <input type="text" class="form-control datepicker" id="report_date_to" name="date_to" placeholder="дд.мм.гггг">
+                    </div>
+                    <div class="form-group">
+                        <label for="report_format">Формат</label>
+                        <select class="form-control" id="report_format" name="format">
+                            <option value="excel">Excel</option>
+                            <option value="csv">CSV</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fas fa-download mr-2"></i> Скачать
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Полное резервное копирование</h5>
+            </div>
+            <div class="card-body">
+                <p>Создание полной резервной копии всех данных бухгалтерской системы.</p>
+                <p class="text-muted small">Этот процесс может занять некоторое время в зависимости от объема данных.</p>
+                
+                <form method="post" action="{% url 'accounting:create_backup' %}">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="include_files" name="include_files" value="1">
+                            <label class="custom-control-label" for="include_files">Включить прикрепленные файлы</label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fas fa-archive mr-2"></i> Создать резервную копию
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Существующие резервные копии</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Дата создания</th>
+                                <th>Размер</th>
+                                <th>Автор</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for backup in backups %}
+                            <tr>
+                                <td>{{ backup.created_at|date:"d.m.Y H:i" }}</td>
+                                <td>{{ backup.size_formatted }}</td>
+                                <td>{{ backup.created_by.username }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'accounting:download_backup' backup.id %}" class="btn btn-primary">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                        <a href="{% url 'accounting:restore_backup' backup.id %}" class="btn btn-warning" onclick="return confirm('Вы уверены? Это действие перезапишет текущие данные.');">
+                                            <i class="fas fa-undo"></i>
+                                        </a>
+                                        <a href="{% url 'accounting:delete_backup' backup.id %}" class="btn btn-danger" onclick="return confirm('Вы уверены? Это действие нельзя отменить.');">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4">
+                                    <div class="empty-state">
+                                        <i class="fas fa-archive fa-3x text-muted mb-3"></i>
+                                        <h5>Резервные копии не найдены</h5>
+                                        <p class="text-muted">У вас пока нет созданных резервных копий.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize datepicker
+        $('.datepicker').datepicker({
+            format: 'dd.mm.yyyy',
+            autoclose: true,
+            language: 'ru',
+            todayHighlight: true
+        });
+    });
+</script>
+{% endblock %} 

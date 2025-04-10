@@ -1,0 +1,172 @@
+{% extends "accounting/base.html" %}
+
+{% block title %}{% if is_new %}Новая категория{% else %}Редактирование категории{% endif %} | Buxgalteriya tizimi{% endblock %}
+
+{% block accounting_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">{% if is_new %}Создание новой категории{% else %}Редактирование категории{% endif %}</h1>
+    {% if not is_new %}
+    <a href="{% url 'accounting:category_detail' category.pk %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left mr-2"></i> Вернуться к просмотру
+    </a>
+    {% else %}
+    <a href="{% url 'accounting:category_list' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left mr-2"></i> К списку категорий
+    </a>
+    {% endif %}
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card card-accounting">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Данные категории</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label for="id_name">Название</label>
+                        {{ form.name.errors }}
+                        <input type="text" id="id_name" name="name" class="form-control {% if form.name.errors %}is-invalid{% endif %}" value="{{ form.name.value|default:'' }}" required>
+                        {% if form.name.errors %}
+                        <div class="invalid-feedback">{{ form.name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="id_type">Тип категории</label>
+                        {{ form.type.errors }}
+                        <select id="id_type" name="type" class="form-control {% if form.type.errors %}is-invalid{% endif %}" required>
+                            {% for value, label in form.fields.type.choices %}
+                            <option value="{{ value }}" {% if form.type.value == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        {% if form.type.errors %}
+                        <div class="invalid-feedback">{{ form.type.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="id_description">Описание</label>
+                        {{ form.description.errors }}
+                        <textarea id="id_description" name="description" class="form-control {% if form.description.errors %}is-invalid{% endif %}" rows="3">{{ form.description.value|default:'' }}</textarea>
+                        {% if form.description.errors %}
+                        <div class="invalid-feedback">{{ form.description.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="id_icon">Иконка</label>
+                        {{ form.icon.errors }}
+                        <input type="text" id="id_icon" name="icon" class="form-control {% if form.icon.errors %}is-invalid{% endif %}" value="{{ form.icon.value|default:'' }}" placeholder="Например: fa-shopping-cart">
+                        {% if form.icon.errors %}
+                        <div class="invalid-feedback">{{ form.icon.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">Введите название иконки из библиотеки FontAwesome (например, "fa-shopping-cart")</small>
+                        <div class="mt-2 icon-preview">
+                            {% if form.icon.value %}
+                            <i class="fas {{ form.icon.value }}" style="font-size: 24px;"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="id_color">Цвет</label>
+                        {{ form.color.errors }}
+                        <input type="color" id="id_color" name="color" class="form-control {% if form.color.errors %}is-invalid{% endif %}" value="{{ form.color.value|default:'#3498db' }}">
+                        {% if form.color.errors %}
+                        <div class="invalid-feedback">{{ form.color.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save mr-2"></i> {% if is_new %}Создать{% else %}Сохранить{% endif %}
+                        </button>
+                        {% if not is_new %}
+                        <a href="{% url 'accounting:category_delete' category.pk %}" class="btn btn-danger float-right" data-toggle="modal" data-target="#deleteModal">
+                            <i class="fas fa-trash mr-2"></i> Удалить
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card card-accounting">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Предпросмотр</h5>
+            </div>
+            <div class="card-body">
+                <div class="category-preview p-3 text-center">
+                    <div style="display: inline-block; width: 60px; height: 60px; border-radius: 50%; background-color: {{ form.color.value|default:'#3498db' }}; line-height: 60px; margin-bottom: 10px;">
+                        <i class="fas {{ form.icon.value|default:'fa-tag' }}" style="font-size: 24px; color: white;"></i>
+                    </div>
+                    <h5>{{ form.name.value|default:'Название категории' }}</h5>
+                    <p>
+                        {% for value, label in form.fields.type.choices %}
+                            {% if form.type.value == value %}{{ label }}{% endif %}
+                        {% endfor %}
+                    </p>
+                    <p class="text-muted font-italic">{{ form.description.value|default:'Описание категории' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not is_new %}
+<!-- Модальное окно подтверждения удаления -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Подтверждение удаления</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Вы действительно хотите удалить категорию "{{ category.name }}"?</p>
+                <p class="text-danger">Это действие нельзя отменить. Все связанные транзакции будут затронуты.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                <form id="deleteForm" method="post" action="{% url 'accounting:category_delete' category.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Обновление предпросмотра при изменении полей
+        $('#id_name, #id_type, #id_description, #id_icon, #id_color').on('change keyup', function() {
+            var name = $('#id_name').val() || 'Название категории';
+            var type = $('#id_type option:selected').text();
+            var description = $('#id_description').val() || 'Описание категории';
+            var icon = $('#id_icon').val() || 'fa-tag';
+            var color = $('#id_color').val() || '#3498db';
+            
+            $('.category-preview h5').text(name);
+            $('.category-preview p:first-of-type').text(type);
+            $('.category-preview p.text-muted').text(description);
+            $('.category-preview div').css('background-color', color);
+            $('.category-preview i').attr('class', 'fas ' + icon);
+            
+            // Обновляем иконку в поле
+            $('.icon-preview').html('<i class="fas ' + icon + '" style="font-size: 24px;"></i>');
+        });
+    });
+</script>
+{% endblock %} 

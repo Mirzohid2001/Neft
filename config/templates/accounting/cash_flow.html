@@ -1,0 +1,306 @@
+{% extends "accounting/base.html" %}
+
+{% block title %}Отчет о движении денежных средств | Buxgalteriya tizimi{% endblock %}
+
+{% block accounting_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Движение денежных средств</h1>
+    <div>
+        <button type="button" class="btn btn-outline-primary mr-2" id="printReportBtn">
+            <i class="fas fa-print mr-2"></i> Печать
+        </button>
+        <button type="button" class="btn btn-primary" id="exportReportBtn">
+            <i class="fas fa-file-export mr-2"></i> Экспорт
+        </button>
+    </div>
+</div>
+
+<!-- Фильтры отчета -->
+<div class="card card-accounting mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Параметры отчета</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row">
+            <div class="form-group col-md-3">
+                <label for="date_from">Период с</label>
+                <input type="text" class="form-control datepicker" id="date_from" name="date_from" value="{{ request.GET.date_from|default:'' }}" placeholder="дд.мм.гггг">
+            </div>
+            <div class="form-group col-md-3">
+                <label for="date_to">Период по</label>
+                <input type="text" class="form-control datepicker" id="date_to" name="date_to" value="{{ request.GET.date_to|default:'' }}" placeholder="дд.мм.гггг">
+            </div>
+            <div class="form-group col-md-3">
+                <label for="account">Счет</label>
+                <select class="form-control select2" id="account" name="account">
+                    <option value="">Все счета</option>
+                    {% for account in accounts %}
+                    <option value="{{ account.id }}" {% if request.GET.account == account.id|stringformat:"i" %}selected{% endif %}>
+                        {{ account.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group col-md-3">
+                <label for="period_type">Группировка по периоду</label>
+                <select class="form-control" id="period_type" name="period_type">
+                    <option value="day" {% if request.GET.period_type == 'day' %}selected{% endif %}>По дням</option>
+                    <option value="week" {% if request.GET.period_type == 'week' %}selected{% endif %}>По неделям</option>
+                    <option value="month" {% if request.GET.period_type == 'month' or not request.GET.period_type %}selected{% endif %}>По месяцам</option>
+                    <option value="quarter" {% if request.GET.period_type == 'quarter' %}selected{% endif %}>По кварталам</option>
+                    <option value="year" {% if request.GET.period_type == 'year' %}selected{% endif %}>По годам</option>
+                </select>
+            </div>
+            <div class="form-group col-md-6 align-self-end">
+                <button type="submit" class="btn btn-primary mr-2">
+                    <i class="fas fa-filter mr-2"></i> Применить фильтры
+                </button>
+                <a href="{% url 'accounting:cash_flow' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-undo mr-2"></i> Сбросить
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Сводные показатели -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card card-accounting">
+            <div class="card-body dashboard-stats">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line text-success"></i>
+                </div>
+                <div class="stat-value text-success">{{ total_income|floatformat:2 }}</div>
+                <div class="stat-label">Общий приход</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-accounting">
+            <div class="card-body dashboard-stats">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line text-danger"></i>
+                </div>
+                <div class="stat-value text-danger">{{ total_expense|floatformat:2 }}</div>
+                <div class="stat-label">Общий расход</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-accounting">
+            <div class="card-body dashboard-stats">
+                <div class="stat-icon">
+                    <i class="fas fa-wallet text-primary"></i>
+                </div>
+                <div class="stat-value">{{ opening_balance|floatformat:2 }}</div>
+                <div class="stat-label">Начальный остаток</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-accounting">
+            <div class="card-body dashboard-stats">
+                <div class="stat-icon">
+                    <i class="fas fa-wallet text-primary"></i>
+                </div>
+                <div class="stat-value">{{ ending_balance|floatformat:2 }}</div>
+                <div class="stat-label">Конечный остаток</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Визуализация отчета -->
+<div class="row">
+    <!-- График движения средств -->
+    <div class="col-md-12">
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">График движения денежных средств</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="cashFlowChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Таблица с данными -->
+<div class="card card-accounting">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Движение денежных средств по периодам</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Период</th>
+                        <th class="text-right">Начальный остаток</th>
+                        <th class="text-right">Приход</th>
+                        <th class="text-right">Расход</th>
+                        <th class="text-right">Чистый поток</th>
+                        <th class="text-right">Конечный остаток</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for period in cash_flow_data %}
+                    <tr>
+                        <td>{{ period.period_name }}</td>
+                        <td class="text-right">{{ period.opening_balance|floatformat:2 }}</td>
+                        <td class="text-right text-success">+ {{ period.income|floatformat:2 }}</td>
+                        <td class="text-right text-danger">- {{ period.expense|floatformat:2 }}</td>
+                        <td class="text-right {% if period.net_flow >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ period.net_flow|floatformat:2 }}
+                        </td>
+                        <td class="text-right">{{ period.ending_balance|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <div class="empty-state">
+                                <i class="fas fa-money-bill-wave fa-3x text-muted mb-3"></i>
+                                <h5>Данные не найдены</h5>
+                                <p class="text-muted">Попробуйте изменить параметры фильтрации или создайте финансовые операции.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="font-weight-bold">
+                        <td>Итого</td>
+                        <td class="text-right">{{ opening_balance|floatformat:2 }}</td>
+                        <td class="text-right text-success">+ {{ total_income|floatformat:2 }}</td>
+                        <td class="text-right text-danger">- {{ total_expense|floatformat:2 }}</td>
+                        <td class="text-right {% if net_cash_flow >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ net_cash_flow|floatformat:2 }}
+                        </td>
+                        <td class="text-right">{{ ending_balance|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize datepicker
+        $('.datepicker').datepicker({
+            format: 'dd.mm.yyyy',
+            autoclose: true,
+            language: 'ru',
+            todayHighlight: true
+        });
+        
+        // Initialize select2
+        $('.select2').select2();
+        
+        // Chart data (would be provided by server in real app)
+        var periods = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь'];
+        var incomeData = [180000, 195000, 210000, 185000, 220000, 230000];
+        var expenseData = [125000, 98000, 142000, 87000, 103000, 116000];
+        var balanceData = [300000, 355000, 452000, 495000, 593000, 710000, 824000];
+        
+        // Combined chart for cash flow
+        var cashFlowChart = new Chart(document.getElementById('cashFlowChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: periods,
+                datasets: [
+                    {
+                        label: 'Приход',
+                        data: incomeData,
+                        backgroundColor: 'rgba(46, 204, 113, 0.7)',
+                        borderColor: 'rgba(46, 204, 113, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Расход',
+                        data: expenseData,
+                        backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                        borderColor: 'rgba(231, 76, 60, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Остаток',
+                        data: balanceData,
+                        type: 'line',
+                        fill: false,
+                        backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: 'rgba(52, 152, 219, 1)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        yAxisID: 'y-axis-2'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    yAxes: [
+                        {
+                            id: 'y-axis-1',
+                            position: 'left',
+                            ticks: {
+                                beginAtZero: true,
+                                callback: function(value) {
+                                    return value.toLocaleString() + ' UZS';
+                                }
+                            },
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Приход/Расход'
+                            }
+                        },
+                        {
+                            id: 'y-axis-2',
+                            position: 'right',
+                            ticks: {
+                                beginAtZero: true,
+                                callback: function(value) {
+                                    return value.toLocaleString() + ' UZS';
+                                }
+                            },
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Остаток'
+                            },
+                            gridLines: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    ]
+                },
+                tooltips: {
+                    callbacks: {
+                        label: function(tooltipItem, data) {
+                            return data.datasets[tooltipItem.datasetIndex].label + ': ' + 
+                                   tooltipItem.yLabel.toLocaleString() + ' UZS';
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Print report
+        $('#printReportBtn').click(function() {
+            window.print();
+        });
+        
+        // Export report (mock functionality)
+        $('#exportReportBtn').click(function() {
+            alert('Отчет будет экспортирован в Excel');
+        });
+    });
+</script>
+{% endblock %} 

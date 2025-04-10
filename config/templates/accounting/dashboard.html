@@ -1,143 +1,405 @@
 {% extends 'accounting/base.html' %}
 {% load static %}
 
-{% block content %}
-<div class="mt-4" data-aos="fade-up">
-  <h1>Moliyaviy Dashboard</h1>
+{% block title %}Boshqaruv paneli - Buxgalteriya{% endblock %}
 
-  <div class="row mb-4">
-    <div class="col-md-4">
-      <div class="card text-bg-success mb-3 dashboard-card animate__animated animate__zoomIn text-white">
-        <div class="card-body">
-          <h4>Kirimlar (UZS)</h4>
-          <p>{{ summary.total_in_sum }}</p>
-        </div>
-      </div>
+{% block accounting_content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="h3 mb-0">Boshqaruv paneli</h2>
+        <p class="text-muted">Moliyaviy ko'rsatkichlar va hisobotlar</p>
     </div>
-    <div class="col-md-4">
-      <div class="card text-bg-danger mb-3 dashboard-card animate__animated animate__zoomIn">
-        <div class="card-body">
-          <h4>Chiqimlar (UZS)</h4>
-          <p>{{ summary.total_out_sum }}</p>
+</div>
+
+<!-- Statistika kartochkalari -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+        <div class="card card-accounting h-100">
+            <div class="dashboard-stats">
+                <div class="stat-icon text-success">
+                    <i class="fas fa-arrow-down"></i>
+                </div>
+                <div class="stat-value text-success">{{ total_income|floatformat:2 }} UZS</div>
+                <div class="stat-label">Daromadlar (UZS)</div>
+                <div class="mt-3">
+                    <small class="text-muted">Joriy oy: {{ monthly_income|floatformat:2 }} UZS</small>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
-    <div class="col-md-4">
-      <div class="card bg-info text-white">
-        <div class="card-body">
-          <h4>{{ summary.status }}</h4>
-          <p>{{ summary.net_profit_loss }}</p>
+    
+    <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+        <div class="card card-accounting h-100">
+            <div class="dashboard-stats">
+                <div class="stat-icon text-danger">
+                    <i class="fas fa-arrow-up"></i>
+                </div>
+                <div class="stat-value text-danger">{{ total_expense|floatformat:2 }} UZS</div>
+                <div class="stat-label">Xarajatlar (UZS)</div>
+                <div class="mt-3">
+                    <small class="text-muted">Joriy oy: {{ monthly_expense|floatformat:2 }} UZS</small>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
-  </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+        <div class="card card-accounting h-100">
+            <div class="dashboard-stats">
+                <div class="stat-icon text-info">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <div class="stat-value text-info">{{ total_balance|floatformat:2 }} UZS</div>
+                <div class="stat-label">Balans (UZS)</div>
+                <div class="mt-3">
+                    <small class="text-muted">Hisoblar soni: {{ accounts_count }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4 mb-lg-0">
+        <div class="card card-accounting h-100">
+            <div class="dashboard-stats">
+                <div class="stat-icon text-primary">
+                    <i class="fas fa-exchange-alt"></i>
+                </div>
+                <div class="stat-value">{{ transactions_count }}</div>
+                <div class="stat-label">Operatsiyalar</div>
+                <div class="mt-3">
+                    <small class="text-muted">Joriy oy: {{ monthly_transactions_count }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-  <div class="table-responsive">
-    <table id="financialTable" class="table table-striped">
-      <thead>
-        <tr>
-          <th>Sana</th>
-          <th>Mahsulot</th>
-          <th>Ombor</th>
-          <th>Harakat turi</th>
-          <th>Miqdor</th>
-          <th>Summa (UZS)</th>
-          <th>Summa (USD)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for rec in records %}
-        <tr>
-          <td>{{ rec.date }}</td>
-          <td>{{ rec.product }}</td>
-          <td>{{ rec.warehouse }}</td>
-          <td>{{ rec.movement_type }}</td>
-          <td>{{ rec.quantity }}</td>
-          <td>{{ rec.total_price_sum }}</td>
-          <td>{{ rec.total_price_usd }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<div class="row">
+    <!-- Chap taraf - Grafiklar -->
+    <div class="col-lg-8">
+        <!-- Daromad/Xarajat grafigi -->
+        <div class="card card-accounting mb-4">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Daromad va xarajatlar dinamikasi</h5>
+                    <div>
+                        <select id="chartPeriod" class="form-control form-control-sm">
+                            <option value="week">Haftalik</option>
+                            <option value="month" selected>Oylik</option>
+                            <option value="year">Yillik</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="incomeExpenseChart" height="250"></canvas>
+            </div>
+        </div>
+        
+        <!-- Kategoriyalar boʻyicha xarajatlar -->
+        <div class="card card-accounting mb-4">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Kategoriyalar bo'yicha xarajatlar</h5>
+                    <div>
+                        <select id="expensePeriod" class="form-control form-control-sm">
+                            <option value="month" selected>Joriy oy</option>
+                            <option value="quarter">Oxirgi 3 oy</option>
+                            <option value="year">Joriy yil</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-7">
+                        <canvas id="expenseCategoryChart" height="250"></canvas>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Kategoriya</th>
+                                        <th class="text-right">Summa</th>
+                                        <th class="text-right">%</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for category in expense_categories %}
+                                    <tr>
+                                        <td>{{ category.name }}</td>
+                                        <td class="text-right">{{ category.amount|floatformat:2 }} UZS</td>
+                                        <td class="text-right">{{ category.percentage|floatformat:1 }}%</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="3" class="text-center">Ma'lumot yo'q</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- O'ng taraf - Qisqacha ma'lumot -->
+    <div class="col-lg-4">
+        <!-- Tez operatsiyalar -->
+        <div class="card card-accounting mb-4">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Tez operatsiyalar</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    <a href="{% url 'accounting:transaction_create' %}?type=income" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-arrow-down text-success mr-2"></i> Daromad qo'shish</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    <a href="{% url 'accounting:transaction_create' %}?type=expense" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-arrow-up text-danger mr-2"></i> Xarajat qo'shish</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    <a href="{% url 'accounting:transaction_create' %}?type=transfer" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-exchange-alt text-info mr-2"></i> O'tkazma qilish</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                    <a href="{% url 'accounting:transaction_list' %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-list text-primary mr-2"></i> Barcha operatsiyalar</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hisoblar -->
+        <div class="card card-accounting mb-4">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Hisoblar</h5>
+                    <a href="{% url 'accounting:account_list' %}" class="btn btn-sm btn-outline-primary">Barchasi</a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for account in accounts %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ account.name }}</h6>
+                                <small class="text-muted">{{ account.get_account_type_display }}</small>
+                            </div>
+                            <h5 class="mb-0">{{ account.get_balance|floatformat:2 }} UZS</h5>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted">
+                        Hisoblar yo'q
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Секция для фильтрации транзакций -->
+        <div class="form-group mb-3">
+            <label for="transaction-filter">Filtr:</label>
+            <select id="transaction-filter" class="form-control">
+                <option value="all">Barchasi</option>
+                <option value="debit">Debet</option>
+                <option value="credit">Kredit</option>
+            </select>
+        </div>
 
-  <div class="mt-3">
-    <a href="?export=excel" class="btn btn-success">Excel Yuklash</a>
-  </div>
-
-  <div class="chart-container mt-4">
-    <canvas id="financeChart"></canvas>
-  </div>
-
-  <div class="chart-container mt-4">
-    <canvas id="productChart"></canvas>
-  </div>
-
-  <div class="chart-container mt-4">
-    <canvas id="warehouseChart"></canvas>
-  </div>
+        <!-- Секция для отображения последних транзакций -->
+        <div class="recent-transactions mt-4">
+            <h5>So'nggi operatsiyalar</h5>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Sana</th>
+                            <th>Operatsiya</th>
+                            <th>Hisob</th>
+                            <th>Summa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transaction in recent_transactions %}
+                        <tr class="clickable-row" data-href="{% url 'accounting:transaction_detail' transaction.id %}">
+                            <td>{{ transaction.date|date:"d.m.Y" }}</td>
+                            <td>{{ transaction.description|truncatechars:30 }}</td>
+                            <td>{{ transaction.account.name }}</td>
+                            <td class="text-right">
+                                {% if transaction.debit > 0 %}
+                                <span class="text-success">+{{ transaction.debit|floatformat:2 }}</span>
+                                {% else %}
+                                <span class="text-danger">-{{ transaction.credit|floatformat:2 }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">Operatsiyalar topilmadi.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
-{% block js %}
+{% block extra_js %}
+{{ block.super }}
 <script>
-  new Chart(document.getElementById('financeChart'), {
-    type: 'bar',
-    data: {
-      labels: ["Kirim", "Chiqim"],
-      datasets: [{
-        label: 'Moliyaviy Hisobot (UZS)',
-        data: [{{ summary.total_in_sum }}, {{ summary.total_out_sum }}],
-        backgroundColor: ['green', 'red']
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false }
-  });
-
-  fetch("{% url 'accounting:chart_data' %}")
-    .then(response => response.json())
-    .then(data => {
-      const productCtx = document.getElementById('productChart').getContext('2d');
-      const warehouseCtx = document.getElementById('warehouseChart').getContext('2d');
-
-      new Chart(productCtx, {
-        type: 'bar',
-        data: {
-          labels: data.product_data.map(item => item.product),
-          datasets: [
-            {
-              label: 'Kirimlar (UZS)',
-              data: data.product_data.map(item => item.in_sum),
-              backgroundColor: 'rgba(54, 162, 235, 0.6)',
+    $(document).ready(function() {
+        // Daromad/Xarajat grafigi
+        var incomeExpenseCtx = document.getElementById('incomeExpenseChart').getContext('2d');
+        var incomeExpenseChart = new Chart(incomeExpenseCtx, {
+            type: 'line',
+            data: {
+                labels: {{ chart_labels|safe }},
+                datasets: [
+                    {
+                        label: 'Daromadlar',
+                        data: {{ income_data|safe }},
+                        borderColor: '#2ecc71',
+                        backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#2ecc71',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Xarajatlar',
+                        data: {{ expense_data|safe }},
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#e74c3c',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
             },
-            {
-              label: 'Chiqimlar (UZS)',
-              data: data.product_data.map(item => item.out_sum),
-              backgroundColor: 'rgba(255, 99, 132, 0.6)',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString() + ' UZS';
+                            }
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toLocaleString() + ' UZS';
+                            }
+                        }
+                    }
+                }
             }
-          ]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
+        });
+        
+        // Kategoriyalar bo'yicha xarajatlar grafigi
+        var expenseCategoryCtx = document.getElementById('expenseCategoryChart').getContext('2d');
+        var expenseCategoryChart = new Chart(expenseCategoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ category_labels|safe }},
+                datasets: [{
+                    data: {{ category_data|safe }},
+                    backgroundColor: [
+                        '#3498db', '#2ecc71', '#9b59b6', '#e74c3c', '#f39c12',
+                        '#1abc9c', '#d35400', '#34495e', '#e67e22', '#16a085'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                var value = context.parsed;
+                                var total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                var percentage = Math.round((value / total) * 100);
+                                return context.label + ': ' + value.toLocaleString() + ' UZS (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Period o'zgarganda grafiklarni yangilash
+        $('#chartPeriod').change(function() {
+            var period = $(this).val();
+            $.ajax({
+                url: '{% url "accounting:chart_data" %}',
+                data: { 'period': period },
+                dataType: 'json',
+                success: function(data) {
+                    incomeExpenseChart.data.labels = data.labels;
+                    incomeExpenseChart.data.datasets[0].data = data.income;
+                    incomeExpenseChart.data.datasets[1].data = data.expense;
+                    incomeExpenseChart.update();
+                }
+            });
+        });
+        
+        $('#expensePeriod').change(function() {
+            var period = $(this).val();
+            $.ajax({
+                url: '{% url "accounting:category_data" %}',
+                data: { 'period': period },
+                dataType: 'json',
+                success: function(data) {
+                    expenseCategoryChart.data.labels = data.labels;
+                    expenseCategoryChart.data.datasets[0].data = data.data;
+                    expenseCategoryChart.update();
+                    
+                    // Jadval ma'lumotlarini yangilash uchun sahifani qayta yuklash
+                    location.reload();
+                }
+            });
+        });
 
-      new Chart(warehouseCtx, {
-        type: 'pie',
-        data: {
-          labels: data.warehouse_data.map(item => item.warehouse),
-          datasets: [{
-            data: data.warehouse_data.map(item => item.total_sum),
-            backgroundColor: [
-              'rgba(255, 99, 132, 0.6)',
-              'rgba(54, 162, 235, 0.6)',
-              'rgba(255, 206, 86, 0.6)',
-              'rgba(75, 192, 192, 0.6)',
-              'rgba(153, 102, 255, 0.6)',
-              'rgba(255, 159, 64, 0.6)'
-            ]
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
+        // Обработка фильтра транзакций
+        $('#transaction-filter').change(function() {
+            var filter = $(this).val();
+            if (filter === 'all') {
+                $('.transaction-row').show();
+            } else {
+                $('.transaction-row').hide();
+                $('.transaction-row[data-type="' + filter + '"]').show();
+            }
+        });
+        
+        // Клик по строке для перехода к деталям
+        $(".clickable-row").click(function() {
+            window.location = $(this).data("href");
+        });
     });
 </script>
 {% endblock %}
