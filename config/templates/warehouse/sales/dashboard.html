@@ -13,16 +13,16 @@
                         <i class="fas fa-plus"></i> Создать операцию
                     </button>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{% url 'warehouse:create_reception' %}">
+                        <li><a class="dropdown-item" href="{% url 'warehouse:sales_movement_create' %}">
                             <i class="fas fa-truck"></i> Приемка
                         </a></li>
-                        <li><a class="dropdown-item" href="{% url 'warehouse:create_sale' %}">
+                        <li><a class="dropdown-item" href="{% url 'warehouse:sales_movement_create' %}">
                             <i class="fas fa-shopping-cart"></i> Продажа
                         </a></li>
-                        <li><a class="dropdown-item" href="{% url 'warehouse:create_production' %}">
+                        <li><a class="dropdown-item" href="{% url 'warehouse:sales_movement_create' %}">
                             <i class="fas fa-industry"></i> Производство
                         </a></li>
-                        <li><a class="dropdown-item" href="{% url 'warehouse:create_transfer' %}">
+                        <li><a class="dropdown-item" href="{% url 'warehouse:sales_movement_create' %}">
                             <i class="fas fa-exchange-alt"></i> Перемещение
                         </a></li>
                     </ul>
@@ -46,7 +46,7 @@
                     </div>
                 </div>
                 <div class="card-footer bg-primary-dark border-0">
-                    <a href="{% url 'warehouse:reception_list' %}" class="text-white text-decoration-none small">
+                    <a href="{% url 'warehouse:sales_reception_list' %}" class="text-white text-decoration-none small">
                         Подробнее <i class="fas fa-arrow-right ms-1"></i>
                     </a>
                 </div>
@@ -66,7 +66,7 @@
                     </div>
                 </div>
                 <div class="card-footer bg-success-dark border-0">
-                    <a href="{% url 'warehouse:sale_list' %}" class="text-white text-decoration-none small">
+                    <a href="{% url 'warehouse:sales_sales_list' %}" class="text-white text-decoration-none small">
                         Подробнее <i class="fas fa-arrow-right ms-1"></i>
                     </a>
                 </div>
@@ -86,7 +86,7 @@
                     </div>
                 </div>
                 <div class="card-footer bg-info-dark border-0">
-                    <a href="{% url 'warehouse:production_list' %}" class="text-white text-decoration-none small">
+                    <a href="{% url 'warehouse:sales_production_list' %}" class="text-white text-decoration-none small">
                         Подробнее <i class="fas fa-arrow-right ms-1"></i>
                     </a>
                 </div>
@@ -106,7 +106,7 @@
                     </div>
                 </div>
                 <div class="card-footer bg-warning-dark border-0">
-                    <a href="{% url 'warehouse:transfer_list' %}" class="text-white text-decoration-none small">
+                    <a href="{% url 'warehouse:sales_transfer_list' %}" class="text-white text-decoration-none small">
                         Подробнее <i class="fas fa-arrow-right ms-1"></i>
                     </a>
                 </div>
@@ -124,25 +124,25 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-3">
-                            <a href="{% url 'warehouse:create_reception' %}" class="btn btn-outline-primary w-100">
+                            <a href="{% url 'warehouse:sales_movement_create' %}" class="btn btn-outline-primary w-100">
                                 <i class="fas fa-truck mb-2"></i><br>
                                 Создать приемку
                             </a>
                         </div>
                         <div class="col-md-3">
-                            <a href="{% url 'warehouse:create_sale' %}" class="btn btn-outline-success w-100">
+                            <a href="{% url 'warehouse:sales_movement_create' %}" class="btn btn-outline-success w-100">
                                 <i class="fas fa-shopping-cart mb-2"></i><br>
                                 Создать продажу
                             </a>
                         </div>
                         <div class="col-md-3">
-                            <a href="{% url 'warehouse:create_production' %}" class="btn btn-outline-info w-100">
+                            <a href="{% url 'warehouse:sales_movement_create' %}" class="btn btn-outline-info w-100">
                                 <i class="fas fa-industry mb-2"></i><br>
                                 Создать производство
                             </a>
                         </div>
                         <div class="col-md-3">
-                            <a href="{% url 'warehouse:create_transfer' %}" class="btn btn-outline-warning w-100">
+                            <a href="{% url 'warehouse:sales_movement_create' %}" class="btn btn-outline-warning w-100">
                                 <i class="fas fa-exchange-alt mb-2"></i><br>
                                 Создать перемещение
                             </a>
@@ -229,23 +229,9 @@
                                     </td>
                                     <td>
                                         <div class="btn-group">
-                                            {% if movement.type == 'reception' %}
-                                            <a href="{% url 'warehouse:reception_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
+                                            <a href="{% url 'warehouse:sales_movement_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            {% elif movement.type == 'sale' %}
-                                            <a href="{% url 'warehouse:sale_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            {% elif movement.type == 'production' %}
-                                            <a href="{% url 'warehouse:production_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            {% elif movement.type == 'transfer' %}
-                                            <a href="{% url 'warehouse:transfer_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            {% endif %}
                                         </div>
                                     </td>
                                 </tr>
