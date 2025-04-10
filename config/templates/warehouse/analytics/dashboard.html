@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Аналитика{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header pb-0">
+                    <div class="row">
+                        <div class="col-6">
+                            <h6>Аналитика и отчеты</h6>
+                        </div>
+                        <div class="col-6 text-end">
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#reportModal">
+                                <i class="bi bi-file-earmark-excel"></i> Сгенерировать отчет
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Кнопки навигации -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'warehouse:dashboard' %}" class="btn btn-outline-primary">
+                                    <i class="bi bi-box"></i> Основной дашборд
+                                </a>
+                                <a href="{% url 'warehouse:sales_department_dashboard' %}" class="btn btn-outline-primary">
+                                    <i class="bi bi-shop"></i> Дашборд отдела продаж
+                                </a>
+                                <a href="{% url 'warehouse:audit_list' %}" class="btn btn-outline-info">
+                                    <i class="bi bi-clipboard-check"></i> Инвентаризация
+                                </a>
+                                <a href="{% url 'warehouse:min_level_list' %}" class="btn btn-outline-success">
+                                    <i class="bi bi-cart-plus"></i> Планирование запасов
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Статистика -->
+                    <div class="row mb-4">
+                        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+                            <div class="card">
+                                <div class="card-body p-3">
+                                    <div class="row">
+                                        <div class="col-8">
+                                            <div class="numbers">
+                                                <p class="text-sm mb-0 text-capitalize font-weight-bold">Всего принято</p>
+                                                <h5 class="font-weight-bolder mb-0">
+                                                    {{ total_received }} т
+                                                </h5>
+                                            </div>
+                                        </div>
+                                        <div class="col-4 text-end">
+                                            <div class="icon icon-shape bg-gradient-primary shadow text-center border-radius-md">
+                                                <i class="bi bi-arrow-down-circle text-lg opacity-10" aria-hidden="true"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+                            <div class="card">
+                                <div class="card-body p-3">
+                                    <div class="row">
+                                        <div class="col-8">
+                                            <div class="numbers">
+                                                <p class="text-sm mb-0 text-capitalize font-weight-bold">Всего отгружено</p>
+                                                <h5 class="font-weight-bolder mb-0">
+                                                    {{ total_shipped }} т
+                                                </h5>
+                                            </div>
+                                        </div>
+                                        <div class="col-4 text-end">
+                                            <div class="icon icon-shape bg-gradient-danger shadow text-center border-radius-md">
+                                                <i class="bi bi-arrow-up-circle text-lg opacity-10" aria-hidden="true"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+                            <div class="card">
+                                <div class="card-body p-3">
+                                    <div class="row">
+                                        <div class="col-8">
+                                            <div class="numbers">
+                                                <p class="text-sm mb-0 text-capitalize font-weight-bold">Произведено</p>
+                                                <h5 class="font-weight-bolder mb-0">
+                                                    {{ total_produced }} т
+                                                </h5>
+                                            </div>
+                                        </div>
+                                        <div class="col-4 text-end">
+                                            <div class="icon icon-shape bg-gradient-success shadow text-center border-radius-md">
+                                                <i class="bi bi-gear-wide-connected text-lg opacity-10" aria-hidden="true"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+                            <div class="card">
+                                <div class="card-body p-3">
+                                    <div class="row">
+                                        <div class="col-8">
+                                            <div class="numbers">
+                                                <p class="text-sm mb-0 text-capitalize font-weight-bold">Перемещено</p>
+                                                <h5 class="font-weight-bolder mb-0">
+                                                    {{ total_transferred|default:"0" }} т
+                                                </h5>
+                                            </div>
+                                        </div>
+                                        <div class="col-4 text-end">
+                                            <div class="icon icon-shape bg-gradient-info shadow text-center border-radius-md">
+                                                <i class="bi bi-arrow-left-right text-lg opacity-10" aria-hidden="true"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Графики -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card mb-4">
+                                <div class="card-header pb-0">
+                                    <h6>Движение товаров за последние 30 дней</h6>
+                                </div>
+                                <div class="card-body">
+                                    {{ movement_chart|safe }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Список последних отчетов -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header pb-0">
+                                    <h6>Последние сгенерированные отчеты</h6>
+                                </div>
+                                <div class="card-body px-0 pt-0 pb-2">
+                                    <div class="table-responsive p-0">
+                                        <table class="table align-items-center mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Тип отчета</th>
+                                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Период</th>
+                                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Дата создания</th>
+                                                    <th class="text-secondary opacity-7"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for report in reports %}
+                                                <tr>
+                                                    <td>
+                                                        <div class="d-flex px-2 py-1">
+                                                            <div class="d-flex flex-column justify-content-center">
+                                                                <h6 class="mb-0 text-sm">{{ report.get_report_type_display }}</h6>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <p class="text-xs font-weight-bold mb-0">{{ report.date_from|date:"d.m.Y" }} - {{ report.date_to|date:"d.m.Y" }}</p>
+                                                    </td>
+                                                    <td>
+                                                        <p class="text-xs font-weight-bold mb-0">{{ report.created_at|date:"d.m.Y H:i" }}</p>
+                                                    </td>
+                                                    <td class="align-middle">
+                                                        {% if report.file %}
+                                                        <a href="{{ report.file.url }}" class="btn btn-sm btn-success" download>
+                                                            <i class="bi bi-download"></i> Скачать
+                                                        </a>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="4" class="text-center py-3">
+                                                        <p class="text-sm mb-0">Нет сгенерированных отчетов</p>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для генерации отчета -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reportModalLabel">Генерация отчета</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'warehouse:generate_report' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="report_type" class="form-label">Тип отчета</label>
+                        <select class="form-select" id="report_type" name="report_type" required>
+                            <option value="daily">Ежедневный</option>
+                            <option value="weekly">Еженедельный</option>
+                            <option value="monthly">Ежемесячный</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="date_from" class="form-label">Дата начала</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="date_to" class="form-label">Дата окончания</label>
+                        <input type="date" class="form-control" id="date_to" name="date_to" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                    <button type="submit" class="btn btn-primary">Сгенерировать</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Установка значений по умолчанию для дат
+    document.addEventListener('DOMContentLoaded', function() {
+        var today = new Date();
+        var lastMonth = new Date();
+        lastMonth.setMonth(today.getMonth() - 1);
+        
+        var dateToInput = document.getElementById('date_to');
+        var dateFromInput = document.getElementById('date_from');
+        
+        dateToInput.value = today.toISOString().split('T')[0];
+        dateFromInput.value = lastMonth.toISOString().split('T')[0];
+    });
+    
+    // Обновление аналитических данных каждый час
+    setInterval(function() {
+        fetch('{% url "warehouse:update_analytics" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+    }, 3600000);
+</script>
+{% endblock %} 

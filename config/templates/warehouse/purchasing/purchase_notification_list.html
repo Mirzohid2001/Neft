@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+
+{% block title %}Уведомления о закупках{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <h1 class="h3 mb-2 text-gray-800">Уведомления о закупках</h1>
+            <p class="mb-4">Управление уведомлениями о необходимости закупки товаров</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <a href="{% url 'warehouse:purchase_notification_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Создать уведомление
+                </a>
+                <a href="{% url 'warehouse:generate_notifications' %}" class="btn btn-success">
+                    <i class="fas fa-robot"></i> Автоматическая генерация
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Сообщения -->
+    {% include 'includes/messages.html' %}
+
+    <!-- Фильтры -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Фильтры</h6>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="status" class="form-label">Статус</label>
+                    <select name="status" id="status" class="form-select">
+                        <option value="">Все статусы</option>
+                        {% for key, value in status_choices.items %}
+                            <option value="{{ key }}" {% if status_filter == key %}selected{% endif %}>
+                                {{ value }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="product" class="form-label">Продукт</label>
+                    <select name="product" id="product" class="form-select">
+                        <option value="">Все продукты</option>
+                        {% for product in products %}
+                            <option value="{{ product.pk }}" {% if product_filter == product.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ product.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="supplier" class="form-label">Поставщик</label>
+                    <select name="supplier" id="supplier" class="form-select">
+                        <option value="">Все поставщики</option>
+                        {% for supplier in suppliers %}
+                            <option value="{{ supplier.pk }}" {% if supplier_filter == supplier.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ supplier.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="date_from" class="form-label">Дата заказа с</label>
+                    <input type="date" name="date_from" id="date_from" class="form-control" value="{{ date_from }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="date_to" class="form-label">Дата заказа по</label>
+                    <input type="date" name="date_to" id="date_to" class="form-control" value="{{ date_to }}">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Применить фильтры</button>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <a href="{% url 'warehouse:purchase_notification_list' %}" class="btn btn-secondary w-100">Сбросить фильтры</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Статистика по продуктам -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">Статистика по продуктам</h6>
+            <div class="dropdown no-arrow">
+                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                </a>
+                <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                    <a class="dropdown-item" href="{% url 'warehouse:purchase_notification_list' %}">Показать все уведомления</a>
+                    <a class="dropdown-item" href="{% url 'warehouse:purchase_notification_list' %}?status=pending">Только ожидающие</a>
+                    <a class="dropdown-item" href="{% url 'warehouse:purchase_notification_list' %}?status=ordered">Только заказанные</a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if notifications_by_product %}
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="productTable" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Продукт</th>
+                                <th>Количество</th>
+                                <th>Уведомлений</th>
+                                <th>Самая ранняя дата</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in notifications_by_product %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>{{ item.quantity_needed|floatformat:2 }} {{ item.product.unit }}</td>
+                                    <td>{{ item.count }}</td>
+                                    <td>{{ item.earliest_date|date:"d.m.Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'warehouse:purchase_notification_list' %}?product={{ item.product.id }}" class="btn btn-sm btn-info">
+                                            Все уведомления
+                                        </a>
+                                        <a href="{% url 'warehouse:purchase_notification_create' %}?product={{ item.product.id }}" class="btn btn-sm btn-success">
+                                            Создать уведомление
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    Нет активных уведомлений о закупках по выбранным фильтрам.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Список уведомлений -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Список уведомлений</h6>
+        </div>
+        <div class="card-body">
+            {% if notifications %}
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Продукт</th>
+                                <th>Количество</th>
+                                <th>Рекомендуемый поставщик</th>
+                                <th>Дата заказа</th>
+                                <th>Ожидаемая поставка</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for notification in notifications %}
+                                <tr {% if notification.status == 'pending' %}class="table-warning"{% endif %}>
+                                    <td>{{ notification.pk }}</td>
+                                    <td>
+                                        <a href="{% url 'warehouse:purchase_notification_detail' notification.pk %}">
+                                            {{ notification.product.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ notification.quantity_needed|floatformat:2 }} {{ notification.product.unit }}</td>
+                                    <td>
+                                        {% if notification.recommended_supplier %}
+                                            <a href="{% url 'warehouse:supplier_detail' notification.recommended_supplier.pk %}">
+                                                {{ notification.recommended_supplier.name }}
+                                            </a>
+                                        {% else %}
+                                            Не указан
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ notification.recommended_order_date|date:"d.m.Y" }}</td>
+                                    <td>{{ notification.expected_delivery_date|date:"d.m.Y" }}</td>
+                                    <td>
+                                        {% if notification.status == 'pending' %}
+                                            <span class="badge bg-warning">{{ notification.get_status_display }}</span>
+                                        {% elif notification.status == 'acknowledged' %}
+                                            <span class="badge bg-info">{{ notification.get_status_display }}</span>
+                                        {% elif notification.status == 'ordered' %}
+                                            <span class="badge bg-success">{{ notification.get_status_display }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ notification.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'warehouse:purchase_notification_detail' notification.pk %}" class="btn btn-sm btn-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'warehouse:purchase_notification_update' notification.pk %}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% if notification.status == 'pending' %}
+                                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#markOrderedModal{{ notification.pk }}">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Модальное окно для подтверждения заказа -->
+                                        <div class="modal fade" id="markOrderedModal{{ notification.pk }}" tabindex="-1" aria-labelledby="markOrderedModalLabel{{ notification.pk }}" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" id="markOrderedModalLabel{{ notification.pk }}">Подтверждение заказа</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p>Вы уверены, что хотите отметить уведомление о закупке продукта <strong>{{ notification.product.name }}</strong> как заказанное?</p>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                                        <form method="post" action="{% url 'warehouse:purchase_notification_status_update' notification.pk 'ordered' %}">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-success">Подтвердить заказ</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    Уведомления не найдены. <a href="{% url 'warehouse:purchase_notification_create' %}">Создать новое уведомление</a> или 
+                    <a href="{% url 'warehouse:generate_notifications' %}">сгенерировать автоматически</a>.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('#dataTable').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Russian.json"
+            },
+            "pageLength": 25,
+            "order": [[ 4, "asc" ]],
+            "columnDefs": [
+                { "orderable": false, "targets": [7] }
+            ]
+        });
+        
+        $('#productTable').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Russian.json"
+            },
+            "pageLength": 10,
+            "order": [[ 3, "asc" ]],
+            "columnDefs": [
+                { "orderable": false, "targets": [4] }
+            ]
+        });
+    });
+</script>
+{% endblock %} 

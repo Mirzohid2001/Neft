@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ title }}</h1>
+        <div>
+            <a href="{% url 'warehouse:sales_movement_create' %}" class="btn btn-primary me-2">
+                <i class="bi bi-plus-circle"></i> Новая приемка
+            </a>
+            <a href="{% url 'warehouse:sales_department_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Назад
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Список операций приемки</h5>
+        </div>
+        <div class="card-body">
+            {% if receptions %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Дата</th>
+                            <th>Продукт</th>
+                            <th>Документ</th>
+                            <th>Источник</th>
+                            <th>Назначение</th>
+                            <th>Ожидаемое кол-во</th>
+                            <th>Фактическое кол-во</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reception in receptions %}
+                        <tr>
+                            <td>{{ reception.id }}</td>
+                            <td>{{ reception.date|date:"d.m.Y" }}</td>
+                            <td>{{ reception.product.name }}</td>
+                            <td>{{ reception.document_number|default:"-" }}</td>
+                            <td>
+                                {% if reception.source_reservoir %}
+                                Резервуар: {{ reception.source_reservoir.name }}
+                                {% elif reception.source_wagon %}
+                                Вагон: {{ reception.source_wagon.wagon_number }}
+                                {% elif reception.source_warehouse %}
+                                Склад: {{ reception.source_warehouse.name }}
+                                {% elif reception.supplier %}
+                                Поставщик: {{ reception.supplier.name }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if reception.target_reservoir %}
+                                Резервуар: {{ reception.target_reservoir.name }}
+                                {% elif reception.target_warehouse %}
+                                Склад: {{ reception.target_warehouse.name }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ reception.expected_quantity|floatformat:2 }} т</td>
+                            <td>{{ reception.quantity|floatformat:2 }} т</td>
+                            <td>
+                                <span class="badge bg-{% if reception.status == 'created' %}warning{% elif reception.status == 'processed' %}info{% elif reception.status == 'completed' %}success{% elif reception.status == 'cancelled' %}danger{% endif %}">
+                                    {{ reception.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'warehouse:sales_movement_detail' reception.id %}" 
+                                       class="btn btn-sm btn-info" title="Просмотр">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    
+                                    {% if reception.status == 'created' %}
+                                    <a href="{% url 'warehouse:sales_movement_edit' reception.id %}" 
+                                       class="btn btn-sm btn-primary" title="Редактировать">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'warehouse:sales_movement_cancel' reception.id %}" 
+                                       class="btn btn-sm btn-danger" title="Отменить">
+                                        <i class="bi bi-x-circle"></i>
+                                    </a>
+                                    {% elif reception.status == 'processed' %}
+                                    <a href="{% url 'warehouse:sales_movement_confirm' reception.id %}" 
+                                       class="btn btn-sm btn-success" title="Подтвердить">
+                                        <i class="bi bi-check-circle"></i>
+                                    </a>
+                                    <a href="{% url 'warehouse:sales_movement_cancel' reception.id %}" 
+                                       class="btn btn-sm btn-danger" title="Отменить">
+                                        <i class="bi bi-x-circle"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle"></i> Нет операций приемки.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

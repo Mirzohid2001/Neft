@@ -1,0 +1,143 @@
+{% extends 'accounting/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="mt-4" data-aos="fade-up">
+  <h1>Moliyaviy Dashboard</h1>
+
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card text-bg-success mb-3 dashboard-card animate__animated animate__zoomIn text-white">
+        <div class="card-body">
+          <h4>Kirimlar (UZS)</h4>
+          <p>{{ summary.total_in_sum }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-bg-danger mb-3 dashboard-card animate__animated animate__zoomIn">
+        <div class="card-body">
+          <h4>Chiqimlar (UZS)</h4>
+          <p>{{ summary.total_out_sum }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-info text-white">
+        <div class="card-body">
+          <h4>{{ summary.status }}</h4>
+          <p>{{ summary.net_profit_loss }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table id="financialTable" class="table table-striped">
+      <thead>
+        <tr>
+          <th>Sana</th>
+          <th>Mahsulot</th>
+          <th>Ombor</th>
+          <th>Harakat turi</th>
+          <th>Miqdor</th>
+          <th>Summa (UZS)</th>
+          <th>Summa (USD)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rec in records %}
+        <tr>
+          <td>{{ rec.date }}</td>
+          <td>{{ rec.product }}</td>
+          <td>{{ rec.warehouse }}</td>
+          <td>{{ rec.movement_type }}</td>
+          <td>{{ rec.quantity }}</td>
+          <td>{{ rec.total_price_sum }}</td>
+          <td>{{ rec.total_price_usd }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-3">
+    <a href="?export=excel" class="btn btn-success">Excel Yuklash</a>
+  </div>
+
+  <div class="chart-container mt-4">
+    <canvas id="financeChart"></canvas>
+  </div>
+
+  <div class="chart-container mt-4">
+    <canvas id="productChart"></canvas>
+  </div>
+
+  <div class="chart-container mt-4">
+    <canvas id="warehouseChart"></canvas>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+  new Chart(document.getElementById('financeChart'), {
+    type: 'bar',
+    data: {
+      labels: ["Kirim", "Chiqim"],
+      datasets: [{
+        label: 'Moliyaviy Hisobot (UZS)',
+        data: [{{ summary.total_in_sum }}, {{ summary.total_out_sum }}],
+        backgroundColor: ['green', 'red']
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+
+  fetch("{% url 'accounting:chart_data' %}")
+    .then(response => response.json())
+    .then(data => {
+      const productCtx = document.getElementById('productChart').getContext('2d');
+      const warehouseCtx = document.getElementById('warehouseChart').getContext('2d');
+
+      new Chart(productCtx, {
+        type: 'bar',
+        data: {
+          labels: data.product_data.map(item => item.product),
+          datasets: [
+            {
+              label: 'Kirimlar (UZS)',
+              data: data.product_data.map(item => item.in_sum),
+              backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            },
+            {
+              label: 'Chiqimlar (UZS)',
+              data: data.product_data.map(item => item.out_sum),
+              backgroundColor: 'rgba(255, 99, 132, 0.6)',
+            }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      new Chart(warehouseCtx, {
+        type: 'pie',
+        data: {
+          labels: data.warehouse_data.map(item => item.warehouse),
+          datasets: [{
+            data: data.warehouse_data.map(item => item.total_sum),
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.6)',
+              'rgba(54, 162, 235, 0.6)',
+              'rgba(255, 206, 86, 0.6)',
+              'rgba(75, 192, 192, 0.6)',
+              'rgba(153, 102, 255, 0.6)',
+              'rgba(255, 159, 64, 0.6)'
+            ]
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    });
+</script>
+{% endblock %}

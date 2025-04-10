@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Список поставщиков{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Поставщики</h1>
+        <a href="{% url 'warehouse:supplier_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Добавить поставщика
+        </a>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <form method="get" class="d-flex">
+                        <input type="text" name="search" class="form-control me-2" 
+                               placeholder="Поиск по названию, контактам..." 
+                               value="{{ search_query }}">
+                        <button type="submit" class="btn btn-outline-primary">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </form>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="btn-group">
+                        <a href="{% url 'warehouse:supplier_list' %}" 
+                           class="btn btn-outline-secondary {% if not active_filter %}active{% endif %}">
+                            Все
+                        </a>
+                        <a href="{% url 'warehouse:supplier_list' %}?active=active" 
+                           class="btn btn-outline-secondary {% if active_filter == 'active' %}active{% endif %}">
+                            Активные
+                        </a>
+                        <a href="{% url 'warehouse:supplier_list' %}?active=inactive" 
+                           class="btn btn-outline-secondary {% if active_filter == 'inactive' %}active{% endif %}">
+                            Неактивные
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            {% if suppliers_with_data %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Контактное лицо</th>
+                            <th>Телефон</th>
+                            <th>Email</th>
+                            <th>Рейтинг</th>
+                            <th>Среднее время поставки</th>
+                            <th>Кол-во продуктов</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in suppliers_with_data %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'warehouse:supplier_detail' item.supplier.pk %}" 
+                                   class="text-decoration-none">
+                                    {{ item.supplier.name }}
+                                </a>
+                            </td>
+                            <td>{{ item.supplier.contact_person|default:"-" }}</td>
+                            <td>{{ item.supplier.phone|default:"-" }}</td>
+                            <td>{{ item.supplier.email|default:"-" }}</td>
+                            <td>
+                                {% if item.avg_rating %}
+                                <div class="text-warning">
+                                    {% for i in "12345"|make_list %}
+                                    {% if forloop.counter <= item.avg_rating|floatformat:"0" %}
+                                    <i class="fas fa-star"></i>
+                                    {% else %}
+                                    <i class="far fa-star"></i>
+                                    {% endif %}
+                                    {% endfor %}
+                                    <small class="text-muted">({{ item.avg_rating|floatformat:1 }})</small>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">Нет оценок</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.avg_lead_time %}
+                                {{ item.avg_lead_time|floatformat:"0" }} дней
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.products_count }}</td>
+                            <td>
+                                {% if item.supplier.is_active %}
+                                <span class="badge bg-success">Активный</span>
+                                {% else %}
+                                <span class="badge bg-danger">Неактивный</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'warehouse:supplier_detail' item.supplier.pk %}" 
+                                       class="btn btn-sm btn-outline-primary" 
+                                       title="Просмотр">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'warehouse:supplier_update' item.supplier.pk %}" 
+                                       class="btn btn-sm btn-outline-secondary" 
+                                       title="Редактировать">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'warehouse:supplier_delete' item.supplier.pk %}" 
+                                       class="btn btn-sm btn-outline-danger" 
+                                       title="Удалить">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <p class="text-muted">Поставщики не найдены</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

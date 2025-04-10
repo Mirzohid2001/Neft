@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ title }}</h1>
+        <div>
+            <a href="{% url 'warehouse:sales_movement_create' %}" class="btn btn-primary me-2">
+                <i class="bi bi-plus-circle"></i> Новая продажа
+            </a>
+            <a href="{% url 'warehouse:sales_department_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Назад
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Список операций продаж</h5>
+        </div>
+        <div class="card-body">
+            {% if sales %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Дата</th>
+                            <th>Продукт</th>
+                            <th>Документ</th>
+                            <th>Источник</th>
+                            <th>Клиент</th>
+                            <th>Количество</th>
+                            <th>Цена</th>
+                            <th>Сумма</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sale in sales %}
+                        <tr>
+                            <td>{{ sale.id }}</td>
+                            <td>{{ sale.date|date:"d.m.Y" }}</td>
+                            <td>{{ sale.product.name }}</td>
+                            <td>{{ sale.document_number|default:"-" }}</td>
+                            <td>
+                                {% if sale.source_reservoir %}
+                                Резервуар: {{ sale.source_reservoir.name }}
+                                {% elif sale.source_wagon %}
+                                Вагон: {{ sale.source_wagon.wagon_number }}
+                                {% elif sale.source_warehouse %}
+                                Склад: {{ sale.source_warehouse.name }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ sale.customer.name|default:"-" }}</td>
+                            <td>{{ sale.quantity|floatformat:2 }} т</td>
+                            <td>{{ sale.unit_price|floatformat:2 }}</td>
+                            <td>{{ sale.total_price|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge bg-{% if sale.status == 'created' %}warning{% elif sale.status == 'processed' %}info{% elif sale.status == 'completed' %}success{% elif sale.status == 'cancelled' %}danger{% endif %}">
+                                    {{ sale.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'warehouse:sales_movement_detail' sale.id %}" 
+                                       class="btn btn-sm btn-info" title="Просмотр">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    
+                                    {% if sale.status == 'created' %}
+                                    <a href="{% url 'warehouse:sales_movement_edit' sale.id %}" 
+                                       class="btn btn-sm btn-primary" title="Редактировать">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'warehouse:sales_movement_cancel' sale.id %}" 
+                                       class="btn btn-sm btn-danger" title="Отменить">
+                                        <i class="bi bi-x-circle"></i>
+                                    </a>
+                                    {% elif sale.status == 'processed' %}
+                                    <a href="{% url 'warehouse:sales_movement_confirm' sale.id %}" 
+                                       class="btn btn-sm btn-success" title="Подтвердить">
+                                        <i class="bi bi-check-circle"></i>
+                                    </a>
+                                    <a href="{% url 'warehouse:sales_movement_cancel' sale.id %}" 
+                                       class="btn btn-sm btn-danger" title="Отменить">
+                                        <i class="bi bi-x-circle"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle"></i> Нет операций продаж.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

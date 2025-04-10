@@ -1,0 +1,20 @@
+@media (max-width: 768px) {
+    .card {
+      margin-bottom: 15px;
+    }
+  
+    .table-responsive {
+      overflow-x: auto;
+    }
+  
+    .table-responsive table {
+      width: 100%;
+      min-width: 800px;
+    }
+  
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+    }
+  }
+  

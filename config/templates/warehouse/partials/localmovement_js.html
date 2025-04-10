@@ -1,0 +1,30 @@
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const docTonInput = document.getElementById('id_doc_ton');
+        const factTonInput = document.getElementById('id_fact_ton');
+        const diffTonInput = document.getElementById('id_difference_ton');
+    
+        const densityInput = document.getElementById('id_density');
+        const literInput = document.getElementById('id_liter');
+        const massInput = document.getElementById('id_mass');
+        const specificWeightInput = document.getElementById('id_specific_weight');
+    
+        function calcDifferenceTon() {
+            const doc_ton = parseFloat(docTonInput.value) || 0;
+            const fact_ton = parseFloat(factTonInput.value) || 0;
+            diffTonInput.value = (doc_ton - fact_ton).toFixed(2);
+        }
+        docTonInput.addEventListener('input', calcDifferenceTon);
+        factTonInput.addEventListener('input', calcDifferenceTon);
+    
+        function calcMass() {
+            const density = parseFloat(densityInput.value) || 0;
+            const liter = parseFloat(literInput.value) || 0;
+            massInput.value = (density * liter).toFixed(2);
+            specificWeightInput.value = density.toFixed(3);
+        }
+        densityInput.addEventListener('input', calcMass);
+        literInput.addEventListener('input', calcMass);
+    });
+    </script>
+    

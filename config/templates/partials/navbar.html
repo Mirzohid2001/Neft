@@ -1,0 +1,11 @@
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{% url 'dashboard:dashboard' %}">Neft Platformasi</a>
+        <div>
+            <span class="navbar-text text-white">
+                {{ request.user.first_name }} {{ request.user.last_name }}
+            </span>
+            <a class="btn btn-sm btn-outline-light ms-2" href="#">Чиқиш</a>
+        </div>
+    </div>
+</nav>

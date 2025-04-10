@@ -1,0 +1,50 @@
+{% extends 'warehouse/base.html' %}
+
+{% block content %}
+<h2 class="mt-3 animate__animated animate__fadeInDown">{{ product.name }} – Mahsulot Detallari</h2>
+<div class="card animate__animated animate__fadeInUp">
+    <div class="card-body">
+        <p><strong>Kod:</strong> {{ product.code }}</p>
+        <p><strong>Kategoriya:</strong> {{ product.category }}</p>
+        <p><strong>Hajmi:</strong> {{ product.volume }} L, <strong>Og'irligi:</strong> {{ product.weight }} kg</p>
+        <p><strong>Narx:</strong> ${{ product.price_usd }} / {{ product.price_sum }} so'm</p>
+        <p><strong>Kirim:</strong> {{ total_in }}</p>
+        <p><strong>Chiqim:</strong> {{ total_out }}</p>
+        <p><strong>Net:</strong> {{ net_qty }}</p>
+        <p>
+            <strong>Текущий запас:</strong> {{ current_quantity }}
+            <a href="{% url 'warehouse:recalculate_product_inventory' product.id %}" class="btn btn-sm btn-outline-primary ms-2">
+                <i class="bi bi-arrow-repeat"></i> Пересчитать запасы
+            </a>
+        </p>
+        <hr>
+        <h5>Mahsulot Harakatlari</h5>
+        <table class="table table-bordered table-hover">
+            <thead class="table-secondary">
+                <tr>
+                    <th>Sana</th>
+                    <th>Hujjat #</th>
+                    <th>Harakat turi</th>
+                    <th>Miqdor</th>
+                    <th>Narx (so'm)</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for m in movements %}
+                <tr>
+                    <td>{{ m.date }}</td>
+                    <td>{{ m.document_number }}</td>
+                    <td>{{ m.get_movement_type_display }}</td>
+                    <td>{{ m.quantity }}</td>
+                    <td>{{ m.price_sum }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center">Harakat topilmadi</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock content %}

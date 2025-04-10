@@ -1,0 +1,165 @@
+{% extends 'warehouse/base.html' %}
+
+{% block content %}
+<h2 class="mt-3 animate__animated animate__fadeInDown">
+    {% if form.instance.id %}Tahrirlash{% else %}Yangi Vagon Turi{% endif %}
+</h2>
+<div class="card animate__animated animate__fadeInUp">
+    <div class="card-body">
+        <form method="post" id="wagonTypeForm">
+            {% csrf_token %}
+            
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label for="{{ form.name.id_for_label }}">Vagon turi nomi:</label>
+                    {{ form.name }}
+                </div>
+            </div>
+            
+            <h4 class="mb-3">Kalibrovka ma'lumotlari (Meter shtok → Litr)</h4>
+            <p class="text-muted">Har bir santimetr o'lchovi uchun litr qiymatini kiriting</p>
+            
+            <div class="table-responsive">
+                <table class="table table-bordered" id="calibrationTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="40%">Santimetr (sm)</th>
+                            <th width="40%">Litr (l)</th>
+                            <th width="20%">Amallar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="calibrationBody">
+                        <!-- Existing calibration entries will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mb-3">
+                <button type="button" id="addCalibrationRow" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-circle"></i> Yangi qiymat qo'shish
+                </button>
+            </div>
+            
+            <!-- Hidden field to store JSON data -->
+            <input type="hidden" name="meter_shtok_map_json" id="meterShtokMapJson">
+            
+            <div class="mt-3">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> Saqlash
+                </button>
+                <a href="{% url 'warehouse:wagon_type_list' %}" class="btn btn-outline-danger ms-2">
+                    <i class="bi bi-x-circle"></i> Bekor qilish
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load existing calibration data if available
+    let calibrationData = {};
+    {% if form.instance.meter_shtok_map %}
+        calibrationData = {{ form.instance.meter_shtok_map|safe }};
+    {% endif %}
+    
+    // Initialize the table with existing data
+    const calibrationBody = document.getElementById('calibrationBody');
+    
+    // Add rows for existing data
+    if (Object.keys(calibrationData).length > 0) {
+        for (const [cm, liters] of Object.entries(calibrationData)) {
+            addCalibrationRow(cm, liters);
+        }
+    } else {
+        // Add a few empty rows for new wagon types
+        for (let i = 0; i < 5; i++) {
+            const cm = (i + 1).toFixed(1);
+            addCalibrationRow(cm, '');
+        }
+    }
+    
+    // Add row button click handler
+    document.getElementById('addCalibrationRow').addEventListener('click', function() {
+        addCalibrationRow('', '');
+    });
+    
+    // Form submission handler
+    document.getElementById('wagonTypeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Collect calibration data
+        const newCalibrationData = {};
+        const rows = document.querySelectorAll('#calibrationBody tr');
+        
+        rows.forEach(row => {
+            const cmInput = row.querySelector('.cm-input');
+            const literInput = row.querySelector('.liter-input');
+            
+            if (cmInput && literInput && cmInput.value && literInput.value) {
+                newCalibrationData[cmInput.value] = parseFloat(literInput.value);
+            }
+        });
+        
+        // Set the JSON data in the hidden field
+        document.getElementById('meterShtokMapJson').value = JSON.stringify(newCalibrationData);
+        
+        // Submit the form
+        this.submit();
+    });
+    
+    // Helper function to add a new calibration row
+    function addCalibrationRow(cm, liters) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <input type="number" class="form-control cm-input" value="${cm}" min="0" step="0.1">
+            </td>
+            <td>
+                <input type="number" class="form-control liter-input" value="${liters}" min="0" step="0.5">
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-danger delete-row">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+        calibrationBody.appendChild(row);
+        
+        // Add delete row handler
+        row.querySelector('.delete-row').addEventListener('click', function() {
+            row.remove();
+        });
+    }
+    
+    // Helper to sort and fill gaps in calibration data
+    document.getElementById('sortCalibrationBtn').addEventListener('click', function() {
+        const calibrationData = {};
+        const rows = Array.from(document.querySelectorAll('#calibrationBody tr'));
+        
+        // Extract and sort cm values
+        const cmValues = rows.map(row => {
+            const cmInput = row.querySelector('.cm-input');
+            return cmInput && cmInput.value ? parseFloat(cmInput.value) : null;
+        }).filter(val => val !== null).sort((a, b) => a - b);
+        
+        // Clear existing rows
+        calibrationBody.innerHTML = '';
+        
+        // Add sorted rows
+        if (cmValues.length > 0) {
+            const min = Math.floor(cmValues[0]);
+            const max = Math.ceil(cmValues[cmValues.length - 1]);
+            
+            // Create complete sequence with 0.1 step
+            for (let i = min; i <= max; i += 0.1) {
+                const cm = i.toFixed(1);
+                addCalibrationRow(cm, '');
+            }
+        }
+    });
+});
+</script>
+{% endblock %} 

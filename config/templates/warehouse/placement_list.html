@@ -1,0 +1,49 @@
+{% extends 'warehouse/base.html' %}
+{% block content %}
+<h2>Mahsulot Joylashuvi (Placement) ro'yxati</h2>
+<a href="{% url 'warehouse:placement_create' %}" class="btn btn-success mb-3">Yangi bo'linish qo'shish</a>
+
+<table class="table table-striped">
+    <thead class="table-dark">
+        <tr>
+            <th>Mahsulot</th>
+            <th>Vagon/Rezervuar</th>
+            <th>Miqdor</th>
+            <th>Harakat</th>
+            <th>Yaratilgan</th>
+            <th>Amallar</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for p in placements %}
+        <tr>
+            <td>{{ p.product.name }}</td>
+            <td>
+                {% if p.wagon %}
+                    {{ p.wagon.wagon_number }}
+                {% elif p.reservoir %}
+                    {{ p.reservoir.name }}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>{{ p.quantity }}</td>
+            <td>
+                {% if p.movement %}
+                    {{ p.movement.document_number }} 
+                    ({{ p.movement.get_movement_type_display }})
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>{{ p.created_at|date:"Y-m-d H:i" }}</td>
+            <td>
+                <a href="{% url 'warehouse:placement_update' p.pk %}" class="btn btn-sm btn-warning">Tahrirlash</a>
+            </td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="6">Ma'lumot topilmadi</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

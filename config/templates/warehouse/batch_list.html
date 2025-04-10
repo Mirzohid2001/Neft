@@ -1,0 +1,49 @@
+{% extends 'warehouse/base.html' %}
+
+{% block content %}
+<h2 class="mt-3 animate__animated animate__fadeInDown">Partiyalar ro'yxati</h2>
+
+
+
+<div class="card animate__animated animate__fadeInUp">
+    <div class="card-header">
+        Partiyalar ro'yxati
+    </div>
+    <div class="card-body">
+        <table class="table table-bordered table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Partiya raqami</th>
+                    <th>Mahsulot</th>
+                    <th>Kirim</th>
+                    <th>Chiqim</th>
+                    <th>Qoldiq</th>
+                    <th>Amallar</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for batch in batches %}
+                <tr>
+                    <td>{{ batch.batch_number }}</td>
+                    <td>{{ batch.product.name }}</td>
+                    <td>{{ batch.in_qty }}</td>
+                    <td>{{ batch.out_qty }}</td>
+                    <td>{{ batch.quantity }}</td>
+                    <td>
+                        <a href="{% url 'warehouse:batch_detail' batch.pk %}" class="btn btn-sm btn-info">Detal</a>
+                        <a href="{% url 'warehouse:batch_update' batch.pk %}" class="btn btn-sm btn-warning">Tahrirlash</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">Ma'lumot topilmadi</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <a href="{% url 'warehouse:batch_create' %}" class="btn btn-success mt-3 animate__animated animate__bounceIn">
+            Yangi Partiya Qo'shish
+        </a>
+    </div>
+</div>
+{% endblock content %}

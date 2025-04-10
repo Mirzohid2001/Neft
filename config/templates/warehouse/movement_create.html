@@ -1,0 +1,585 @@
+{% extends 'warehouse/base.html' %}
+
+{% block content %}
+<h2 class="mt-3 animate__animated animate__fadeInDown">Yangi Harakat Qo'shish</h2>
+<div class="card animate__animated animate__fadeInUp">
+    <div class="card-body">
+        <form method="post" id="movementForm">
+            {% csrf_token %}
+            
+            <!-- Add this hidden input near the top of the form -->
+            <input type="hidden" name="quantity" id="movement-quantity" value="0">
+            
+            <!-- Document and Client Information -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.document_number.id_for_label }}">Hujjat raqami:</label>
+                    {{ form.document_number }}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.client.id_for_label }}">Klient:</label>
+                    {{ form.client }}
+                </div>
+            </div>
+            
+            <!-- Product and Batch -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.product.id_for_label }}">Mahsulot:</label>
+                    {{ form.product }}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.batch.id_for_label }}">Partiya:</label>
+                    {{ form.batch }}
+                </div>
+            </div>
+            
+            <!-- Date and Movement Type -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.date.id_for_label }}">Date:</label>
+                    {{ form.date }}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.movement_type.id_for_label }}">Harakat turi:</label>
+                    {{ form.movement_type }}
+                </div>
+            </div>
+            
+            <!-- Source and Destination -->
+            <div class="row mb-3">
+                <div class="col-md-6" id="source-container" style="display: none;">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <h5>Source Location (From)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="source_type" id="source_type_reservoir" value="reservoir">
+                                <label class="form-check-label" for="source_type_reservoir">
+                                    Reservoir
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="source_type" id="source_type_wagon" value="wagon">
+                                <label class="form-check-label" for="source_type_wagon">
+                                    Wagon
+                                </label>
+                            </div>
+                            
+                            <div id="source_reservoir_container" class="mt-3" style="display: none;">
+                                <label>Reservoir:</label>
+                                <select name="source_reservoir" class="form-select">
+                                    <option value="">-----</option>
+                                    {% for reservoir in form.fields.reservoir.queryset %}
+                                    <option value="{{ reservoir.id }}">{{ reservoir.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div id="source_wagon_container" class="mt-3" style="display: none;">
+                                <label>Wagon:</label>
+                                <select name="source_wagon" class="form-select">
+                                    <option value="">-----</option>
+                                    {% for wagon in form.fields.wagon.queryset %}
+                                    <option value="{{ wagon.id }}">{{ wagon.wagon_number }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6" id="destination-container" style="display: none;">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <h5>Destination Location (To)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="destination_type" id="destination_type_reservoir" value="reservoir">
+                                <label class="form-check-label" for="destination_type_reservoir">
+                                    Reservoir
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="destination_type" id="destination_type_wagon" value="wagon">
+                                <label class="form-check-label" for="destination_type_wagon">
+                                    Wagon
+                                </label>
+                            </div>
+                            
+                            <div id="destination_reservoir_container" class="mt-3" style="display: none;">
+                                <label>Reservoir:</label>
+                                <select name="destination_reservoir" class="form-select">
+                                    <option value="">-----</option>
+                                    {% for reservoir in form.fields.reservoir.queryset %}
+                                    <option value="{{ reservoir.id }}">{{ reservoir.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div id="destination_wagon_container" class="mt-3" style="display: none;">
+                                <label>Wagon:</label>
+                                <select name="destination_wagon" class="form-select">
+                                    <option value="">-----</option>
+                                    {% for wagon in form.fields.wagon.queryset %}
+                                    <option value="{{ wagon.id }}">{{ wagon.wagon_number }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Transport Section -->
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h5>Transport ma'lumotlari</h5>
+                </div>
+                <div class="card-body" id="transports-container">
+                    <div class="transport-item mb-3 p-3 border rounded position-relative">
+                        <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 remove-transport" 
+                                data-transport-id="{{ transport_item_id }}">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                        <div class="row mb-2">
+                            <div class="col-md-12">
+                                <label>Transport №:</label>
+                                <input type="text" name="transport_number[]" class="form-control">
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-md-4">
+                                <label>Density:</label>
+                                <input type="number" name="density[]" class="form-control density-input" step="0.01">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Temperature:</label>
+                                <input type="number" name="temperature[]" class="form-control" value="20">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Litr:</label>
+                                <input type="number" name="liter[]" class="form-control liter-input" step="0.01">
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-md-4">
+                                <label>Massa (kg):</label>
+                                <input type="number" name="quantity[]" class="form-control quantity-input" step="0.01" required value="0">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Doc ton:</label>
+                                <input type="number" name="doc_ton[]" class="form-control" step="0.01">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Ombor:</label>
+                                <select name="warehouse[]" class="form-control">
+                                    <option value="">-----</option>
+                                    {% for warehouse in form.fields.warehouse.queryset %}
+                                    <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="button" id="add-transport" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Yangi transport qo'shish
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Price -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.price_sum.id_for_label }}">Narx (so'm):</label>
+                    {{ form.price_sum }}
+                </div>
+            </div>
+            
+            <!-- Notes -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label for="{{ form.note.id_for_label }}">Izoh:</label>
+                    {{ form.note }}
+                </div>
+            </div>
+            
+            <!-- Buttons -->
+            <div class="mt-3">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> Saqlash
+                </button>
+                <a href="{% url 'warehouse:movement_list' %}" class="btn btn-outline-danger ms-2">
+                    <i class="bi bi-x-circle"></i> Bekor qilish
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add transport item
+    document.getElementById('add-transport').addEventListener('click', function() {
+        const container = document.getElementById('transports-container');
+        const newItem = document.createElement('div');
+        newItem.className = 'transport-item border rounded p-3 mb-3 position-relative';
+        
+        // Generate a unique ID for this transport item
+        const itemId = 'transport-' + Date.now();
+        newItem.id = itemId;
+        
+        // HTML for the new transport item
+        const transportHtml = `
+            <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 remove-transport" 
+                    data-transport-id="${itemId}">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            
+            <div class="row mb-2">
+                <div class="col-12">
+                    <label>Transport №:</label>
+                    <input type="text" name="transport_number[]" class="form-control" required>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-md-4">
+                    <label>Density:</label>
+                    <input type="number" name="density[]" class="form-control density-input" step="0.01">
+                </div>
+                <div class="col-md-4">
+                    <label>Temperature:</label>
+                    <input type="number" name="temperature[]" class="form-control" value="20">
+                </div>
+                <div class="col-md-4">
+                    <label>Litr:</label>
+                    <input type="number" name="liter[]" class="form-control liter-input" step="0.01">
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-md-4">
+                    <label>Massa (kg):</label>
+                    <input type="number" name="quantity[]" class="form-control quantity-input" step="0.01" required value="0">
+                </div>
+                <div class="col-md-4">
+                    <label>Doc ton:</label>
+                    <input type="number" name="doc_ton[]" class="form-control" step="0.01">
+                </div>
+                <div class="col-md-4">
+                    <label>Ombor:</label>
+                    <select name="warehouse[]" class="form-control">
+                        <option value="">-----</option>
+                        {% for warehouse in form.fields.warehouse.queryset %}
+                        <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        `;
+        
+        newItem.innerHTML = transportHtml;
+        
+        container.appendChild(newItem);
+        
+        // Add event listener to the new remove button
+        attachRemoveTransportListener(newItem.querySelector('.remove-transport'));
+    });
+    
+    // Function to attach event listeners to remove buttons
+    function attachRemoveTransportListener(button) {
+        button.addEventListener('click', function() {
+            const transportId = this.getAttribute('data-transport-id');
+            const transportItem = document.getElementById(transportId);
+            if (transportItem) {
+                transportItem.remove();
+            }
+        });
+    }
+    
+    // Attach listeners to existing remove buttons
+    document.querySelectorAll('.remove-transport').forEach(function(button) {
+        attachRemoveTransportListener(button);
+    });
+    
+    // Auto-calculate quantity when density and liter change
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('density-input') || e.target.classList.contains('liter-input')) {
+            const parent = e.target.closest('.transport-item');
+            const densityInput = parent.querySelector('.density-input');
+            const literInput = parent.querySelector('.liter-input');
+            const quantityInput = parent.querySelector('.quantity-input');
+            
+            const density = parseFloat(densityInput.value) || 0;
+            const liter = parseFloat(literInput.value) || 0;
+            
+            if (density && liter) {
+                const quantity = density * liter;
+                quantityInput.value = quantity.toFixed(2);
+            }
+        }
+    });
+    
+    // Handle movement type changes to show/hide source/destination
+    document.querySelector('[name="movement_type"]').addEventListener('change', function() {
+        const movementType = this.value;
+        const sourceContainer = document.getElementById('source-container');
+        const destinationContainer = document.getElementById('destination-container');
+        
+        // Reset selections
+        document.querySelectorAll('[name="source_type"], [name="destination_type"]').forEach(radio => {
+            radio.checked = false;
+        });
+        
+        // Hide all sub-containers
+        document.getElementById('source_reservoir_container').style.display = 'none';
+        document.getElementById('source_wagon_container').style.display = 'none';
+        document.getElementById('destination_reservoir_container').style.display = 'none';
+        document.getElementById('destination_wagon_container').style.display = 'none';
+        
+        // Show appropriate containers based on movement type
+        if (movementType === 'out') {
+            // For sales/outgoing, show source
+            sourceContainer.style.display = 'block';
+            destinationContainer.style.display = 'none';
+        } else if (movementType === 'in') {
+            // For purchases/incoming, show destination
+            sourceContainer.style.display = 'none';
+            destinationContainer.style.display = 'block';
+        } else {
+            // For other types, hide both
+            sourceContainer.style.display = 'none';
+            destinationContainer.style.display = 'none';
+        }
+    });
+
+    // Handle source type selection
+    document.querySelectorAll('[name="source_type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const sourceType = this.value;
+            document.getElementById('source_reservoir_container').style.display = sourceType === 'reservoir' ? 'block' : 'none';
+            document.getElementById('source_wagon_container').style.display = sourceType === 'wagon' ? 'block' : 'none';
+        });
+    });
+
+    // Handle destination type selection
+    document.querySelectorAll('[name="destination_type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const destinationType = this.value;
+            document.getElementById('destination_reservoir_container').style.display = destinationType === 'reservoir' ? 'block' : 'none';
+            document.getElementById('destination_wagon_container').style.display = destinationType === 'wagon' ? 'block' : 'none';
+        });
+    });
+
+    // Update form validation to include source/destination validation
+    const originalValidation = document.getElementById('movementForm').onsubmit;
+    document.getElementById('movementForm').onsubmit = function(e) {
+        e.preventDefault();
+        
+        // Basic validation for required fields
+        const documentNumber = document.querySelector('[name="document_number"]').value;
+        const product = document.querySelector('[name="product"]').value;
+        const movementType = document.querySelector('[name="movement_type"]').value;
+        
+        if (!documentNumber || !product || !movementType) {
+            alert('Please fill in all required fields (Document Number, Product, and Movement Type)');
+            return;
+        }
+        
+        // Validate source for outgoing movements
+        if (movementType === 'out') {
+            const sourceType = document.querySelector('[name="source_type"]:checked')?.value;
+            if (!sourceType) {
+                alert('Please select a source type (Reservoir or Wagon)');
+                return;
+            }
+            
+            if (sourceType === 'reservoir' && !document.querySelector('[name="source_reservoir"]').value) {
+                alert('Please select a source reservoir');
+                return;
+            }
+            
+            if (sourceType === 'wagon' && !document.querySelector('[name="source_wagon"]').value) {
+                alert('Please select a source wagon');
+                return;
+            }
+        }
+        
+        // Validate destination for incoming movements
+        if (movementType === 'in') {
+            const destinationType = document.querySelector('[name="destination_type"]:checked')?.value;
+            if (!destinationType) {
+                alert('Please select a destination type (Reservoir or Wagon)');
+                return;
+            }
+            
+            if (destinationType === 'reservoir' && !document.querySelector('[name="destination_reservoir"]').value) {
+                alert('Please select a destination reservoir');
+                return;
+            }
+            
+            if (destinationType === 'wagon' && !document.querySelector('[name="destination_wagon"]').value) {
+                alert('Please select a destination wagon');
+                return;
+            }
+        }
+        
+        // Validate transport items
+        const transportItems = document.querySelectorAll('.transport-item');
+        if (transportItems.length > 0) {
+            let missingQuantity = false;
+            
+            transportItems.forEach(function(item) {
+                const quantity = item.querySelector('input[name="quantity[]"]').value;
+                if (!quantity || isNaN(parseFloat(quantity)) || parseFloat(quantity) <= 0) {
+                    missingQuantity = true;
+                }
+            });
+            
+            if (missingQuantity) {
+                alert('Please enter a valid quantity (greater than 0) for all transport items');
+                return;
+            }
+        }
+        
+        // Collect transport data
+        const transports = [];
+        document.querySelectorAll('.transport-item').forEach(function(item) {
+            const quantityValue = parseFloat(item.querySelector('input[name="quantity[]"]').value) || 0;
+            
+            // Ensure quantity is greater than 0
+            if (quantityValue <= 0) {
+                return; // Skip this item if quantity is invalid
+            }
+            
+            transports.push({
+                transport_number: item.querySelector('input[name="transport_number[]"]').value,
+                density: parseFloat(item.querySelector('input[name="density[]"]').value) || 0,
+                temperature: parseFloat(item.querySelector('input[name="temperature[]"]').value) || 20,
+                liter: parseFloat(item.querySelector('input[name="liter[]"]').value) || 0,
+                quantity: quantityValue,
+                doc_ton: parseFloat(item.querySelector('input[name="doc_ton[]"]').value) || 0,
+                warehouse: item.querySelector('select[name="warehouse[]"]').value
+            });
+        });
+        
+        // Calculate total quantity from all transports and set it in the main form
+        let totalQuantity = 0;
+        transports.forEach(function(transport) {
+            totalQuantity += parseFloat(transport.quantity) || 0;
+        });
+        
+        // Set the total quantity in the main movement form
+        // Add a hidden input for the movement quantity
+        const formData = new FormData(this);
+        formData.append('quantity', totalQuantity);
+        
+        // Add source/destination data to form submission
+        if (movementType === 'out') {
+            const sourceType = document.querySelector('[name="source_type"]:checked').value;
+            formData.append('source_type', sourceType);
+            
+            if (sourceType === 'reservoir') {
+                formData.append('reservoir', document.querySelector('[name="source_reservoir"]').value);
+            } else if (sourceType === 'wagon') {
+                formData.append('wagon', document.querySelector('[name="source_wagon"]').value);
+            }
+        }
+        
+        if (movementType === 'in') {
+            const destinationType = document.querySelector('[name="destination_type"]:checked').value;
+            formData.append('destination_type', destinationType);
+            
+            if (destinationType === 'reservoir') {
+                formData.append('reservoir', document.querySelector('[name="destination_reservoir"]').value);
+            } else if (destinationType === 'wagon') {
+                formData.append('wagon', document.querySelector('[name="destination_wagon"]').value);
+            }
+        }
+        
+        // Collect transport data
+        const transportsData = [];
+        document.querySelectorAll('.transport-item').forEach(function(item) {
+            const quantityValue = parseFloat(item.querySelector('input[name="quantity[]"]').value) || 0;
+            
+            // Ensure quantity is greater than 0
+            if (quantityValue <= 0) {
+                return; // Skip this item if quantity is invalid
+            }
+            
+            transportsData.push({
+                transport_number: item.querySelector('input[name="transport_number[]"]').value,
+                density: parseFloat(item.querySelector('input[name="density[]"]').value) || 0,
+                temperature: parseFloat(item.querySelector('input[name="temperature[]"]').value) || 20,
+                liter: parseFloat(item.querySelector('input[name="liter[]"]').value) || 0,
+                quantity: quantityValue,
+                doc_ton: parseFloat(item.querySelector('input[name="doc_ton[]"]').value) || 0,
+                warehouse: item.querySelector('select[name="warehouse[]"]').value
+            });
+        });
+        
+        // Add transport data as JSON
+        formData.append('transports_json', JSON.stringify(transportsData));
+        
+        // Submit with loading indicator
+        const submitBtn = document.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+        
+        // Submit the form with fetch API
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect;
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Save';
+                
+                // Error handling
+                let errorMessage = 'Please check your data and try again';
+                if (data.error) {
+                    if (typeof data.error === 'object') {
+                        // If it's an object of field errors, format them nicely
+                        errorMessage = Object.entries(data.error)
+                            .map(([field, message]) => `${field}: ${message}`)
+                            .join('\n');
+                    } else {
+                        // If it's a string, use it directly
+                        errorMessage = data.error;
+                    }
+                }
+                
+                alert('Error: ' + errorMessage);
+            }
+        })
+        .catch(error => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Save';
+            alert('An error occurred. Please check your data and try again.');
+            console.error(error);
+        });
+    };
+
+    // Trigger the movement type handler on page load to set initial state
+    const movementTypeSelect = document.querySelector('[name="movement_type"]');
+    if (movementTypeSelect.value) {
+        const event = new Event('change');
+        movementTypeSelect.dispatchEvent(event);
+    }
+});
+</script>
+{% endblock %}

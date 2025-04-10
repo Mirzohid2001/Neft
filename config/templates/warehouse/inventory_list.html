@@ -1,0 +1,32 @@
+{% extends 'warehouse/base.html' %}
+
+{% block content %}
+<h2 class="mt-3 animate__animated animate__fadeInDown">Ombordagi Qoldiq</h2>
+<div class="card animate__animated animate__fadeInUp">
+    <div class="card-header">
+        Qoldiq ro'yxati
+    </div>
+    <div class="card-body">
+        <table class="table table-bordered table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Mahsulot</th>
+                    <th>Qoldiq (qty)</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for inv in inventory %}
+                <tr>
+                    <td>{{ inv.product.name }}</td>
+                    <td>{{ inv.quantity }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="2" class="text-center">Ma'lumot topilmadi</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock content %}

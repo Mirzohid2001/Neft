@@ -1,0 +1,79 @@
+{% extends 'warehouse/base.html' %}
+{% block content %}
+<h2>Mahalliy harakatlar ro'yxati</h2>
+<a href="{% url 'warehouse:localmovement_create' %}" class="btn btn-primary">Yangi harakat qo'shish</a>
+<form method="get" class="row gy-2 gx-3 align-items-center mb-3 border p-2 bg-light">
+    <div class="col-auto">
+        <label class="form-label">{{ filter.form.date.label }}</label>
+        {{ filter.form.date }}
+    </div>
+
+    <div class="col-auto">
+        <label class="form-label">{{ filter.form.client.label }}</label>
+        {{ filter.form.client }}
+    </div>
+
+    <div class="col-auto">
+        <label class="form-label">{{ filter.form.product.label }}</label>
+        {{ filter.form.product }}
+    </div>
+
+    <div class="col-auto">
+        <label class="form-label">{{ filter.form.doc_ton.label }}</label>
+        {{ filter.form.doc_ton }}
+    </div>
+
+    <div class="col-auto">
+        <label class="form-label">{{ filter.form.fact_ton.label }}</label>
+        {{ filter.form.fact_ton }}
+    </div>
+    <div class="col-auto align-self-end">
+        <button type="submit" class="btn btn-primary">Filtrlash</button>
+    </div>
+</form>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Sana</th>
+            <th>Klient</th>
+            <th>Mahsulot</th>
+            <th>Vagon</th>
+            <th>Zichlik</th>
+            <th>Litr</th>
+            <th>Massa (kg)</th>
+            <th>Doc ton</th>
+            <th>Fact ton</th>
+            <th>Farq (ton)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for movement in local_movements %}
+        <tr>
+            <td>{{ movement.date }}</td>
+            <td>{{ movement.client.name }}</td>
+            <td>{{ movement.product.name }}</td>
+            <td>
+                {% if movement.wagon %}{{ movement.wagon.wagon_number }}{% else %}-{% endif %}
+            </td>
+            <td>{{ movement.density }}</td>
+            <td>{{ movement.liter }}</td>
+            <td>{{ movement.mass }}</td>
+            <td>{{ movement.doc_ton }}</td>
+            <td>{{ movement.fact_ton }}</td>
+            <td>
+                {{ movement.difference_ton }}
+                {% if movement.difference_ton < 0 %}
+                  <span class="text-danger fw-bold ms-2">ZARAR</span>
+                {% elif movement.difference_ton > 0 %}
+                  <span class="text-success fw-bold ms-2">FOYDA</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="10">Harakatlar mavjud emas</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

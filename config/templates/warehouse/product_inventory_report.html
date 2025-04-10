@@ -1,0 +1,53 @@
+{% extends 'warehouse/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="animate__animated animate__fadeInDown">Mahsulot Inventari Hisoboti</h2>
+        <canvas id="productInventoryChart"></canvas>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    var productData = {{ product_data_json|safe }};
+    var labels = productData.map(function(item) {
+        return item.name;
+    });
+    var data = productData.map(function(item) {
+        return item.net_quantity;
+    });
+    
+    // Agar har bir mahsulot uchun ranglarni o'zgartirishni xohlasangiz, shunchaki fixed yoki random ranglar generatsiya qilishingiz mumkin:
+    var backgroundColors = labels.map(() => 'rgba(54, 162, 235, 0.6)');
+    var borderColors = labels.map(() => 'rgba(54, 162, 235, 1)');
+
+    var ctx = document.getElementById('productInventoryChart').getContext('2d');
+    var productChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Net Inventar (tonna)',
+                data: data,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock extra_js %}

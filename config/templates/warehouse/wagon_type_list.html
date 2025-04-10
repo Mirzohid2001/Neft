@@ -1,0 +1,53 @@
+{% extends 'warehouse/base.html' %}
+
+{% block content %}
+<h2 class="mt-3 animate__animated animate__fadeInDown">Vagon Turlari</h2>
+
+<div class="mb-3">
+    <a href="{% url 'warehouse:wagon_type_create' %}" class="btn btn-success">
+        <i class="bi bi-plus-circle me-1"></i> Yangi vagon turi
+    </a>
+</div>
+
+<div class="card animate__animated animate__fadeInUp">
+    <div class="card-header">
+        Vagon turlari ro'yxati
+    </div>
+    <div class="card-body">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th>Nomi</th>
+                    <th>Kalibrovka ma'lumotlari</th>
+                    <th>Amallar</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for wagon_type in wagon_types %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ wagon_type.name }}</td>
+                    <td>
+                        {% if wagon_type.meter_shtok_map %}
+                            <span class="badge bg-success">{{ wagon_type.meter_shtok_map|length }} ta qiymat</span>
+                        {% else %}
+                            <span class="badge bg-warning">Kalibrovka yo'q</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'warehouse:wagon_type_update' wagon_type.pk %}" class="btn btn-sm btn-warning">
+                            <i class="bi bi-pencil"></i> Tahrirlash
+                        </a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center">Ma'lumot topilmadi</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>        
+    </div>
+</div>
+{% endblock content %} 

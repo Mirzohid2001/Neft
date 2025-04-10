@@ -1,0 +1,73 @@
+{% extends 'warehouse/base.html' %}
+{% block content %}
+<h2>Rezervuar detallari: {{ reservoir.name }}</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5>Rezervuar nomi: {{ reservoir.name }}</h5>
+        <p>Sig'im (tonna yoki litr): {{ reservoir.capacity }}</p>
+        <!-- Boshqa maydonlar -->
+    </div>
+</div>
+
+<!-- 1) RezervuarMovement ro'yxati -->
+<h4>Rezervuar Harakatlari</h4>
+<p>
+    <strong>Jami Kirim:</strong> {{ total_in }} &nbsp;
+    <strong>Jami Chiqim:</strong> {{ total_out }} &nbsp;
+    <strong>Net Qoldiq:</strong> {{ net_qty }}
+</p>
+<table class="table table-striped mb-4">
+    <thead class="table-dark">
+        <tr>
+            <th>Sana</th>
+            <th>Mahsulot</th>
+            <th>Harakat turi</th>
+            <th>Miqdor</th>
+            <th>Izoh</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for mv in movements %}
+        <tr>
+            <td>{{ mv.date }}</td>
+            <td>{{ mv.product.name }}</td>
+            <td>{{ mv.get_movement_type_display }}</td>
+            <td>{{ mv.quantity }}</td>
+            <td>{{ mv.note }}</td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="5">Harakatlar mavjud emas</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<!-- 2) Rezervuar Placement ro'yxati -->
+<h4>Rezervuar Placement (Mahsulot joylashuvi)</h4>
+<table class="table table-striped">
+    <thead class="table-secondary">
+        <tr>
+            <th>Mahsulot</th>
+            <th>Miqdor</th>
+            <th>Harakat (Movement)</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for p in placements %}
+        <tr>
+            <td>{{ p.product.name }}</td>
+            <td>{{ p.quantity }}</td>
+            <td>
+                {% if p.movement %}
+                    {{ p.movement.document_number }} ({{ p.movement.get_movement_type_display }})
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="3">Placement topilmadi</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock content %}

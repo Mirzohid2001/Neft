@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}{{ supplier.name }} - Информация о поставщике{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ supplier.name }}</h1>
+        <div class="btn-group">
+            <a href="{% url 'warehouse:supplier_update' supplier.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Редактировать
+            </a>
+            <a href="{% url 'warehouse:supplier_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> К списку
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Основная информация -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Основная информация</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl>
+                                <dt>Статус</dt>
+                                <dd>
+                                    {% if supplier.is_active %}
+                                    <span class="badge bg-success">Активный</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Неактивный</span>
+                                    {% endif %}
+                                </dd>
+
+                                <dt>Контактное лицо</dt>
+                                <dd>{{ supplier.contact_person|default:"Не указано" }}</dd>
+
+                                <dt>Телефон</dt>
+                                <dd>{{ supplier.phone|default:"Не указан" }}</dd>
+
+                                <dt>Email</dt>
+                                <dd>{{ supplier.email|default:"Не указан" }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl>
+                                <dt>Адрес</dt>
+                                <dd>{{ supplier.address|default:"Не указан" }}</dd>
+
+                                <dt>Веб-сайт</dt>
+                                <dd>
+                                    {% if supplier.website %}
+                                    <a href="{{ supplier.website }}" target="_blank">{{ supplier.website }}</a>
+                                    {% else %}
+                                    Не указан
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Продукты -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Продукты</h5>
+                    <a href="{% url 'warehouse:product_supplier_create' %}?supplier={{ supplier.pk }}" 
+                       class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus"></i> Добавить продукт
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if product_suppliers %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Продукт</th>
+                                    <th>Цена</th>
+                                    <th>Мин. заказ</th>
+                                    <th>Срок поставки</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sp in product_suppliers %}
+                                <tr>
+                                    <td>{{ sp.product.name }}</td>
+                                    <td>{{ sp.price|default:"-" }}</td>
+                                    <td>{{ sp.min_order_quantity|default:"-" }}</td>
+                                    <td>{{ sp.lead_time|default:"-" }} дн.</td>
+                                    <td>
+                                        {% if sp.is_preferred %}
+                                        <span class="badge bg-success">Предпочтительный</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Стандартный</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'warehouse:product_supplier_update' sp.pk %}" 
+                                               class="btn btn-sm btn-outline-secondary" 
+                                               title="Редактировать">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'warehouse:product_supplier_delete' sp.pk %}" 
+                                               class="btn btn-sm btn-outline-danger" 
+                                               title="Удалить">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4">Нет добавленных продуктов</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Боковая панель -->
+        <div class="col-md-4">
+            <!-- Статистика -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Статистика</h5>
+                </div>
+                <div class="card-body">
+                    <dl>
+                        <dt>Средний рейтинг</dt>
+                        <dd>
+                            {% if avg_rating %}
+                            <div class="text-warning">
+                                {% for i in "12345"|make_list %}
+                                {% if forloop.counter <= avg_rating|floatformat:"0" %}
+                                <i class="fas fa-star"></i>
+                                {% else %}
+                                <i class="far fa-star"></i>
+                                {% endif %}
+                                {% endfor %}
+                                <small class="text-muted">({{ avg_rating|floatformat:1 }})</small>
+                            </div>
+                            {% else %}
+                            <span class="text-muted">Нет оценок</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt>Среднее время поставки</dt>
+                        <dd>
+                            {% if avg_lead_time %}
+                            {{ avg_lead_time|floatformat:"0" }} дней
+                            {% else %}
+                            <span class="text-muted">Нет данных</span>
+                            {% endif %}
+                        </dd>
+
+                        <dt>Количество продуктов</dt>
+                        <dd>{{ products_count }}</dd>
+
+                        <dt>Последняя поставка</dt>
+                        <dd>
+                            {% if last_delivery %}
+                            {{ last_delivery.created_at|date:"d.m.Y" }}
+                            {% else %}
+                            <span class="text-muted">Нет поставок</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Оценки -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Оценки</h5>
+                    <a href="{% url 'warehouse:supplier_rating_create' %}?supplier={{ supplier.pk }}" 
+                       class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus"></i> Добавить оценку
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if ratings %}
+                    <div class="list-group list-group-flush">
+                        {% for rating in ratings %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-1">{{ rating.get_category_display }}</h6>
+                                <small class="text-muted">{{ rating.created_at|date:"d.m.Y" }}</small>
+                            </div>
+                            <div class="text-warning mb-1">
+                                {% for i in "12345"|make_list %}
+                                {% if forloop.counter <= rating.rating %}
+                                <i class="fas fa-star"></i>
+                                {% else %}
+                                <i class="far fa-star"></i>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% if rating.comment %}
+                            <small class="text-muted">{{ rating.comment }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4">Нет оценок</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Примечания -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Примечания</h5>
+                </div>
+                <div class="card-body">
+                    {% if supplier.notes %}
+                    {{ supplier.notes|linebreaks }}
+                    {% else %}
+                    <p class="text-muted">Нет примечаний</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

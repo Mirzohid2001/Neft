@@ -1,0 +1,266 @@
+{% extends 'production/base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="animate__animated animate__fadeInDown">
+            {{ process.get_process_type_display }} - {{ process.process_number }}
+        </h2>
+        <div>
+            <a href="{% url 'production:process_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Jarayonlar ro'yxatiga
+            </a>
+            {% if not process.end_date %}
+                <a href="{% url 'production:complete_process' process.id %}" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> Jarayonni tugatish
+                </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Основная информация о процессе -->
+        <div class="col-md-6 mb-4">
+            <div class="card animate__animated animate__fadeInLeft">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Jarayon haqida ma'lumot</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <tr>
+                            <th style="width: 40%">Jarayon raqami:</th>
+                            <td>{{ process.process_number }}</td>
+                        </tr>
+                        <tr>
+                            <th>Jarayon turi:</th>
+                            <td>{{ process.get_process_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>Boshlanish sanasi:</th>
+                            <td>{{ process.start_date|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Tugash sanasi:</th>
+                            <td>
+                                {% if process.end_date %}
+                                    {{ process.end_date|date:"d.m.Y H:i" }}
+                                {% else %}
+                                    <span class="badge bg-warning">Tugatilmagan</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Kirish manbasi:</th>
+                            <td>
+                                {% if process.input_source_type == 'reservoir' %}
+                                    Rezervuar: {{ process.input_reservoir }}
+                                {% else %}
+                                    Vagon: {{ process.input_wagon }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Chiqish manbasi:</th>
+                            <td>
+                                {% if process.output_source_type == 'reservoir' %}
+                                    Rezervuar: {{ process.output_reservoir }}
+                                {% else %}
+                                    Vagon: {{ process.output_wagon }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Holati:</th>
+                            <td>
+                                {% if process.end_date %}
+                                    <span class="badge bg-success">Tugatilgan</span>
+                                {% else %}
+                                    <span class="badge bg-primary">Jarayonda</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Izohlar:</th>
+                            <td>{{ process.notes|default:"Yo'q" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Детали процесса в зависимости от типа -->
+        <div class="col-md-6 mb-4">
+            <div class="card animate__animated animate__fadeInRight">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Jarayon tafsilotlari</h5>
+                </div>
+                <div class="card-body">
+                    {% if process.process_type == 'raw_processing' and raw_processing %}
+                        <table class="table">
+                            <tr>
+                                <th style="width: 40%">Xom-ashyo:</th>
+                                <td>{{ raw_processing.raw_material.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>Ishlab chiqarilgan mahsulot turi:</th>
+                                <td>{{ raw_processing.get_output_type_display }}</td>
+                            </tr>
+                            <tr>
+                                <th>Xom-ashyo miqdori:</th>
+                                <td>{{ raw_processing.raw_material_quantity }} tonna</td>
+                            </tr>
+                            <tr>
+                                <th>Harorat:</th>
+                                <td>{{ raw_processing.temperature }}°C</td>
+                            </tr>
+                            <tr>
+                                <th>Zichlik:</th>
+                                <td>{{ raw_processing.density }} kg/m³</td>
+                            </tr>
+                            <tr>
+                                <th>Hajm (litr):</th>
+                                <td>{{ raw_processing.liter_volume }} litr</td>
+                            </tr>
+                            <tr>
+                                <th>Yo'qotish foizi:</th>
+                                <td>{{ raw_processing.loss_percentage }}%</td>
+                            </tr>
+                        </table>
+                    {% elif process.process_type == 'mixing' and gasoline_mixing %}
+                        <table class="table">
+                            <tr>
+                                <th style="width: 40%">Benzin turi:</th>
+                                <td>{{ gasoline_mixing.gasoline_type.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>Ishlab chiqarilgan miqdor:</th>
+                                <td>{{ gasoline_mixing.output_quantity }} tonna</td>
+                            </tr>
+                            <tr>
+                                <th>Harorat:</th>
+                                <td>{{ gasoline_mixing.temperature }}°C</td>
+                            </tr>
+                            <tr>
+                                <th>Zichlik:</th>
+                                <td>{{ gasoline_mixing.density }} kg/m³</td>
+                            </tr>
+                            <tr>
+                                <th>Hajm (litr):</th>
+                                <td>{{ gasoline_mixing.liter_volume }} litr</td>
+                            </tr>
+                        </table>
+                    {% else %}
+                        <div class="alert alert-info">
+                            Jarayon uchun ma'lumotlar kiritilmagan. Qo'shimcha ma'lumot kiritish uchun quyidagi tugmalardan foydalaning.
+                        </div>
+                        
+                        {% if process.process_type == 'raw_processing' %}
+                            <a href="{% url 'production:raw_processing_create' process.id %}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Xom-ashyo ma'lumotlarini qo'shish
+                            </a>
+                        {% else %}
+                            <a href="{% url 'production:gasoline_mixing_create' process.id %}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Benzin ma'lumotlarini qo'shish
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Входящие материалы -->
+        <div class="col-md-6 mb-4">
+            <div class="card animate__animated animate__fadeInUp" style="animation-delay: 0.1s">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Kiruvchi materiallar</h5>
+                    {% if not process.end_date %}
+                        <a href="{% url 'production:input_create' process.id %}" class="btn btn-sm btn-light">
+                            <i class="bi bi-plus-circle"></i> Qo'shish
+                        </a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if inputs %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Material</th>
+                                        <th>Miqdor</th>
+                                        <th>Harorat</th>
+                                        <th>Zichlik</th>
+                                        <th>Hajm</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for input in inputs %}
+                                        <tr>
+                                            <td>{{ input.material.name }}</td>
+                                            <td>{{ input.quantity }} tonna</td>
+                                            <td>{{ input.temperature }}°C</td>
+                                            <td>{{ input.density }} kg/m³</td>
+                                            <td>{{ input.liter_volume }} litr</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            Kiruvchi materiallar qo'shilmagan.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Исходящие материалы -->
+        <div class="col-md-6 mb-4">
+            <div class="card animate__animated animate__fadeInUp" style="animation-delay: 0.2s">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Chiquvchi mahsulotlar</h5>
+                    {% if not process.end_date %}
+                        <a href="{% url 'production:output_create' process.id %}" class="btn btn-sm btn-light">
+                            <i class="bi bi-plus-circle"></i> Qo'shish
+                        </a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if outputs %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Mahsulot</th>
+                                        <th>Miqdor</th>
+                                        <th>Harorat</th>
+                                        <th>Zichlik</th>
+                                        <th>Hajm</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for output in outputs %}
+                                        <tr>
+                                            <td>{{ output.product.name }}</td>
+                                            <td>{{ output.quantity }} tonna</td>
+                                            <td>{{ output.temperature }}°C</td>
+                                            <td>{{ output.density }} kg/m³</td>
+                                            <td>{{ output.liter_volume }} litr</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            Chiquvchi mahsulotlar qo'shilmagan.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

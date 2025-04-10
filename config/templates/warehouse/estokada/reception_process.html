@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+
+{% block title %}Обработка приемки #{{ movement.id }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Обработка приемки #{{ movement.id }}</h1>
+        <a href="{% url 'warehouse:estokada_reception_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Назад к списку
+        </a>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Информация о приемке -->
+        <div class="col-md-5 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Информация о приемке</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th style="width: 40%">Продукт:</th>
+                            <td><strong>{{ movement.product.name }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Номер документа:</th>
+                            <td>{{ movement.document_number|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Ожидаемое количество:</th>
+                            <td>{{ movement.expected_quantity|floatformat:2 }} т</td>
+                        </tr>
+                        <tr>
+                            <th>Место хранения:</th>
+                            <td>
+                                {% if movement.target_reservoir %}
+                                Резервуар: {{ movement.target_reservoir.name }}
+                                {% elif movement.target_wagon %}
+                                Вагон: {{ movement.target_wagon.wagon_number }}
+                                {% elif movement.target_warehouse %}
+                                Склад: {{ movement.target_warehouse.name }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Номер транспорта:</th>
+                            <td>{{ movement.transport_number|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Дата приемки:</th>
+                            <td>{{ movement.date|date:"d.m.Y" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Создана:</th>
+                            <td>{{ movement.created_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Статус:</th>
+                            <td>
+                                <span class="badge bg-{% if movement.status == 'created' %}warning{% elif movement.status == 'processed' %}info{% elif movement.status == 'completed' %}success{% elif movement.status == 'cancelled' %}danger{% endif %}">
+                                    {{ movement.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Форма для ввода параметров -->
+        <div class="col-md-7 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Ввод физических параметров</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="alert alert-info mb-4">
+                            <i class="bi bi-info-circle"></i> Введите фактические данные по приемке. Система автоматически рассчитает количество.
+                        </div>
+                        
+                        <div class="row g-3">
+                            <!-- Плотность -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_density" class="form-label">Плотность (кг/м³):</label>
+                                    <input type="number" name="density" id="id_density" step="0.001" class="form-control" value="{{ form.density.value|default:'' }}" required>
+                                </div>
+                            </div>
+                            
+                            <!-- Температура -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_temperature" class="form-label">Температура (°C):</label>
+                                    <input type="number" name="temperature" id="id_temperature" step="0.1" class="form-control" value="{{ form.temperature.value|default:'' }}" required>
+                                </div>
+                            </div>
+                            
+                            <!-- Объем (литры) -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_liter" class="form-label">Объем (литры):</label>
+                                    <input type="number" name="liter" id="id_liter" step="0.001" class="form-control" value="{{ form.liter.value|default:'' }}" required>
+                                </div>
+                            </div>
+                            
+                            <!-- Фактический вес (тонны) -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_quantity" class="form-label">Фактический вес (тонны):</label>
+                                    <input type="number" name="quantity" id="id_quantity" step="0.001" class="form-control" value="{{ form.quantity.value|default:'' }}" required readonly>
+                                    <small class="form-text text-muted">Рассчитывается автоматически</small>
+                                </div>
+                            </div>
+                            
+                            <!-- Фото транспорта -->
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <label for="id_transport_photo" class="form-label">Фото транспорта:</label>
+                                    <input type="file" name="transport_photo" id="id_transport_photo" class="form-control" accept="image/*">
+                                    {% if movement.transport_photo %}
+                                    <div class="mt-2">
+                                        <p>Текущее фото:</p>
+                                        <img src="{{ movement.transport_photo.url }}" alt="Фото транспорта" class="img-thumbnail" style="max-height: 200px;">
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Примечание -->
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <label for="id_note" class="form-label">Примечание:</label>
+                                    <textarea name="note" id="id_note" class="form-control" rows="3">{{ form.note.value|default:'' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Обработать приемку
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Автоматический расчет количества при изменении плотности или объема
+        const densityInput = document.getElementById('id_density');
+        const literInput = document.getElementById('id_liter');
+        const quantityInput = document.getElementById('id_quantity');
+        
+        function calculateQuantity() {
+            const density = parseFloat(densityInput.value) || 0;
+            const liter = parseFloat(literInput.value) || 0;
+            
+            // Рассчитываем тонны из кг/м³ и литров
+            const quantity = (density * liter) / 1000;
+            quantityInput.value = quantity.toFixed(3);
+        }
+        
+        densityInput.addEventListener('input', calculateQuantity);
+        literInput.addEventListener('input', calculateQuantity);
+        
+        // Исходный расчет при загрузке страницы
+        calculateQuantity();
+    });
+</script>
+{% endblock %}
+{% endblock %} 

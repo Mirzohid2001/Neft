@@ -1,0 +1,24 @@
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const densityInput = document.getElementById('id_density');
+        const literInput = document.getElementById('id_liter');
+        const quantityInput = document.getElementById('id_quantity');
+        const specificWeightInput = document.getElementById('id_specific_weight');
+    
+        function calculateValues() {
+            const density = parseFloat(densityInput.value) || 0;
+            const liter = parseFloat(literInput.value) || 0;
+            
+            if (density && liter) {
+                const quantity = (density * liter).toFixed(2);
+                const specific_weight = density.toFixed(3);
+                quantityInput.value = quantity;
+                specificWeightInput.value = specific_weight;
+            }
+        }
+    
+        densityInput.addEventListener('input', calculateValues);
+        literInput.addEventListener('input', calculateValues);
+    });
+    </script>
+    

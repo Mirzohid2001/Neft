@@ -1,0 +1,130 @@
+{% extends 'production/base.html' %}
+
+{% block content %}
+<h2 class="mt-3 animate__animated animate__fadeInDown">Yangi ishlab chiqarish jarayoni</h2>
+
+<div class="card animate__animated animate__fadeInUp">
+    <div class="card-body">
+        <form method="post" id="productionProcessForm">
+            {% csrf_token %}
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.process_number.id_for_label }}">Jarayon raqami:</label>
+                    {{ form.process_number }}
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ form.process_type.id_for_label }}">Jarayon turi:</label>
+                    {{ form.process_type }}
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.start_date.id_for_label }}">Boshlanish sanasi:</label>
+                    {{ form.start_date }}
+                </div>
+            </div>
+            
+            <!-- Input source section -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.input_source_type.id_for_label }}">Kirish manba turi:</label>
+                    {{ form.input_source_type }}
+                </div>
+            </div>
+            
+            <div class="row mb-3 input-source-container">
+                <div class="col-md-6 input-reservoir-container">
+                    <label for="{{ form.input_reservoir.id_for_label }}">Kirish rezervuari:</label>
+                    {{ form.input_reservoir }}
+                </div>
+                <div class="col-md-6 input-wagon-container" style="display: none;">
+                    <label for="{{ form.input_wagon.id_for_label }}">Kirish vagoni:</label>
+                    {{ form.input_wagon }}
+                </div>
+            </div>
+            
+            <!-- Output source section -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="{{ form.output_source_type.id_for_label }}">Chiqish manba turi:</label>
+                    {{ form.output_source_type }}
+                </div>
+            </div>
+            
+            <div class="row mb-3 output-source-container">
+                <div class="col-md-6 output-reservoir-container">
+                    <label for="{{ form.output_reservoir.id_for_label }}">Chiqish rezervuari:</label>
+                    {{ form.output_reservoir }}
+                </div>
+                <div class="col-md-6 output-wagon-container" style="display: none;">
+                    <label for="{{ form.output_wagon.id_for_label }}">Chiqish vagoni:</label>
+                    {{ form.output_wagon }}
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label for="{{ form.notes.id_for_label }}">Izohlar:</label>
+                    {{ form.notes }}
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle"></i> Saqlash va davom etish
+                </button>
+                <a href="{% url 'production:process_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Bekor qilish
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // Управление показом полей в зависимости от выбранного типа источника/назначения
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputSourceType = document.getElementById('input_source_type');
+        const inputReservoirContainer = document.querySelector('.input-reservoir-container');
+        const inputWagonContainer = document.querySelector('.input-wagon-container');
+        
+        const outputSourceType = document.getElementById('output_source_type');
+        const outputReservoirContainer = document.querySelector('.output-reservoir-container');
+        const outputWagonContainer = document.querySelector('.output-wagon-container');
+        
+        // Функция для переключения полей ввода
+        function toggleInputFields() {
+            if (inputSourceType.value === 'reservoir') {
+                inputReservoirContainer.style.display = 'block';
+                inputWagonContainer.style.display = 'none';
+            } else {
+                inputReservoirContainer.style.display = 'none';
+                inputWagonContainer.style.display = 'block';
+            }
+        }
+        
+        // Функция для переключения полей вывода
+        function toggleOutputFields() {
+            if (outputSourceType.value === 'reservoir') {
+                outputReservoirContainer.style.display = 'block';
+                outputWagonContainer.style.display = 'none';
+            } else {
+                outputReservoirContainer.style.display = 'none';
+                outputWagonContainer.style.display = 'block';
+            }
+        }
+        
+        // Инициализация и добавление слушателей событий
+        toggleInputFields();
+        toggleOutputFields();
+        
+        inputSourceType.addEventListener('change', toggleInputFields);
+        outputSourceType.addEventListener('change', toggleOutputFields);
+    });
+</script>
+{% endblock %}
+
+{% endblock content %} 

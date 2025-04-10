@@ -1,0 +1,25 @@
+{% extends 'warehouse/base.html' %}
+{% block content %}
+<h2>Klientlar ro'yxati</h2>
+<a href="{% url 'warehouse:client_list' %}" class="btn btn-primary">Yangi klient qo'shish</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Klient nomi</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for client in clients %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ client.name }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="2">Hech qanday klient yo'q</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

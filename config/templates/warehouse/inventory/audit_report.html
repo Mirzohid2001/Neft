@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+
+{% block title %}Отчет по инвентаризации: {{ audit.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>Отчет по инвентаризации</h1>
+            <h2 class="fs-4">{{ audit.name }}</h2>
+            <p class="text-muted mb-0">
+                <span class="badge bg-success">{{ audit.get_status_display }}</span>
+                <span class="ms-2">
+                    <i class="bi bi-calendar-event"></i> Начало: {{ audit.start_date|date:"d.m.Y H:i" }}
+                </span>
+                <span class="ms-2">
+                    <i class="bi bi-calendar-check"></i> Завершение: {{ audit.end_date|date:"d.m.Y H:i" }}
+                </span>
+                <span class="ms-2">
+                    <i class="bi bi-person"></i> Ответственный: {{ audit.created_by.username }}
+                </span>
+            </p>
+        </div>
+        <div class="btn-group" role="group">
+            <a href="{% url 'warehouse:audit_detail' audit.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Назад к инвентаризации
+            </a>
+            <a href="{% url 'warehouse:export_audit' audit.id %}" class="btn btn-outline-success">
+                <i class="bi bi-file-excel"></i> Экспорт в Excel
+            </a>
+            <button class="btn btn-outline-primary" onclick="window.print()">
+                <i class="bi bi-printer"></i> Печать
+            </button>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Общая статистика -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Общая статистика</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                <div class="col-md-3">
+                    <div class="border rounded p-3 h-100">
+                        <h6 class="mb-2">Учетное количество</h6>
+                        <h3 class="mb-0">{{ total_expected|floatformat:2 }}</h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 h-100">
+                        <h6 class="mb-2">Фактическое количество</h6>
+                        <h3 class="mb-0">{{ total_actual|floatformat:2 }}</h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 h-100 {% if total_discrepancy > 0 %}bg-success bg-opacity-10{% elif total_discrepancy < 0 %}bg-danger bg-opacity-10{% endif %}">
+                        <h6 class="mb-2">Расхождение</h6>
+                        <h3 class="mb-0 {% if total_discrepancy > 0 %}text-success{% elif total_discrepancy < 0 %}text-danger{% endif %}">
+                            {{ total_discrepancy|floatformat:2 }}
+                        </h3>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="border rounded p-3 h-100 {% if total_discrepancy_percent > 0 %}bg-success bg-opacity-10{% elif total_discrepancy_percent < 0 %}bg-danger bg-opacity-10{% endif %}">
+                        <h6 class="mb-2">Расхождение (%)</h6>
+                        <h3 class="mb-0 {% if total_discrepancy_percent > 0 %}text-success{% elif total_discrepancy_percent < 0 %}text-danger{% endif %}">
+                            {{ total_discrepancy_percent|floatformat:2 }}%
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Графики -->
+    {% if discrepancies %}
+    <div class="row">
+        {% if comparison_chart %}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Сравнение учетного и фактического количества</h5>
+                </div>
+                <div class="card-body">
+                    {{ comparison_chart|safe }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if location_chart %}
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Распределение расхождений по местам хранения</h5>
+                </div>
+                <div class="card-body">
+                    {{ location_chart|safe }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Таблица расхождений -->
+    {% if discrepancies %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Найденные расхождения</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Продукт</th>
+                            <th>Местоположение</th>
+                            <th>Учетное количество</th>
+                            <th>Фактическое количество</th>
+                            <th>Расхождение</th>
+                            <th>Расхождение (%)</th>
+                            <th>Примечания</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for discrepancy in discrepancies %}
+                        <tr class="{% if discrepancy.discrepancy > 0 %}table-success{% else %}table-danger{% endif %}">
+                            <td>{{ discrepancy.item.product.name }}</td>
+                            <td>{{ discrepancy.item.location }}</td>
+                            <td>{{ discrepancy.item.expected_quantity|floatformat:2 }}</td>
+                            <td>{{ discrepancy.item.actual_quantity|floatformat:2 }}</td>
+                            <td class="{% if discrepancy.discrepancy > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ discrepancy.discrepancy|floatformat:2 }}
+                            </td>
+                            <td class="{% if discrepancy.percentage > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ discrepancy.percentage|floatformat:2 }}%
+                            </td>
+                            <td>
+                                {% if discrepancy.item.notes %}
+                                <small>{{ discrepancy.item.notes }}</small>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill"></i> Расхождений не обнаружено! Фактические остатки соответствуют учетным данным.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Дополнительная информация -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Дополнительная информация</h5>
+        </div>
+        <div class="card-body">
+            {% if audit.description %}
+            <div class="mb-3">
+                <h6>Описание инвентаризации:</h6>
+                <p>{{ audit.description }}</p>
+            </div>
+            {% endif %}
+            <div class="mb-3">
+                <h6>Общая информация:</h6>
+                <ul>
+                    <li>Всего позиций: {{ audit.items.count }}</li>
+                    <li>Позиций с расхождениями: {{ discrepancies|length }}</li>
+                    <li>Процент позиций с расхождениями: {{ discrepancies|length|default:0|floatformat:2 }}%</li>
+                </ul>
+            </div>
+            <div class="mb-0">
+                <h6>Мероприятия по результатам инвентаризации:</h6>
+                <ol>
+                    <li>Провести анализ причин выявленных расхождений.</li>
+                    <li>Обновить учетные данные в системе в соответствии с фактическими остатками.</li>
+                    <li>Разработать меры по предотвращению подобных расхождений в будущем.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подписи -->
+    <div class="card shadow-sm mt-4 print-only">
+        <div class="card-body">
+            <div class="row mt-5">
+                <div class="col-md-4">
+                    <p class="mb-5">Ответственный за проведение инвентаризации:</p>
+                    <p>___________________________</p>
+                    <p class="small">{{ audit.created_by.username }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p class="mb-5">Руководитель отдела:</p>
+                    <p>___________________________</p>
+                    <p class="small">(Ф.И.О.)</p>
+                </div>
+                <div class="col-md-4">
+                    <p class="mb-5">Главный бухгалтер:</p>
+                    <p>___________________________</p>
+                    <p class="small">(Ф.И.О.)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn-group, .navbar, footer {
+        display: none !important;
+    }
+    .container {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .card {
+        border: 1px solid #ddd !important;
+        margin-bottom: 20px !important;
+        break-inside: avoid !important;
+    }
+    .non-print {
+        display: none !important;
+    }
+    .print-only {
+        display: block !important;
+    }
+    body {
+        font-size: 12pt;
+    }
+    h1 {
+        font-size: 18pt;
+    }
+    h2 {
+        font-size: 16pt;
+    }
+    h5 {
+        font-size: 14pt;
+    }
+    .table {
+        font-size: 10pt;
+    }
+}
+@media screen {
+    .print-only {
+        display: none;
+    }
+}
+</style>
+{% endblock %} 

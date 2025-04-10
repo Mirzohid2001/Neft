@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+
+{% block title %}Инвентаризации{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Инвентаризации</h1>
+        <a href="{% url 'warehouse:audit_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Создать инвентаризацию
+        </a>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Статистика -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card h-100 border-0 bg-success bg-opacity-10">
+                <div class="card-body d-flex flex-column align-items-center p-3">
+                    <div class="mb-2">
+                        <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                    </div>
+                    <h2 class="mb-0">{{ audits_completed }}</h2>
+                    <p class="text-muted mb-0">Завершено</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 bg-primary bg-opacity-10">
+                <div class="card-body d-flex flex-column align-items-center p-3">
+                    <div class="mb-2">
+                        <i class="bi bi-hourglass-split text-primary" style="font-size: 2rem;"></i>
+                    </div>
+                    <h2 class="mb-0">{{ audits_in_progress }}</h2>
+                    <p class="text-muted mb-0">В процессе</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 bg-warning bg-opacity-10">
+                <div class="card-body d-flex flex-column align-items-center p-3">
+                    <div class="mb-2">
+                        <i class="bi bi-calendar2-check text-warning" style="font-size: 2rem;"></i>
+                    </div>
+                    <h2 class="mb-0">{{ audits_planned }}</h2>
+                    <p class="text-muted mb-0">Запланировано</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 bg-info bg-opacity-10">
+                <div class="card-body d-flex flex-column align-items-center p-3">
+                    <div class="mb-2">
+                        <i class="bi bi-list-check text-info" style="font-size: 2rem;"></i>
+                    </div>
+                    <h2 class="mb-0">{{ audits.count }}</h2>
+                    <p class="text-muted mb-0">Всего</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Последняя инвентаризация -->
+    {% if last_audit %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Последняя завершенная инвентаризация</h5>
+            <a href="{% url 'warehouse:audit_detail' last_audit.id %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-arrow-right"></i> Подробнее
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <h4>{{ last_audit.name }}</h4>
+                    <p class="text-muted">Завершена {{ last_audit.end_date|date:"d.m.Y H:i" }}</p>
+                    <p>Позиций с расхождениями: <span class="badge bg-warning">{{ last_audit_discrepancies }}</span></p>
+                    {% if last_audit.description %}
+                    <p>{{ last_audit.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 d-flex align-items-center justify-content-end">
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'warehouse:audit_report' last_audit.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-file-text"></i> Отчет
+                        </a>
+                        <a href="{% url 'warehouse:export_audit' last_audit.id %}" class="btn btn-outline-success">
+                            <i class="bi bi-file-excel"></i> Excel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Список инвентаризаций -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Список инвентаризаций</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Статус</th>
+                            <th>Дата начала</th>
+                            <th>Дата завершения</th>
+                            <th>Создал</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for audit in audits %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'warehouse:audit_detail' audit.id %}" class="text-decoration-none">
+                                    {{ audit.name }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge {% if audit.status == 'completed' %}bg-success{% elif audit.status == 'in_progress' %}bg-primary{% elif audit.status == 'planned' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {{ audit.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ audit.start_date|date:"d.m.Y H:i" }}</td>
+                            <td>{{ audit.end_date|date:"d.m.Y H:i"|default:"-" }}</td>
+                            <td>{{ audit.created_by.username }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{% url 'warehouse:audit_detail' audit.id %}" class="btn btn-outline-primary" title="Подробности">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    {% if audit.status == 'planned' %}
+                                    <a href="{% url 'warehouse:audit_update' audit.id %}" class="btn btn-outline-secondary" title="Редактировать">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#startAuditModal{{ audit.id }}" title="Начать">
+                                        <i class="bi bi-play"></i>
+                                    </button>
+                                    {% elif audit.status == 'in_progress' %}
+                                    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#completeAuditModal{{ audit.id }}" title="Завершить">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                    {% endif %}
+                                    {% if audit.status == 'completed' %}
+                                    <a href="{% url 'warehouse:audit_report' audit.id %}" class="btn btn-outline-info" title="Отчет">
+                                        <i class="bi bi-file-text"></i>
+                                    </a>
+                                    <a href="{% url 'warehouse:export_audit' audit.id %}" class="btn btn-outline-success" title="Экспорт в Excel">
+                                        <i class="bi bi-file-excel"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if audit.status != 'completed' %}
+                                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelAuditModal{{ audit.id }}" title="Отменить">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Модальное окно для начала инвентаризации -->
+                                <div class="modal fade" id="startAuditModal{{ audit.id }}" tabindex="-1" aria-labelledby="startAuditModalLabel{{ audit.id }}" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="startAuditModalLabel{{ audit.id }}">Начать инвентаризацию</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Вы уверены, что хотите начать инвентаризацию "{{ audit.name }}"?</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                                <form action="{% url 'warehouse:audit_start' audit.id %}" method="post">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-success">Начать</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Модальное окно для завершения инвентаризации -->
+                                <div class="modal fade" id="completeAuditModal{{ audit.id }}" tabindex="-1" aria-labelledby="completeAuditModalLabel{{ audit.id }}" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="completeAuditModalLabel{{ audit.id }}">Завершить инвентаризацию</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Вы уверены, что хотите завершить инвентаризацию "{{ audit.name }}"?</p>
+                                                <p>Убедитесь, что все позиции проверены.</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                                <form action="{% url 'warehouse:audit_complete' audit.id %}" method="post">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-success">Завершить</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Модальное окно для отмены инвентаризации -->
+                                <div class="modal fade" id="cancelAuditModal{{ audit.id }}" tabindex="-1" aria-labelledby="cancelAuditModalLabel{{ audit.id }}" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="cancelAuditModalLabel{{ audit.id }}">Отменить инвентаризацию</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Вы уверены, что хотите отменить инвентаризацию "{{ audit.name }}"?</p>
+                                                <p class="text-danger">Это действие нельзя отменить.</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                                <form action="{% url 'warehouse:audit_cancel' audit.id %}" method="post">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-danger">Отменить инвентаризацию</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4">
+                                <p class="mb-0">Нет инвентаризаций</p>
+                                <a href="{% url 'warehouse:audit_create' %}" class="btn btn-primary mt-2">
+                                    <i class="bi bi-plus-circle"></i> Создать инвентаризацию
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

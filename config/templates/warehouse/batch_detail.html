@@ -1,0 +1,45 @@
+{% extends 'warehouse/base.html' %}
+
+{% block content %}
+<h2 class="mt-3 animate__animated animate__fadeInDown">Partiya: {{ batch.batch_number }}</h2>
+
+<div class="card animate__animated animate__fadeInUp">
+    <div class="card-header">
+        Detallar
+    </div>
+    <div class="card-body">
+        <p><strong>Mahsulot:</strong> {{ batch.product.name }}</p>
+        <p><strong>Kirim:</strong> {{ batch.in_qty }} &nbsp;
+           <strong>Chiqim:</strong> {{ batch.out_qty }} &nbsp;
+           <strong>Qoldiq:</strong> {{ batch.quantity }}</p>
+        <hr>
+        <h5>Partiyaga tegishli harakatlar</h5>
+        <table class="table table-bordered table-hover">
+            <thead class="table-secondary">
+                <tr>
+                    <th>Sana</th>
+                    <th>Hujjat #</th>
+                    <th>Harakat turi</th>
+                    <th>Miqdor</th>
+                    <th>Narx</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for m in movements %}
+                <tr>
+                    <td>{{ m.date }}</td>
+                    <td>{{ m.document_number }}</td>
+                    <td>{{ m.get_movement_type_display }}</td>
+                    <td>{{ m.quantity }}</td>
+                    <td>{{ m.price_sum }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center">Harakat topilmadi</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock content %}

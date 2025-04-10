@@ -1,0 +1,293 @@
+{% extends 'warehouse/base.html' %}
+
+{% block extra_css %}
+<style>
+    .dashboard-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+    .hover-shadow:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        transform: translateY(-3px);
+        transition: all 0.3s ease;
+    }
+    .card-icon {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .icon-box {
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .text-purple {
+        color: #6f42c1;
+    }
+    .border-purple {
+        border-color: #6f42c1;
+    }
+    .bg-purple {
+        background-color: #6f42c1;
+    }
+</style>
+{% endblock extra_css %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Приветственная карточка -->
+    <div class="card mb-4 bg-primary text-white animate__animated animate__fadeIn">
+        <div class="card-body p-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="card-title">Xush kelibsiz!</h2>
+                    <p class="card-text">
+                        Neft mahsulotlarini boshqarish platformasiga xush kelibsiz. 
+                        Ushbu platforma orqali siz ombor, rezervuar va vagonlardagi mahsulotlarni boshqarishingiz mumkin.
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="/" class="btn btn-light me-2">
+                        <i class="bi bi-house-door"></i> Bosh sahifa
+                    </a>
+                    <button class="btn btn-light" id="showTutorial">
+                        <i class="bi bi-info-circle"></i> Qo'llanmani ko'rish
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Основные метрики -->
+    <div class="row mb-4">
+        <!-- Количество продуктов на складе -->
+        <div class="col-md-3">
+            <div class="card h-100 shadow-sm animate__animated animate__fadeInUp">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="card-title text-muted">Mahsulotlar</h5>
+                        <div class="card-icon bg-light text-primary rounded p-2">
+                            <i class="bi bi-box-seam fs-3"></i>
+                        </div>
+                    </div>
+                    <h2 class="mt-3 mb-2">{{ product_count }}</h2>
+                    <p class="card-text text-success mb-0">
+                        <i class="bi bi-arrow-up-short"></i> 
+                        {{ product_growth }}% o'tgan oyga nisbatan
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Текущий объем в резервуарах -->
+        <div class="col-md-3">
+            <div class="card h-100 shadow-sm animate__animated animate__fadeInUp" style="animation-delay: 0.1s">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="card-title text-muted">Rezervuarlar hajmi</h5>
+                        <div class="card-icon bg-light text-success rounded p-2">
+                            <i class="bi bi-droplet-fill fs-3"></i>
+                        </div>
+                    </div>
+                    <h2 class="mt-3 mb-2">{{ total_volume|floatformat:1 }} t</h2>
+                    <p class="card-text text-muted mb-0">
+                        {{ reservoirs_capacity|floatformat:1 }} t umumiy sig'imdan
+                    </p>
+                    <div class="progress mt-2" style="height: 6px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ capacity_percentage }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Количество вагонов -->
+        <div class="col-md-3">
+            <div class="card h-100 shadow-sm animate__animated animate__fadeInUp" style="animation-delay: 0.2s">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="card-title text-muted">Vagonlar</h5>
+                        <div class="card-icon bg-light text-warning rounded p-2">
+                            <i class="bi bi-train-front fs-3"></i>
+                        </div>
+                    </div>
+                    <h2 class="mt-3 mb-2">{{ wagon_count }}</h2>
+                    <p class="card-text text-warning mb-0">
+                        {{ active_wagons }} ta faol vagonlar
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Количество движений -->
+        <div class="col-md-3">
+            <div class="card h-100 shadow-sm animate__animated animate__fadeInUp" style="animation-delay: 0.3s">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="card-title text-muted">Harakatlar</h5>
+                        <div class="card-icon bg-light text-danger rounded p-2">
+                            <i class="bi bi-arrow-left-right fs-3"></i>
+                        </div>
+                    </div>
+                    <h2 class="mt-3 mb-2">{{ movement_count }}</h2>
+                    <p class="card-text text-muted mb-0">
+                        <i class="bi bi-calendar3"></i> So'nggi 30 kun
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модули системы -->
+    <h4 class="mb-3 mt-5 animate__animated animate__fadeIn">Asosiy modullar</h4>
+    <div class="row row-cols-1 row-cols-md-4 mb-4">
+        <!-- Модуль вагонов -->
+        <div class="col mb-4 animate__animated animate__fadeInUp">
+            <a href="{% url 'warehouse:wagon_list' %}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box bg-light rounded me-3 p-3">
+                                <i class="bi bi-train-front text-primary fs-3"></i>
+                            </div>
+                            <h5 class="mb-0 text-dark">Vagonlar</h5>
+                        </div>
+                        <p class="card-text text-muted">
+                            Vagon ma'lumotlarini boshqarish va kalibrovka qilish
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        
+        <!-- Модуль резервуаров -->
+        <div class="col mb-4 animate__animated animate__fadeInUp" style="animation-delay: 0.1s">
+            <a href="{% url 'warehouse:reservoir_list' %}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box bg-light rounded me-3 p-3">
+                                <i class="bi bi-droplet-fill text-success fs-3"></i>
+                            </div>
+                            <h5 class="mb-0 text-dark">Rezervuarlar</h5>
+                        </div>
+                        <p class="card-text text-muted">
+                            Rezervuar ma'lumotlari va kalibrovka boshqaruvi
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        
+        <!-- Модуль продуктов -->
+        <div class="col mb-4 animate__animated animate__fadeInUp" style="animation-delay: 0.2s">
+            <a href="{% url 'warehouse:product_list' %}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box bg-light rounded me-3 p-3">
+                                <i class="bi bi-box-seam text-warning fs-3"></i>
+                            </div>
+                            <h5 class="mb-0 text-dark">Mahsulotlar</h5>
+                        </div>
+                        <p class="card-text text-muted">
+                            Neft mahsulotlarini ro'yxati va inventarizatsiyasi
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        
+        <!-- Модуль движений -->
+        <div class="col mb-4 animate__animated animate__fadeInUp" style="animation-delay: 0.3s">
+            <a href="{% url 'warehouse:movement_list' %}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box bg-light rounded me-3 p-3">
+                                <i class="bi bi-arrow-left-right text-danger fs-3"></i>
+                            </div>
+                            <h5 class="mb-0 text-dark">Harakatlar</h5>
+                        </div>
+                        <p class="card-text text-muted">
+                            Kirim va chiqim harakatlarini ro'yxati va hisoboti
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        
+        <!-- Модуль аналитики -->
+        <div class="col mb-4 animate__animated animate__fadeInUp" style="animation-delay: 0.4s">
+            <a href="{% url 'warehouse:analytics_dashboard' %}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow border-purple">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box bg-light rounded me-3 p-3">
+                                <i class="bi bi-graph-up text-purple fs-3"></i>
+                            </div>
+                            <h5 class="mb-0 text-dark">Analitika</h5>
+                        </div>
+                        <p class="card-text text-muted">
+                            Maxsulotlar analitikasi va xisabotlar
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        
+        <!-- Модуль инвентаризации -->
+        <div class="col mb-4 animate__animated animate__fadeInUp" style="animation-delay: 0.5s">
+            <a href="{% url 'warehouse:audit_list' %}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow border-info">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box bg-light rounded me-3 p-3">
+                                <i class="bi bi-clipboard-check text-info fs-3"></i>
+                            </div>
+                            <h5 class="mb-0 text-dark">Inventarizatsiya</h5>
+                        </div>
+                        <p class="card-text text-muted">
+                            Davriy inventarizatsiya va hisob tekshirish
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        
+        <!-- Модуль планирования запасов -->
+        <div class="col mb-4 animate__animated animate__fadeInUp" style="animation-delay: 0.6s">
+            <a href="{% url 'warehouse:min_level_list' %}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow border-success">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box bg-light rounded me-3 p-3">
+                                <i class="bi bi-cart-plus text-success fs-3"></i>
+                            </div>
+                            <h5 class="mb-0 text-dark">Zaxiralarni rejalashtirish</h5>
+                        </div>
+                        <p class="card-text text-muted">
+                            Minimal darajalar va xarid rejalari
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- После блока с модулями системы -->
+    <div class="text-center mt-5 mb-5">
+        <a href="/" class="btn btn-lg btn-primary animate__animated animate__fadeIn">
+            <i class="bi bi-house-door-fill me-2"></i> Bosh sahifaga qaytish
+        </a>
+    </div>
+</div>
+
+{% endblock %}

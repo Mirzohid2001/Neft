@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Панель управления складом{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>Панель управления складом</h2>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-plus"></i> Создать операцию
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'warehouse:create_reception' %}">
+                            <i class="fas fa-truck"></i> Приемка
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'warehouse:create_sale' %}">
+                            <i class="fas fa-shopping-cart"></i> Продажа
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'warehouse:create_production' %}">
+                            <i class="fas fa-industry"></i> Производство
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'warehouse:create_transfer' %}">
+                            <i class="fas fa-exchange-alt"></i> Перемещение
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Приемки</h6>
+                            <h3 class="mt-2 mb-0">{{ receptions_count }}</h3>
+                            <small>За сегодня: {{ today_receptions }}</small>
+                        </div>
+                        <i class="fas fa-truck fa-2x opacity-50"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-primary-dark border-0">
+                    <a href="{% url 'warehouse:reception_list' %}" class="text-white text-decoration-none small">
+                        Подробнее <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Продажи</h6>
+                            <h3 class="mt-2 mb-0">{{ sales_count }}</h3>
+                            <small>За сегодня: {{ today_sales }}</small>
+                        </div>
+                        <i class="fas fa-shopping-cart fa-2x opacity-50"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-success-dark border-0">
+                    <a href="{% url 'warehouse:sale_list' %}" class="text-white text-decoration-none small">
+                        Подробнее <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Производство</h6>
+                            <h3 class="mt-2 mb-0">{{ productions_count }}</h3>
+                            <small>За сегодня: {{ today_productions }}</small>
+                        </div>
+                        <i class="fas fa-industry fa-2x opacity-50"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-info-dark border-0">
+                    <a href="{% url 'warehouse:production_list' %}" class="text-white text-decoration-none small">
+                        Подробнее <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-warning text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Перемещения</h6>
+                            <h3 class="mt-2 mb-0">{{ transfers_count }}</h3>
+                            <small>За сегодня: {{ today_transfers }}</small>
+                        </div>
+                        <i class="fas fa-exchange-alt fa-2x opacity-50"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-warning-dark border-0">
+                    <a href="{% url 'warehouse:transfer_list' %}" class="text-white text-decoration-none small">
+                        Подробнее <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Быстрые действия -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Быстрые действия</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <a href="{% url 'warehouse:create_reception' %}" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-truck mb-2"></i><br>
+                                Создать приемку
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'warehouse:create_sale' %}" class="btn btn-outline-success w-100">
+                                <i class="fas fa-shopping-cart mb-2"></i><br>
+                                Создать продажу
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'warehouse:create_production' %}" class="btn btn-outline-info w-100">
+                                <i class="fas fa-industry mb-2"></i><br>
+                                Создать производство
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'warehouse:create_transfer' %}" class="btn btn-outline-warning w-100">
+                                <i class="fas fa-exchange-alt mb-2"></i><br>
+                                Создать перемещение
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Последние операции -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Последние операции</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Тип</th>
+                                    <th>Дата</th>
+                                    <th>Продукт</th>
+                                    <th>Источник</th>
+                                    <th>Назначение</th>
+                                    <th>Количество</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for movement in recent_movements %}
+                                <tr>
+                                    <td>{{ movement.id }}</td>
+                                    <td>
+                                        {% if movement.type == 'reception' %}
+                                        <span class="badge bg-primary">Приемка</span>
+                                        {% elif movement.type == 'sale' %}
+                                        <span class="badge bg-success">Продажа</span>
+                                        {% elif movement.type == 'production' %}
+                                        <span class="badge bg-info">Производство</span>
+                                        {% elif movement.type == 'transfer' %}
+                                        <span class="badge bg-warning">Перемещение</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ movement.created_at|date:"d.m.Y H:i" }}</td>
+                                    <td>{{ movement.product.name }}</td>
+                                    <td>
+                                        {% if movement.source_type == 'warehouse' and movement.source_warehouse %}
+                                        Склад: {{ movement.source_warehouse.name }}
+                                        {% elif movement.source_type == 'reservoir' and movement.source_reservoir %}
+                                        Резервуар: {{ movement.source_reservoir.name }}
+                                        {% elif movement.source_type == 'supplier' and movement.supplier %}
+                                        Поставщик: {{ movement.supplier.name }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if movement.destination_type == 'warehouse' and movement.destination_warehouse %}
+                                        Склад: {{ movement.destination_warehouse.name }}
+                                        {% elif movement.destination_type == 'reservoir' and movement.destination_reservoir %}
+                                        Резервуар: {{ movement.destination_reservoir.name }}
+                                        {% elif movement.destination_type == 'client' and movement.client %}
+                                        Клиент: {{ movement.client.name }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ movement.expected_quantity }} {{ movement.product.unit }}</td>
+                                    <td>
+                                        {% if movement.status == 'pending' %}
+                                        <span class="badge bg-warning">Ожидает</span>
+                                        {% elif movement.status == 'in_progress' %}
+                                        <span class="badge bg-info">В процессе</span>
+                                        {% elif movement.status == 'completed' %}
+                                        <span class="badge bg-success">Завершено</span>
+                                        {% elif movement.status == 'cancelled' %}
+                                        <span class="badge bg-danger">Отменено</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            {% if movement.type == 'reception' %}
+                                            <a href="{% url 'warehouse:reception_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% elif movement.type == 'sale' %}
+                                            <a href="{% url 'warehouse:sale_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% elif movement.type == 'production' %}
+                                            <a href="{% url 'warehouse:production_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% elif movement.type == 'transfer' %}
+                                            <a href="{% url 'warehouse:transfer_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">Нет операций</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}Список ожидающих перемещений{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Список ожидающих перемещений</h1>
+        <a href="{% url 'warehouse:estokada_dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Назад
+        </a>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Перемещения на сегодня</h5>
+        </div>
+        <div class="card-body">
+            {% if transfers %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Продукт</th>
+                            <th>Номер документа</th>
+                            <th>Ожидаемое кол-во</th>
+                            <th>Источник</th>
+                            <th>Назначение</th>
+                            <th>Создан</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transfer in transfers %}
+                        <tr>
+                            <td>{{ transfer.id }}</td>
+                            <td>{{ transfer.product.name }}</td>
+                            <td>{{ transfer.document_number|default:"-" }}</td>
+                            <td>{{ transfer.expected_quantity|floatformat:2 }} т</td>
+                            <td>
+                                {% if transfer.source_reservoir %}
+                                Резервуар: {{ transfer.source_reservoir.name }}
+                                {% elif transfer.source_wagon %}
+                                Вагон: {{ transfer.source_wagon.wagon_number }}
+                                {% elif transfer.source_warehouse %}
+                                Склад: {{ transfer.source_warehouse.name }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if transfer.target_reservoir %}
+                                Резервуар: {{ transfer.target_reservoir.name }}
+                                {% elif transfer.target_wagon %}
+                                Вагон: {{ transfer.target_wagon.wagon_number }}
+                                {% elif transfer.target_warehouse %}
+                                Склад: {{ transfer.target_warehouse.name }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ transfer.created_at|date:"d.m.Y H:i" }}</td>
+                            <td>
+                                <a href="{% url 'warehouse:estokada_transfer_process' transfer.id %}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-pencil-square"></i> Обработать
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle"></i> На сегодня нет ожидающих перемещений.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

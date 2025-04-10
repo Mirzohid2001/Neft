@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+
+{% block title %}Прогноз запасов: {{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>Прогноз запасов</h1>
+            <h2 class="fs-4">{{ product.name }}</h2>
+        </div>
+        <div class="btn-group" role="group">
+            <a href="{% url 'warehouse:forecast_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> К списку прогнозов
+            </a>
+            {% try %}
+            <a href="{% url 'warehouse:min_level_update' product.min_level.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-gear"></i> Настройки уровней
+            </a>
+            {% except %}
+            <a href="{% url 'warehouse:min_level_create' product.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-plus-circle"></i> Настроить уровни
+            </a>
+            {% endtry %}
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Основная информация -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Общая информация</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <div class="border rounded p-3 h-100">
+                        <h6 class="mb-2">Текущий запас</h6>
+                        <h3 class="mb-0">{{ product.current_quantity|floatformat:2 }}</h3>
+                    </div>
+                </div>
+                {% if min_level %}
+                <div class="col-md-3 mb-3">
+                    <div class="border rounded p-3 h-100 {% if product.current_quantity < min_level.min_quantity %}bg-danger bg-opacity-10{% endif %}">
+                        <h6 class="mb-2">Минимальный уровень</h6>
+                        <h3 class="mb-0 {% if product.current_quantity < min_level.min_quantity %}text-danger{% endif %}">
+                            {{ min_level.min_quantity|floatformat:2 }}
+                        </h3>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="border rounded p-3 h-100">
+                        <h6 class="mb-2">Оптимальный уровень</h6>
+                        <h3 class="mb-0">{{ min_level.optimal_quantity|floatformat:2 }}</h3>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="col-md-3 mb-3">
+                    <div class="border rounded p-3 h-100 {% if days_to_depletion != "90+" and days_to_depletion < 14 %}{% if days_to_depletion < 7 %}bg-danger{% else %}bg-warning{% endif %} bg-opacity-10{% endif %}">
+                        <h6 class="mb-2">Прогноз исчерпания</h6>
+                        <h3 class="mb-0 {% if days_to_depletion != "90+" and days_to_depletion < 14 %}{% if days_to_depletion < 7 %}text-danger{% else %}text-warning{% endif %}{% endif %}">
+                            {% if days_to_depletion != "90+" %}
+                            {{ days_to_depletion }} дней
+                            {% else %}
+                            > 90 дней
+                            {% endif %}
+                        </h3>
+                    </div>
+                </div>
+            </div>
+            
+            {% if min_level and days_to_min_level != "90+" %}
+            <div class="alert alert-warning mt-3">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                Запас упадет ниже минимального уровня через <strong>{{ days_to_min_level }} дней</strong> ({{ min_level_date }}).
+                {% if recommended_purchase %}
+                <div class="mt-2">
+                    Рекомендуемый объем закупки для пополнения до оптимального уровня: <strong>{{ recommended_purchase|floatformat:2 }}</strong>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- График прогноза -->
+    {% if forecast_chart %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">График прогноза</h5>
+        </div>
+        <div class="card-body">
+            {{ forecast_chart|safe }}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Таблица прогнозов -->
+    {% if forecasts %}
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Детальные данные прогноза</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Прогнозируемый расход</th>
+                            <th>Уровень уверенности</th>
+                            <th>Прогнозируемый остаток</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% with current=product.current_quantity %}
+                        {% for forecast in forecasts %}
+                        <tr>
+                            <td>{{ forecast.date|date:"d.m.Y" }}</td>
+                            <td>{{ forecast.forecasted_quantity|floatformat:2 }}</td>
+                            <td>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar" role="progressbar" style="width: {{ forecast.confidence_level }}%;" aria-valuenow="{{ forecast.confidence_level }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <small>{{ forecast.confidence_level|floatformat:0 }}%</small>
+                            </td>
+                            <td>
+                                {% with remaining=current|subtract:forloop.counter0|multiply:forecast.forecasted_quantity %}
+                                {{ remaining|floatformat:2 }}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% with remaining=current|subtract:forloop.counter0|multiply:forecast.forecasted_quantity %}
+                                {% if min_level %}
+                                {% if remaining <= 0 %}
+                                <span class="badge bg-danger">Исчерпано</span>
+                                {% elif remaining < min_level.min_quantity %}
+                                <span class="badge bg-warning">Ниже минимального</span>
+                                {% elif remaining < min_level.optimal_quantity %}
+                                <span class="badge bg-info">Ниже оптимального</span>
+                                {% else %}
+                                <span class="badge bg-success">Норма</span>
+                                {% endif %}
+                                {% else %}
+                                {% if remaining <= 0 %}
+                                <span class="badge bg-danger">Исчерпано</span>
+                                {% else %}
+                                <span class="badge bg-success">В наличии</span>
+                                {% endif %}
+                                {% endif %}
+                                {% endwith %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <p class="mb-0">Нет данных прогноза.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% endwith %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                Нет доступных прогнозов для этого продукта.
+            </div>
+            <a href="{% url 'warehouse:forecast_generate' %}" class="btn btn-primary">
+                <i class="bi bi-lightning"></i> Сгенерировать прогнозы
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

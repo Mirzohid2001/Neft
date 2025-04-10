@@ -1,0 +1,10 @@
+{% extends 'warehouse/base.html' %}
+{% block content %}
+<h2>Yangi Mahalliy Harakat</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success">Saqlash</button>
+</form>
+{% include 'warehouse/partials/localmovement_js.html' %}
+{% endblock %}

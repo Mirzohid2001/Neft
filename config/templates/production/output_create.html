@@ -1,0 +1,86 @@
+{% extends 'production/base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="animate__animated animate__fadeInDown">
+            Chiquvchi mahsulotlarni qo'shish
+        </h2>
+        <a href="{% url 'production:process_detail' process.id %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Jarayonga qaytish
+        </a>
+    </div>
+    
+    <div class="card animate__animated animate__fadeInUp">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Jarayon: {{ process.process_number }}</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.product.id_for_label }}">Mahsulot:</label>
+                        {{ form.product }}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.quantity.id_for_label }}">Miqdori (tonna):</label>
+                        {{ form.quantity }}
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="{{ form.temperature.id_for_label }}">Harorat (°C):</label>
+                        {{ form.temperature }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.density.id_for_label }}">Zichlik (kg/m³):</label>
+                        {{ form.density }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.liter_volume.id_for_label }}">Hajm (litr):</label>
+                        {{ form.liter_volume }}
+                    </div>
+                </div>
+                
+                <div class="mt-4 d-flex justify-content-end">
+                    <button type="button" class="btn btn-secondary me-2" onclick="history.back()">
+                        <i class="bi bi-x-circle"></i> Bekor qilish
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle"></i> Saqlash
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // Автоматический расчет объема в литрах при изменении массы и плотности
+    document.addEventListener('DOMContentLoaded', function() {
+        const quantityInput = document.getElementById('{{ form.quantity.id_for_label }}');
+        const densityInput = document.getElementById('{{ form.density.id_for_label }}');
+        const literVolumeInput = document.getElementById('{{ form.liter_volume.id_for_label }}');
+        
+        function calculateLiterVolume() {
+            const quantity = parseFloat(quantityInput.value) || 0;
+            const density = parseFloat(densityInput.value) || 0;
+            
+            if (quantity > 0 && density > 0) {
+                // Формула: объем (л) = масса (кг) / плотность (кг/м³) * 1000
+                // 1 тонна = 1000 кг
+                const volume = (quantity * 1000) / density * 1000;
+                literVolumeInput.value = volume.toFixed(2);
+            }
+        }
+        
+        quantityInput.addEventListener('input', calculateLiterVolume);
+        densityInput.addEventListener('input', calculateLiterVolume);
+    });
+</script>
+{% endblock %}
+{% endblock content %} 

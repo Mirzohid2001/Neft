@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if form.instance.id %}
+Редактирование производства #{{ form.instance.id }}
+{% else %}
+Создание нового производства
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            {% if form.instance.id %}
+            Редактирование производства #{{ form.instance.id }}
+            {% else %}
+            Создание нового производства
+            {% endif %}
+        </h2>
+        <a href="{% url 'warehouse:production_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> К списку производств
+        </a>
+    </div>
+
+    {% if messages %}
+    <div class="messages mb-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                    {{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">Информация о продуктах</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="{{ form.source_product.id_for_label }}" class="form-label">Исходный продукт*</label>
+                                    {{ form.source_product }}
+                                    {% if form.source_product.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.source_product.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="{{ form.source_quantity.id_for_label }}" class="form-label">Количество исходного продукта*</label>
+                                    {{ form.source_quantity }}
+                                    {% if form.source_quantity.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.source_quantity.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text" id="source-unit-text"></div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="{{ form.product.id_for_label }}" class="form-label">Конечный продукт*</label>
+                                    {{ form.product }}
+                                    {% if form.product.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.product.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="{{ form.expected_quantity.id_for_label }}" class="form-label">Ожидаемое количество конечного продукта*</label>
+                                    {{ form.expected_quantity }}
+                                    {% if form.expected_quantity.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.expected_quantity.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text" id="product-unit-text"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">Информация о местоположении</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="{{ form.source_type.id_for_label }}" class="form-label">Тип источника*</label>
+                                    {{ form.source_type }}
+                                    {% if form.source_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.source_type.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3 source-select" id="source-warehouse-group">
+                                    <label for="{{ form.source_warehouse.id_for_label }}" class="form-label">Склад-источник*</label>
+                                    {{ form.source_warehouse }}
+                                    {% if form.source_warehouse.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.source_warehouse.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3 source-select" id="source-reservoir-group">
+                                    <label for="{{ form.source_reservoir.id_for_label }}" class="form-label">Резервуар-источник*</label>
+                                    {{ form.source_reservoir }}
+                                    {% if form.source_reservoir.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.source_reservoir.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="{{ form.destination_type.id_for_label }}" class="form-label">Тип назначения*</label>
+                                    {{ form.destination_type }}
+                                    {% if form.destination_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.destination_type.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3 destination-select" id="destination-warehouse-group">
+                                    <label for="{{ form.destination_warehouse.id_for_label }}" class="form-label">Склад назначения*</label>
+                                    {{ form.destination_warehouse }}
+                                    {% if form.destination_warehouse.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.destination_warehouse.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3 destination-select" id="destination-reservoir-group">
+                                    <label for="{{ form.destination_reservoir.id_for_label }}" class="form-label">Резервуар назначения*</label>
+                                    {{ form.destination_reservoir }}
+                                    {% if form.destination_reservoir.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.destination_reservoir.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Дополнительная информация</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.document_number.id_for_label }}" class="form-label">Номер документа</label>
+                                    {{ form.document_number }}
+                                    {% if form.document_number.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.document_number.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.status.id_for_label }}" class="form-label">Статус</label>
+                                    {{ form.status }}
+                                    {% if form.status.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.status.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.actual_quantity.id_for_label }}" class="form-label">Фактическое количество</label>
+                                    {{ form.actual_quantity }}
+                                    {% if form.actual_quantity.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.actual_quantity.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    <div class="form-text" id="actual-unit-text"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.notes.id_for_label }}" class="form-label">Примечания</label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.notes.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.documents.id_for_label }}" class="form-label">Загрузить документы</label>
+                            {{ form.documents }}
+                            {% if form.documents.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.documents.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <div class="form-text">Можно загрузить несколько файлов, выбрав их с зажатой клавишей Ctrl</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end">
+                    <button type="button" class="btn btn-secondary me-2" onclick="window.history.back();">Отмена</button>
+                    <button type="submit" class="btn btn-primary">
+                        {% if form.instance.id %}
+                        Сохранить изменения
+                        {% else %}
+                        Создать производство
+                        {% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Функция для отображения единиц измерения
+        function updateProductUnits() {
+            const sourceProductSelect = document.getElementById('{{ form.source_product.id_for_label }}');
+            const productSelect = document.getElementById('{{ form.product.id_for_label }}');
+            const sourceUnitText = document.getElementById('source-unit-text');
+            const productUnitText = document.getElementById('product-unit-text');
+            const actualUnitText = document.getElementById('actual-unit-text');
+            
+            if (sourceProductSelect.selectedIndex > 0) {
+                const sourceOption = sourceProductSelect.options[sourceProductSelect.selectedIndex];
+                const sourceUnit = sourceOption.getAttribute('data-unit');
+                if (sourceUnit) {
+                    sourceUnitText.textContent = 'Единица измерения: ' + sourceUnit;
+                }
+            }
+            
+            if (productSelect.selectedIndex > 0) {
+                const option = productSelect.options[productSelect.selectedIndex];
+                const unit = option.getAttribute('data-unit');
+                if (unit) {
+                    productUnitText.textContent = 'Единица измерения: ' + unit;
+                    actualUnitText.textContent = 'Единица измерения: ' + unit;
+                }
+            }
+        }
+        
+        // Обработчики для отображения единиц измерения
+        document.getElementById('{{ form.source_product.id_for_label }}').addEventListener('change', updateProductUnits);
+        document.getElementById('{{ form.product.id_for_label }}').addEventListener('change', updateProductUnits);
+        
+        // Управление отображением полей источника и назначения
+        function handleSourceTypeChange() {
+            const sourceType = document.getElementById('{{ form.source_type.id_for_label }}').value;
+            const sourceWarehouseGroup = document.getElementById('source-warehouse-group');
+            const sourceReservoirGroup = document.getElementById('source-reservoir-group');
+            
+            // Скрываем все поля источника
+            sourceWarehouseGroup.style.display = 'none';
+            sourceReservoirGroup.style.display = 'none';
+            
+            // Показываем нужное поле в зависимости от выбранного типа
+            if (sourceType === 'warehouse') {
+                sourceWarehouseGroup.style.display = 'block';
+            } else if (sourceType === 'reservoir') {
+                sourceReservoirGroup.style.display = 'block';
+            }
+        }
+        
+        function handleDestinationTypeChange() {
+            const destType = document.getElementById('{{ form.destination_type.id_for_label }}').value;
+            const destWarehouseGroup = document.getElementById('destination-warehouse-group');
+            const destReservoirGroup = document.getElementById('destination-reservoir-group');
+            
+            // Скрываем все поля назначения
+            destWarehouseGroup.style.display = 'none';
+            destReservoirGroup.style.display = 'none';
+            
+            // Показываем нужное поле в зависимости от выбранного типа
+            if (destType === 'warehouse') {
+                destWarehouseGroup.style.display = 'block';
+            } else if (destType === 'reservoir') {
+                destReservoirGroup.style.display = 'block';
+            }
+        }
+        
+        // Устанавливаем обработчики событий
+        document.getElementById('{{ form.source_type.id_for_label }}').addEventListener('change', handleSourceTypeChange);
+        document.getElementById('{{ form.destination_type.id_for_label }}').addEventListener('change', handleDestinationTypeChange);
+        
+        // Инициализация при загрузке страницы
+        updateProductUnits();
+        handleSourceTypeChange();
+        handleDestinationTypeChange();
+    });
+</script>
+{% endblock %} 

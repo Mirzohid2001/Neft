@@ -1,0 +1,30 @@
+{% extends 'production/base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card animate__animated animate__fadeInDown">
+        <div class="card-header bg-warning text-white">
+            <h5 class="mb-0">Jarayonni tugatish</h5>
+        </div>
+        <div class="card-body">
+            <p class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Siz <strong>{{ process.get_process_type_display }} - {{ process.process_number }}</strong> jarayonini tugatmoqchimisiz?
+                Bu amaldan so'ng jarayonga o'zgartirishlar kiritib bo'lmaydi.
+            </p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="d-flex justify-content-end">
+                    <a href="{% url 'production:process_detail' process.id %}" class="btn btn-secondary me-2">
+                        <i class="bi bi-x-circle"></i> Bekor qilish
+                    </a>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-check-circle"></i> Jarayonni tugatish
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 
