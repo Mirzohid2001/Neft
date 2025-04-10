@@ -34,15 +34,15 @@
                 </h4>
                 <div>
                     {% if movement.status == 'pending' %}
-                    <a href="{% url 'warehouse:edit_'|add:movement.movement_type movement.id %}" class="btn btn-sm btn-light">
+                    <a href="{% url 'warehouse:sales_movement_edit' movement.id %}" class="btn btn-sm btn-light">
                         <i class="fas fa-edit"></i> Редактировать
                     </a>
-                    <a href="{% url 'warehouse:cancel_'|add:movement.movement_type movement.id %}" class="btn btn-sm btn-danger"
+                    <a href="{% url 'warehouse:sales_movement_cancel' movement.id %}" class="btn btn-sm btn-danger"
                        onclick="return confirm('Вы уверены, что хотите отменить эту операцию?')">
                         <i class="fas fa-times"></i> Отменить
                     </a>
                     {% elif movement.status == 'in_progress' %}
-                    <a href="{% url 'warehouse:complete_'|add:movement.movement_type movement.id %}" class="btn btn-sm btn-success">
+                    <a href="{% url 'warehouse:sales_movement_confirm' movement.id %}" class="btn btn-sm btn-success">
                         <i class="fas fa-check"></i> Завершить
                     </a>
                     {% endif %}
@@ -56,7 +56,7 @@
                         <i class="fas fa-arrow-left"></i> К списку приемов
                     </a>
                     {% elif movement.movement_type == 'sale' %}
-                    <a href="{% url 'warehouse:sales_sale_list' %}" class="btn btn-sm btn-secondary">
+                    <a href="{% url 'warehouse:sales_sales_list' %}" class="btn btn-sm btn-secondary">
                         <i class="fas fa-arrow-left"></i> К списку продаж
                     </a>
                     {% elif movement.movement_type == 'production' %}

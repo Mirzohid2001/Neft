@@ -7,8 +7,8 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Производство</h2>
         <div>
-            <a href="{% url 'warehouse:create_production' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Создать производство</a>
-            <a href="{% url 'warehouse:sales_dashboard' %}" class="btn btn-secondary"><i class="fas fa-home"></i> На главную</a>
+            <a href="{% url 'warehouse:sales_movement_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Создать производство</a>
+            <a href="{% url 'warehouse:sales_department_dashboard' %}" class="btn btn-secondary"><i class="fas fa-home"></i> На главную</a>
         </div>
     </div>
 
@@ -97,14 +97,14 @@
                             </td>
                             <td>
                                 <div class="btn-group">
-                                    <a href="{% url 'warehouse:production_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{% url 'warehouse:sales_movement_detail' movement.id %}" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                     {% if movement.status == 'pending' %}
-                                    <a href="{% url 'warehouse:edit_production' movement.id %}" class="btn btn-sm btn-outline-secondary">
+                                    <a href="{% url 'warehouse:sales_movement_edit' movement.id %}" class="btn btn-sm btn-outline-secondary">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <a href="{% url 'warehouse:cancel_production' movement.id %}" class="btn btn-sm btn-outline-danger"
+                                    <a href="{% url 'warehouse:sales_movement_cancel' movement.id %}" class="btn btn-sm btn-outline-danger"
                                        onclick="return confirm('Вы уверены, что хотите отменить производство?')">
                                         <i class="fas fa-times"></i>
                                     </a>
