@@ -1,0 +1,461 @@
+{% extends "accounting/base.html" %}
+
+{% block title %}Бюджет | Buxgalteriya tizimi{% endblock %}
+
+{% block accounting_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Бюджет</h1>
+    <div>
+        <button type="button" class="btn btn-outline-primary mr-2" id="printReportBtn">
+            <i class="fas fa-print mr-2"></i> Печать
+        </button>
+        <button type="button" class="btn btn-primary" id="exportReportBtn">
+            <i class="fas fa-file-export mr-2"></i> Экспорт
+        </button>
+    </div>
+</div>
+
+<!-- Фильтры отчета -->
+<div class="card card-accounting mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Параметры бюджета</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row">
+            <div class="form-group col-md-3">
+                <label for="period">Период</label>
+                <select class="form-control" id="period" name="period">
+                    <option value="current_month" {% if request.GET.period == 'current_month' or not request.GET.period %}selected{% endif %}>Текущий месяц</option>
+                    <option value="previous_month" {% if request.GET.period == 'previous_month' %}selected{% endif %}>Предыдущий месяц</option>
+                    <option value="current_quarter" {% if request.GET.period == 'current_quarter' %}selected{% endif %}>Текущий квартал</option>
+                    <option value="current_year" {% if request.GET.period == 'current_year' %}selected{% endif %}>Текущий год</option>
+                    <option value="custom" {% if request.GET.period == 'custom' %}selected{% endif %}>Произвольный период</option>
+                </select>
+            </div>
+            <div class="form-group col-md-3 custom-date-range" {% if request.GET.period != 'custom' %}style="display: none;"{% endif %}>
+                <label for="date_from">С</label>
+                <input type="text" class="form-control datepicker" id="date_from" name="date_from" value="{{ request.GET.date_from|default:'' }}" placeholder="дд.мм.гггг">
+            </div>
+            <div class="form-group col-md-3 custom-date-range" {% if request.GET.period != 'custom' %}style="display: none;"{% endif %}>
+                <label for="date_to">По</label>
+                <input type="text" class="form-control datepicker" id="date_to" name="date_to" value="{{ request.GET.date_to|default:'' }}" placeholder="дд.мм.гггг">
+            </div>
+            <div class="form-group col-md-3">
+                <label for="budget_type">Тип бюджета</label>
+                <select class="form-control" id="budget_type" name="budget_type">
+                    <option value="all" {% if request.GET.budget_type == 'all' or not request.GET.budget_type %}selected{% endif %}>Доходы и расходы</option>
+                    <option value="income" {% if request.GET.budget_type == 'income' %}selected{% endif %}>Только доходы</option>
+                    <option value="expense" {% if request.GET.budget_type == 'expense' %}selected{% endif %}>Только расходы</option>
+                </select>
+            </div>
+            <div class="form-group col-md-3 align-self-end">
+                <button type="submit" class="btn btn-primary mr-2">
+                    <i class="fas fa-filter mr-2"></i> Применить
+                </button>
+                <a href="{% url 'accounting:budget' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-undo mr-2"></i> Сбросить
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Сводная информация -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card card-accounting">
+            <div class="card-body dashboard-stats">
+                <div class="stat-icon">
+                    <i class="fas fa-money-bill-wave text-success"></i>
+                </div>
+                <div class="stat-value">{{ total_planned|floatformat:2 }}</div>
+                <div class="stat-label">Запланировано</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-accounting">
+            <div class="card-body dashboard-stats">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle text-primary"></i>
+                </div>
+                <div class="stat-value">{{ total_actual|floatformat:2 }}</div>
+                <div class="stat-label">Фактически</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-accounting">
+            <div class="card-body dashboard-stats">
+                <div class="stat-icon">
+                    <i class="fas fa-percentage {% if total_difference >= 0 %}text-success{% else %}text-danger{% endif %}"></i>
+                </div>
+                <div class="stat-value {% if total_difference >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {{ percent_complete|floatformat:1 }}%
+                </div>
+                <div class="stat-label">Выполнение</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Визуализация бюджета -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Сравнение запланированного и фактического бюджета</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="budgetComparisonChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Бюджет доходов -->
+{% if request.GET.budget_type != 'expense' %}
+<div class="card card-accounting mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Бюджет доходов</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 40%">Категория</th>
+                        <th class="text-right">Запланировано</th>
+                        <th class="text-right">Фактически</th>
+                        <th class="text-right">Разница</th>
+                        <th class="text-right">Выполнение</th>
+                        <th style="width: 15%">Прогресс</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in income_budget %}
+                    <tr>
+                        <td>{{ item.category.name }}</td>
+                        <td class="text-right">{{ item.planned_amount|floatformat:2 }}</td>
+                        <td class="text-right">{{ item.actual_amount|floatformat:2 }}</td>
+                        <td class="text-right {% if item.difference >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ item.difference|floatformat:2 }}
+                        </td>
+                        <td class="text-right {% if item.percent >= 100 %}text-success{% elif item.percent >= 70 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ item.percent|floatformat:1 }}%
+                        </td>
+                        <td>
+                            <div class="progress">
+                                <div class="progress-bar {% if item.percent >= 100 %}bg-success{% elif item.percent >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {{ item.percent }}%;" 
+                                    aria-valuenow="{{ item.percent }}" 
+                                    aria-valuemin="0" 
+                                    aria-valuemax="100">
+                                    {{ item.percent|floatformat:0 }}%
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <div class="empty-state">
+                                <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                                <h5>Данные не найдены</h5>
+                                <p class="text-muted">У вас нет запланированных доходов на выбранный период.</p>
+                                <a href="#" class="btn btn-primary mt-2" data-toggle="modal" data-target="#addBudgetModal">
+                                    <i class="fas fa-plus mr-2"></i> Добавить бюджет
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="font-weight-bold">
+                        <td>Итого доходы</td>
+                        <td class="text-right">{{ total_income_planned|floatformat:2 }}</td>
+                        <td class="text-right">{{ total_income_actual|floatformat:2 }}</td>
+                        <td class="text-right {% if income_difference >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ income_difference|floatformat:2 }}
+                        </td>
+                        <td class="text-right {% if income_percent >= 100 %}text-success{% elif income_percent >= 70 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ income_percent|floatformat:1 }}%
+                        </td>
+                        <td>
+                            <div class="progress">
+                                <div class="progress-bar {% if income_percent >= 100 %}bg-success{% elif income_percent >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {{ income_percent }}%;" 
+                                    aria-valuenow="{{ income_percent }}" 
+                                    aria-valuemin="0" 
+                                    aria-valuemax="100">
+                                    {{ income_percent|floatformat:0 }}%
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Бюджет расходов -->
+{% if request.GET.budget_type != 'income' %}
+<div class="card card-accounting mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Бюджет расходов</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 40%">Категория</th>
+                        <th class="text-right">Запланировано</th>
+                        <th class="text-right">Фактически</th>
+                        <th class="text-right">Разница</th>
+                        <th class="text-right">Выполнение</th>
+                        <th style="width: 15%">Прогресс</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in expense_budget %}
+                    <tr>
+                        <td>{{ item.category.name }}</td>
+                        <td class="text-right">{{ item.planned_amount|floatformat:2 }}</td>
+                        <td class="text-right">{{ item.actual_amount|floatformat:2 }}</td>
+                        <td class="text-right {% if item.difference <= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ item.difference|floatformat:2 }}
+                        </td>
+                        <td class="text-right {% if item.percent <= 100 %}text-success{% elif item.percent <= 120 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ item.percent|floatformat:1 }}%
+                        </td>
+                        <td>
+                            <div class="progress">
+                                <div class="progress-bar {% if item.percent <= 100 %}bg-success{% elif item.percent <= 120 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {{ item.percent|min_number:100 }}%;" 
+                                    aria-valuenow="{{ item.percent }}" 
+                                    aria-valuemin="0" 
+                                    aria-valuemax="100">
+                                    {{ item.percent|floatformat:0 }}%
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <div class="empty-state">
+                                <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+                                <h5>Данные не найдены</h5>
+                                <p class="text-muted">У вас нет запланированных расходов на выбранный период.</p>
+                                <a href="#" class="btn btn-primary mt-2" data-toggle="modal" data-target="#addBudgetModal">
+                                    <i class="fas fa-plus mr-2"></i> Добавить бюджет
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="font-weight-bold">
+                        <td>Итого расходы</td>
+                        <td class="text-right">{{ total_expense_planned|floatformat:2 }}</td>
+                        <td class="text-right">{{ total_expense_actual|floatformat:2 }}</td>
+                        <td class="text-right {% if expense_difference <= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ expense_difference|floatformat:2 }}
+                        </td>
+                        <td class="text-right {% if expense_percent <= 100 %}text-success{% elif expense_percent <= 120 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ expense_percent|floatformat:1 }}%
+                        </td>
+                        <td>
+                            <div class="progress">
+                                <div class="progress-bar {% if expense_percent <= 100 %}bg-success{% elif expense_percent <= 120 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {{ expense_percent|min_number:100 }}%;" 
+                                    aria-valuenow="{{ expense_percent }}" 
+                                    aria-valuemin="0" 
+                                    aria-valuemax="100">
+                                    {{ expense_percent|floatformat:0 }}%
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Модальное окно добавления бюджета -->
+<div class="modal fade" id="addBudgetModal" tabindex="-1" role="dialog" aria-labelledby="addBudgetModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addBudgetModalLabel">Добавить бюджет</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{% url 'accounting:budget_add' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="budget_name">Название</label>
+                        <input type="text" class="form-control" id="budget_name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="budget_category">Категория</label>
+                        <select class="form-control select2" id="budget_category" name="category" required>
+                            <option value="">Выберите категорию</option>
+                            <optgroup label="Категории доходов">
+                                {% for category in income_categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </optgroup>
+                            <optgroup label="Категории расходов">
+                                {% for category in expense_categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="budget_amount">Сумма</label>
+                        <input type="number" class="form-control" id="budget_amount" name="amount" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="budget_period">Период</label>
+                        <select class="form-control" id="budget_period" name="period" required>
+                            <option value="monthly">Ежемесячно</option>
+                            <option value="quarterly">Ежеквартально</option>
+                            <option value="yearly">Ежегодно</option>
+                            <option value="custom">Выбрать даты</option>
+                        </select>
+                    </div>
+                    <div class="form-row budget-custom-dates" style="display: none;">
+                        <div class="form-group col-md-6">
+                            <label for="budget_start_date">Дата начала</label>
+                            <input type="text" class="form-control datepicker" id="budget_start_date" name="start_date">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="budget_end_date">Дата окончания</label>
+                            <input type="text" class="form-control datepicker" id="budget_end_date" name="end_date">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize Select2
+        $('.select2').select2({
+            width: '100%',
+            dropdownParent: $('#addBudgetModal')
+        });
+        
+        // Initialize datepicker
+        $('.datepicker').datepicker({
+            format: 'dd.mm.yyyy',
+            autoclose: true,
+            language: 'ru',
+            todayHighlight: true
+        });
+        
+        // Show/hide custom date range based on period selection
+        $('#period').change(function() {
+            if ($(this).val() === 'custom') {
+                $('.custom-date-range').show();
+            } else {
+                $('.custom-date-range').hide();
+            }
+        });
+        
+        // Show/hide custom date inputs in budget modal
+        $('#budget_period').change(function() {
+            if ($(this).val() === 'custom') {
+                $('.budget-custom-dates').show();
+            } else {
+                $('.budget-custom-dates').hide();
+            }
+        });
+        
+        // Chart data
+        var categories = [{% for item in combined_budget %}'{{ item.category.name }}',{% endfor %}];
+        var plannedData = [{% for item in combined_budget %}{{ item.planned_amount }},{% endfor %}];
+        var actualData = [{% for item in combined_budget %}{{ item.actual_amount }},{% endfor %}];
+        
+        // Budget comparison chart
+        var budgetChart = new Chart(document.getElementById('budgetComparisonChart').getContext('2d'), {
+            type: 'horizontalBar',
+            data: {
+                labels: categories,
+                datasets: [
+                    {
+                        label: 'Запланировано',
+                        data: plannedData,
+                        backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Фактически',
+                        data: actualData,
+                        backgroundColor: 'rgba(46, 204, 113, 0.7)',
+                        borderColor: 'rgba(46, 204, 113, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    xAxes: [{
+                        ticks: {
+                            beginAtZero: true,
+                            callback: function(value) {
+                                return value.toLocaleString() + ' UZS';
+                            }
+                        }
+                    }]
+                },
+                tooltips: {
+                    callbacks: {
+                        label: function(tooltipItem, data) {
+                            var dataset = data.datasets[tooltipItem.datasetIndex];
+                            var value = dataset.data[tooltipItem.index] || 0;
+                            return dataset.label + ': ' + value.toLocaleString() + ' UZS';
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Print report
+        $('#printReportBtn').click(function() {
+            window.print();
+        });
+        
+        // Export report
+        $('#exportReportBtn').click(function() {
+            alert('Отчет будет экспортирован в Excel');
+        });
+    });
+</script>
+{% endblock %} 

@@ -3,31 +3,359 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Accounting Dashboard</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'accounting/css/styles.css' %}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Buxgalteriya tizimi{% endblock %}</title>
+  
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+  <!-- Bootstrap Datepicker -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+  <!-- Select2 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/css/select2.min.css">
+  <!-- Custom Styles -->
+  <style>
+    :root {
+      --primary-color: #3498db;
+      --secondary-color: #2c3e50;
+      --accent-color: #e74c3c;
+      --light-color: #ecf0f1;
+      --dark-color: #2c3e50;
+      --success-color: #2ecc71;
+      --danger-color: #e74c3c;
+      --warning-color: #f39c12;
+    }
+    
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #333;
+    }
+    
+    .navbar-brand {
+      font-weight: 700;
+      color: var(--primary-color) !important;
+      font-size: 1.5rem;
+    }
+    
+    .sidebar {
+      background-color: var(--secondary-color);
+      min-height: calc(100vh - 56px);
+      box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar-heading {
+      padding: 1rem;
+      color: var(--light-color);
+      font-weight: 600;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .nav-link {
+      color: rgba(255,255,255,0.7);
+      border-left: 3px solid transparent;
+      padding: 0.75rem 1rem;
+      transition: all 0.3s;
+    }
+    
+    .nav-link:hover {
+      color: #fff;
+      background-color: rgba(255,255,255,0.1);
+      border-left: 3px solid var(--primary-color);
+    }
+    
+    .nav-link.active {
+      color: #fff;
+      background-color: rgba(52, 152, 219, 0.3);
+      border-left: 3px solid var(--primary-color);
+    }
+    
+    .nav-link i {
+      margin-right: 0.5rem;
+      width: 1.25rem;
+      text-align: center;
+    }
+    
+    .card-accounting {
+      border: none;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 1.5rem;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    
+    .card-accounting:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .card-accounting .card-header {
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      background-color: #fff;
+      padding: 1rem 1.25rem;
+    }
+    
+    .card-accounting .card-title {
+      font-weight: 600;
+      margin-bottom: 0;
+    }
+    
+    .dashboard-stats {
+      text-align: center;
+      padding: 1.5rem;
+    }
+    
+    .dashboard-stats .stat-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--primary-color);
+    }
+    
+    .dashboard-stats .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+    
+    .dashboard-stats .stat-label {
+      color: #6c757d;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      letter-spacing: 0.5px;
+    }
+    
+    .select2-container--default .select2-selection--single {
+      height: calc(1.5em + 0.75rem + 2px);
+      padding: 0.375rem 0.75rem;
+      border: 1px solid #ced4da;
+    }
+    
+    .table-accounting th {
+      background-color: rgba(52, 152, 219, 0.1);
+      border-bottom: 2px solid rgba(52, 152, 219, 0.3);
+      font-weight: 600;
+    }
+    
+    .table-accounting tbody tr:hover {
+      background-color: rgba(52, 152, 219, 0.05);
+    }
+    
+    .badge-card {
+      background-color: #f8f9fa;
+      border-left: 3px solid var(--primary-color);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 0.25rem;
+    }
+    
+    .badge-card.income {
+      border-left-color: var(--success-color);
+    }
+    
+    .badge-card.expense {
+      border-left-color: var(--danger-color);
+    }
+    
+    .badge-card h5 {
+      font-size: 0.9rem;
+      color: #6c757d;
+      margin-bottom: 0.5rem;
+    }
+    
+    .badge-card p {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 0;
+    }
+    
+    .btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+    
+    .btn-primary:hover {
+      background-color: #2980b9;
+      border-color: #2980b9;
+    }
+    
+    .footer {
+      background-color: #fff;
+      padding: 1rem 0;
+      border-top: 1px solid rgba(0,0,0,0.05);
+      color: #6c757d;
+    }
+  </style>
+  
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
-  {% include 'accounting/sidebar.html' %}
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{% url 'accounting:dashboard' %}">
+        <i class="fas fa-calculator mr-2"></i>Moliya Hisobi
+      </a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      
+      <div class="collapse navbar-collapse" id="navbarContent">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+              <i class="fas fa-user-circle mr-1"></i> {{ request.user.username }}
+            </a>
+            <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
+              <a class="dropdown-item" href="{% url 'accounting:profile' %}">
+                <i class="fas fa-user mr-2"></i> Profil
+              </a>
+              <a class="dropdown-item" href="{% url 'accounting:settings' %}">
+                <i class="fas fa-cog mr-2"></i> Sozlamalar
+              </a>
+              <div class="dropdown-divider"></div>
+              <a class="dropdown-item" href="{% url 'admin:logout' %}">
+                <i class="fas fa-sign-out-alt mr-2"></i> Chiqish
+              </a>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  
   <div class="container-fluid">
-    {% block content %}{% endblock %}
+    <div class="row">
+      <nav class="col-md-2 d-none d-md-block sidebar py-3">
+        <div class="sidebar-sticky">
+          <div class="sidebar-heading">
+            Asosiy Menu
+          </div>
+          <ul class="nav flex-column">
+            <li class="nav-item">
+              <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'accounting:dashboard' %}">
+                <i class="fas fa-tachometer-alt"></i> Boshqaruv paneli
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {% if 'transaction' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'accounting:transaction_list' %}">
+                <i class="fas fa-exchange-alt"></i> Operatsiyalar
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {% if 'account' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'accounting:account_list' %}">
+                <i class="fas fa-wallet"></i> Hisoblar
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {% if 'category' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'accounting:category_list' %}">
+                <i class="fas fa-tags"></i> Kategoriyalar
+              </a>
+            </li>
+          </ul>
+          
+          <div class="sidebar-heading mt-4">
+            Hisobotlar
+          </div>
+          <ul class="nav flex-column">
+            <li class="nav-item">
+              <a class="nav-link {% if request.resolver_match.url_name == 'expense_report' %}active{% endif %}" href="{% url 'accounting:expense_report' %}">
+                <i class="fas fa-chart-bar"></i> Xarajatlar hisoboti
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {% if request.resolver_match.url_name == 'income_report' %}active{% endif %}" href="{% url 'accounting:income_report' %}">
+                <i class="fas fa-chart-line"></i> Daromadlar hisoboti
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {% if request.resolver_match.url_name == 'cash_flow' %}active{% endif %}" href="{% url 'accounting:cash_flow' %}">
+                <i class="fas fa-money-bill-wave"></i> Pul oqimi
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {% if request.resolver_match.url_name == 'budget' %}active{% endif %}" href="{% url 'accounting:budget' %}">
+                <i class="fas fa-money-check-alt"></i> Byudjet
+              </a>
+            </li>
+          </ul>
+          
+          <div class="sidebar-heading mt-4">
+            Boshqarish
+          </div>
+          <ul class="nav flex-column">
+            <li class="nav-item">
+              <a class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}" href="{% url 'accounting:settings' %}">
+                <i class="fas fa-cog"></i> Sozlamalar
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link {% if request.resolver_match.url_name == 'export' %}active{% endif %}" href="{% url 'accounting:export' %}">
+                <i class="fas fa-file-export"></i> Ma'lumotlarni eksport qilish
+              </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+      
+      <main role="main" class="col-md-10 ml-sm-auto px-4 py-4">
+        {% block accounting_content %}{% endblock %}
+      </main>
+    </div>
   </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
-  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  
+  <footer class="footer mt-auto">
+    <div class="container-fluid">
+      <div class="row">
+        <div class="col-md-6">
+          <p class="mb-0">© {{ current_year }} Moliya Hisobi. Barcha huquqlar himoyalangan.</p>
+        </div>
+        <div class="col-md-6 text-md-right">
+          <p class="mb-0">Versiya 1.0.0</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+  
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <!-- Popper.js -->
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+  <!-- Bootstrap JS -->
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <!-- Bootstrap Datepicker -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/locales/bootstrap-datepicker.ru.min.js"></script>
+  <!-- Select2 -->
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
+  
   <script>
-    AOS.init();
     $(document).ready(function() {
-      $('#financialTable').DataTable();
+      // Initialize Select2
+      $('.select2').select2({
+        width: '100%'
+      });
+      
+      // Format money display
+      $('.money-format').each(function() {
+        var value = parseFloat($(this).text());
+        if (!isNaN(value)) {
+          $(this).text(value.toLocaleString('ru-RU', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          }) + ' ₽');
+        }
+      });
+    });
+    
+    // Add current year to footer
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelector('.footer .container-fluid .row .col-md-6 p').innerHTML = 
+        '© ' + new Date().getFullYear() + ' Moliya Hisobi. Barcha huquqlar himoyalangan.';
     });
   </script>
-  {% block js %}{% endblock %}
+  
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

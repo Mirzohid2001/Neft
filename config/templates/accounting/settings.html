@@ -1,0 +1,205 @@
+{% extends "accounting/base.html" %}
+
+{% block title %}Настройки | Buxgalteriya tizimi{% endblock %}
+
+{% block accounting_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Настройки</h1>
+    <button type="button" class="btn btn-primary" id="saveSettingsBtn">
+        <i class="fas fa-save mr-2"></i> Сохранить изменения
+    </button>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Основные настройки</h5>
+            </div>
+            <div class="card-body">
+                <form id="settingsForm">
+                    <div class="form-group">
+                        <label for="companyName">Название компании</label>
+                        <input type="text" class="form-control" id="companyName" name="company_name" value="Моя компания">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="fiscalYearStart">Начало финансового года</label>
+                        <input type="text" class="form-control datepicker" id="fiscalYearStart" name="fiscal_year_start" value="01.01.2023">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="defaultPaymentTerm">Срок оплаты по умолчанию (дни)</label>
+                        <input type="number" class="form-control" id="defaultPaymentTerm" name="default_payment_term" value="30">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="currencySymbol">Символ валюты</label>
+                        <input type="text" class="form-control" id="currencySymbol" name="currency_symbol" value="UZS">
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Настройки отображения</h5>
+            </div>
+            <div class="card-body">
+                <form>
+                    <div class="form-group">
+                        <label for="dateFormat">Формат даты</label>
+                        <select class="form-control" id="dateFormat" name="date_format">
+                            <option value="dd.mm.yyyy" selected>ДД.ММ.ГГГГ</option>
+                            <option value="mm.dd.yyyy">ММ.ДД.ГГГГ</option>
+                            <option value="yyyy-mm-dd">ГГГГ-ММ-ДД</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="itemsPerPage">Количество элементов на странице</label>
+                        <select class="form-control" id="itemsPerPage" name="items_per_page">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Нумерация документов</h5>
+            </div>
+            <div class="card-body">
+                <form>
+                    <div class="form-group">
+                        <label for="invoicePrefix">Префикс счета</label>
+                        <input type="text" class="form-control" id="invoicePrefix" name="invoice_prefix" value="INV">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nextInvoiceNumber">Следующий номер счета</label>
+                        <input type="number" class="form-control" id="nextInvoiceNumber" name="next_invoice_number" value="1001">
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card card-accounting">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Очистка данных</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle mr-2"></i> Осторожно! Эти действия необратимы.
+                </div>
+                
+                <button type="button" class="btn btn-outline-danger btn-block mb-2" data-toggle="modal" data-target="#clearDataModal">
+                    <i class="fas fa-trash-alt mr-2"></i> Очистить данные
+                </button>
+                
+                <button type="button" class="btn btn-outline-danger btn-block" data-toggle="modal" data-target="#resetSettingsModal">
+                    <i class="fas fa-undo mr-2"></i> Сбросить настройки
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно очистки данных -->
+<div class="modal fade" id="clearDataModal" tabindex="-1" role="dialog" aria-labelledby="clearDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="clearDataModalLabel">Подтверждение очистки данных</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <p><strong>Внимание!</strong> Вы собираетесь удалить все данные из системы. Это действие нельзя отменить.</p>
+                    <p>Введите "УДАЛИТЬ" в поле ниже для подтверждения:</p>
+                </div>
+                <input type="text" class="form-control" id="confirmClearData" placeholder="Введите УДАЛИТЬ">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmClearDataBtn" disabled>Очистить все данные</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно сброса настроек -->
+<div class="modal fade" id="resetSettingsModal" tabindex="-1" role="dialog" aria-labelledby="resetSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resetSettingsModalLabel">Подтверждение сброса настроек</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Вы действительно хотите сбросить все настройки до значений по умолчанию?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmResetSettingsBtn">Сбросить настройки</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize datepicker
+        $('.datepicker').datepicker({
+            format: 'dd.mm.yyyy',
+            autoclose: true,
+            language: 'ru',
+            todayHighlight: true
+        });
+        
+        // Clear data confirmation
+        $('#confirmClearData').on('input', function() {
+            if ($(this).val() === 'УДАЛИТЬ') {
+                $('#confirmClearDataBtn').prop('disabled', false);
+            } else {
+                $('#confirmClearDataBtn').prop('disabled', true);
+            }
+        });
+        
+        // Save settings
+        $('#saveSettingsBtn').click(function() {
+            // Show success message (for demo)
+            alert('Настройки успешно сохранены');
+        });
+        
+        // Confirm clear data
+        $('#confirmClearDataBtn').click(function() {
+            // Here would be AJAX request to clear data
+            alert('Данные успешно очищены');
+            $('#clearDataModal').modal('hide');
+        });
+        
+        // Confirm reset settings
+        $('#confirmResetSettingsBtn').click(function() {
+            // Here would be AJAX request to reset settings
+            alert('Настройки успешно сброшены');
+            $('#resetSettingsModal').modal('hide');
+            // Reload page to show default settings
+            // location.reload();
+        });
+    });
+</script>
+{% endblock %} 

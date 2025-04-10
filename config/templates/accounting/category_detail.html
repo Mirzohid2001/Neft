@@ -1,0 +1,161 @@
+{% extends "accounting/base.html" %}
+{% load accounting_tags %}
+
+{% block title %}{{ category.name }} | Buxgalteriya tizimi{% endblock %}
+
+{% block accounting_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">
+        <i class="fas {{ category.icon|default:'fa-tag' }}" style="color: {{ category.color|default:'#3498db' }}"></i>
+        {{ category.name }}
+    </h1>
+    <div>
+        <a href="{% url 'accounting:category_edit' category.pk %}" class="btn btn-primary">
+            <i class="fas fa-edit mr-2"></i> Редактировать
+        </a>
+        <a href="{% url 'accounting:category_list' %}" class="btn btn-outline-secondary ml-2">
+            <i class="fas fa-arrow-left mr-2"></i> К списку категорий
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card card-accounting mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Информация о категории</h5>
+            </div>
+            <div class="card-body">
+                <div class="category-info text-center mb-4">
+                    <div style="display: inline-block; width: 80px; height: 80px; border-radius: 50%; background-color: {{ category.color|default:'#3498db' }}; line-height: 80px; margin-bottom: 15px;">
+                        <i class="fas {{ category.icon|default:'fa-tag' }}" style="font-size: 32px; color: white;"></i>
+                    </div>
+                    <h4>{{ category.name }}</h4>
+                    <span class="badge badge-{% if category.type == 'income' %}success{% else %}danger{% endif %} mb-2">
+                        {{ category.get_type_display }}
+                    </span>
+                    <p class="text-muted mb-0">{{ category.description|default:"Нет описания" }}</p>
+                </div>
+                
+                <div class="category-stats">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="statistic-item">
+                                <h5>{{ category.get_transactions_count }}</h5>
+                                <span class="text-muted">Операций</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="statistic-item">
+                                <h5>{{ category.get_total_amount|currency }}</h5>
+                                <span class="text-muted">Общая сумма</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer text-center">
+                <button class="btn btn-danger" data-toggle="modal" data-target="#deleteModal">
+                    <i class="fas fa-trash mr-2"></i> Удалить категорию
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card card-accounting">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Последние операции</h5>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-filter mr-1"></i> Фильтр
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-right">
+                        <a class="dropdown-item {% if not request.GET.period %}active{% endif %}" href="?">Все время</a>
+                        <a class="dropdown-item {% if request.GET.period == 'month' %}active{% endif %}" href="?period=month">Текущий месяц</a>
+                        <a class="dropdown-item {% if request.GET.period == 'quarter' %}active{% endif %}" href="?period=quarter">Квартал</a>
+                        <a class="dropdown-item {% if request.GET.period == 'year' %}active{% endif %}" href="?period=year">Год</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                {% if transactions %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Счет</th>
+                                <th>Описание</th>
+                                <th class="text-right">Сумма</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in transactions %}
+                            <tr>
+                                <td>{{ transaction.date|date:"d.m.Y" }}</td>
+                                <td>
+                                    <a href="{% url 'accounting:account_detail' transaction.account.pk %}">
+                                        {{ transaction.account.name }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{% url 'accounting:transaction_detail' transaction.pk %}">
+                                        {{ transaction.description|truncatechars:50 }}
+                                    </a>
+                                </td>
+                                <td class="text-right font-weight-bold {% if transaction.transaction_type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                                    {{ transaction.amount|currency }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
+                    <h5>Нет операций</h5>
+                    <p class="text-muted">В этой категории пока нет операций</p>
+                    <a href="{% url 'accounting:transaction_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus mr-2"></i> Создать операцию
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            {% if transactions %}
+            <div class="card-footer text-right">
+                <a href="{% url 'accounting:transaction_list' %}?category={{ category.id }}" class="btn btn-outline-primary">
+                    Все операции в категории
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения удаления -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Подтверждение удаления</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Закрыть">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Вы действительно хотите удалить категорию "{{ category.name }}"?</p>
+                <p class="text-danger">Это действие нельзя отменить. Все связанные транзакции будут затронуты.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                <form id="deleteForm" method="post" action="{% url 'accounting:category_delete' category.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
