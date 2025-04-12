@@ -8,9 +8,11 @@
     <a href="{% url 'warehouse:export_movements_excel' %}" class="btn btn-outline-success">
         <i class="bi bi-file-earmark-excel-fill"></i> Excel formatda yuklab olish
     </a>
-    <a href="{% url 'warehouse:movement_create' %}" class="btn btn-success">
-        <i class="bi bi-plus-circle me-1"></i> Yangi Harakat Qo'shish
-    </a>
+    <!-- Кнопка создания движения удалена, доступна только в разделах sales и estakada -->
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle-fill me-2"></i> Создание новых операций движения доступно только в разделах "Отдел продаж" и "Эстакада".
 </div>
 
 <div class="card animate__animated animate__fadeInUp">

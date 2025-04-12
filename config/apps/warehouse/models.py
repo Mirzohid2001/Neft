@@ -321,6 +321,7 @@ class Movement(models.Model):
     
     # Поля для клиента
     client_type = models.CharField(max_length=15, choices=CLIENT_TYPES, verbose_name="Тип клиента", blank=True, null=True)
+    local_client = models.ForeignKey('warehouse.LocalClient', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Локальный клиент")
     client = models.ForeignKey('warehouse.Client', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Клиент")
     
     # Поля для продукта
@@ -339,26 +340,17 @@ class Movement(models.Model):
     source_warehouse = models.ForeignKey(Warehouse, related_name='source_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Исходный склад")
     source_reservoir = models.ForeignKey(Reservoir, related_name='source_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Исходный резервуар")
     source_wagon = models.ForeignKey('Wagon', related_name='source_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Исходный вагон")
-    
     target_warehouse = models.ForeignKey(Warehouse, related_name='target_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Целевой склад")
     target_reservoir = models.ForeignKey(Reservoir, related_name='target_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Целевой резервуар")
     target_wagon = models.ForeignKey('Wagon', related_name='target_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Целевой вагон")
-    
-    # Поля для транспорта
     transport_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="Номер транспортного средства")
     transport_photo = models.ImageField(upload_to='transport_photos/', blank=True, null=True, verbose_name="Фото транспорта")
-    
-    # Поля для производства
     production_loss = models.FloatField(verbose_name="Потери при производстве", default=0, blank=True, null=True)
     production_loss_reason = models.TextField(verbose_name="Причина потерь", blank=True, null=True)
-    
-    # Общие поля для всех типов
     price_sum = models.FloatField(verbose_name="Цена (сум)", default=0, blank=True, null=True)
     price_usd = models.FloatField(verbose_name="Цена (USD)", default=0, blank=True, null=True)
     batch = models.ForeignKey(Batch, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Партия")
     note = models.TextField(verbose_name="Примечание", blank=True, null=True)
-    
-    # Поля для аудита
     created_by = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_movements', verbose_name="Создано пользователем")
     confirmed_by = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_movements', verbose_name="Подтверждено пользователем")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
