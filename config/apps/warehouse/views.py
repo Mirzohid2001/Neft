@@ -134,8 +134,6 @@ def recalculate_inventory(product):
         product=product,
         defaults={'quantity': actual_quantity}
     )
-    
-    # Также обновляем значения в модели продукта
     product.in_qty = total_in
     product.out_qty = total_out
     product.save(update_fields=['in_qty', 'out_qty'])
@@ -151,7 +149,6 @@ class ProductDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         product = self.get_object()
         
-        # Пересчитываем запасы при каждом запросе детальной страницы продукта
         inventory = recalculate_inventory(product)
         
         # Сначала получаем все движения для подсчета общих сумм
@@ -283,11 +280,17 @@ class MovementCreateView(CreateView):
     form_class = MovementForm
     template_name = 'warehouse/movement_create.html'
 
+    def get_form_kwargs(self):
+        """Передаем текущего пользователя в форму"""
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
     def post(self, request, *args, **kwargs):
         try:
             # For AJAX requests
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                form = self.form_class(request.POST)
+                form = self.get_form()
                 
                 if form.is_valid():
                     movement = form.save(commit=False)
@@ -323,10 +326,9 @@ class MovementCreateView(CreateView):
                             
                             # Set the movement quantity and doc_ton
                             movement.quantity = total_quantity
-                            movement.doc_ton = total_doc_ton  # Устанавливаем doc_ton для движения
+                            movement.doc_ton = total_doc_ton
                             
-                            movement.save()  # Save movement with calculated quantity and doc_ton
-                            
+                            movement.save()  
                             for transport_data in transports_data:
                                 Transport.objects.create(
                                     movement=movement,
@@ -386,6 +388,9 @@ class MovementCreateView(CreateView):
 
     def get_success_url(self):
         return reverse('warehouse:movement_list')
+
+
+                
 
 class InventoryListView(ListView):
     model = Inventory
@@ -767,6 +772,12 @@ class MovementUpdateView(UpdateView):
     model = Movement
     form_class = MovementForm
     template_name = 'warehouse/movement_create.html'  # Reuse the create template
+    
+    def get_form_kwargs(self):
+        """Передаем текущего пользователя в форму"""
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
     
     def get_success_url(self):
         return reverse('warehouse:movement_list')
@@ -1335,142 +1346,95 @@ def sales_department_dashboard(request):
 def sales_movement_create(request):
     """Создание новой операции движения с поддержкой множественных транспортов и источников сырья"""
     if request.method == 'POST':
-        form = MovementForm(request.POST, request.FILES, user=request.user)
+        form = MovementForm(request.POST, request.FILES, user=request.user, department='sales')
         
         if form.is_valid():
             movement = form.save(commit=False)
             
-            # Обработка множественных транспортов для приемки
-            if movement.movement_type == 'in':
-                reception_transports_json = request.POST.get('reception_transports_json', '[]')
-                try:
-                    reception_transports_data = json.loads(reception_transports_json)
+            # Общая обработка для всех типов операций
+            transports_json = request.POST.get('transports_json', '[]')
+            
+            try:
+                # Парсим данные о транспортах из JSON
+                transports_data = json.loads(transports_json)
+                
+                # Для приемки и продажи: вычисляем общее количество и средние значения
+                if movement.movement_type in ['in', 'out']:
+                    if not transports_data:
+                        form.add_error(None, 'Необходимо добавить хотя бы один транспорт с данными.')
+                        context = {
+                            'form': form,
+                            'title': 'Создание новой операции'
+                        }
+                        return render(request, 'warehouse/sales/movement_form.html', context)
                     
-                    # Если есть данные о транспортах, обрабатываем их
-                    if reception_transports_data:
-                        # Вычисляем общие значения
-                        total_quantity = 0
-                        total_density = 0
-                        total_temperature = 0
-                        valid_transports = 0
+                    # Рассчитываем общие значения из всех транспортов
+                    total_quantity = 0
+                    total_doc_mass = 0
+                    
+                    for transport_data in transports_data:
+                        mass = float(transport_data.get('mass', 0) or 0)
+                        doc_mass = float(transport_data.get('doc_mass', 0) or 0)
                         
-                        for transport_data in reception_transports_data:
-                            quantity = float(transport_data.get('quantity', 0))
-                            total_quantity += quantity
-                            
-                            if 'density' in transport_data and transport_data['density'] and quantity > 0:
-                                total_density += float(transport_data['density'])
-                                valid_transports += 1
-                            
-                            if 'temperature' in transport_data and transport_data['temperature'] and quantity > 0:
-                                total_temperature += float(transport_data['temperature'])
+                        total_quantity += mass
+                        total_doc_mass += doc_mass
+                    
+                    # Переводим кг в тонны для сохранения в БД
+                    movement.quantity = total_quantity / 1000  # кг в тонны
+                    movement.expected_quantity = total_quantity / 1000  # для отслеживания ожидаемого количества
+                    movement.doc_ton = total_doc_mass / 1000  # документальный вес в тоннах
+                    
+                    # Разница между фактическим и документальным весом
+                    movement.difference = movement.quantity - movement.doc_ton
+                
+                # Для производства: обработка данных источника и продукта
+                elif movement.movement_type == 'production':
+                    source_quantity = float(request.POST.get('source_quantity', 0) or 0)
+                    material_quantity = float(request.POST.get('material_quantity', 0) or 0)
+                    
+                    # Сохраняем вес продукта (кг в тонны)
+                    movement.quantity = material_quantity / 1000
+                    movement.expected_quantity = material_quantity / 1000
+                    
+                    # Сохраняем вес источника (кг в тонны)
+                    movement.source_quantity = source_quantity / 1000
+                
+                # Сохраняем движение для получения ID
+                movement.save()
+                
+                # Обработка транспортных данных и создание записей (для in/out)
+                if movement.movement_type in ['in', 'out']:
+                    for transport_data in transports_data:
+                        transport_type = transport_data.get('transport_type', '')
+                        transport_number = transport_data.get('transport_number', '')
+                        mass_kg = float(transport_data.get('mass', 0) or 0)
+                        doc_mass_kg = float(transport_data.get('doc_mass', 0) or 0)
                         
-                        # Вычисляем средние значения
-                        if valid_transports > 0:
-                            avg_density = total_density / valid_transports
-                            avg_temperature = total_temperature / valid_transports
-                        else:
-                            avg_density = 0
-                            avg_temperature = 20
+                        # Создаем запись транспорта
+                        transport = Transport.objects.create(
+                            movement=movement,
+                            transport_number=transport_number,
+                            quantity=mass_kg,  # В кг
+                            doc_ton=doc_mass_kg / 1000  # Преобразуем кг в тонны
+                        )
                         
-                        # Обновляем основные поля движения
-                        movement.expected_quantity = total_quantity
-                        movement.density = avg_density
-                        movement.temperature = avg_temperature
-                except json.JSONDecodeError:
-                    messages.error(request, "Ошибка обработки данных о транспортах для приемки")
-                    return render(request, 'warehouse/sales/movement_form.html', {'form': form, 'title': 'Создание новой операции'})
-            
-            # Обработка множественных транспортов для продажи
-            elif movement.movement_type == 'out':
-                sales_transports_json = request.POST.get('sales_transports_json', '[]')
-                try:
-                    sales_transports_data = json.loads(sales_transports_json)
-                    
-                    # Если есть данные о транспортах, обрабатываем их
-                    if sales_transports_data:
-                        # Вычисляем общую ожидаемую массу
-                        total_expected_weight = 0
-                        
-                        for transport_data in sales_transports_data:
-                            expected_weight = float(transport_data.get('expected_weight', 0))
-                            total_expected_weight += expected_weight
-                        
-                        # Обновляем основное поле движения
-                        movement.expected_quantity = total_expected_weight
-                except json.JSONDecodeError:
-                    messages.error(request, "Ошибка обработки данных о транспортах для продажи")
-                    return render(request, 'warehouse/sales/movement_form.html', {'form': form, 'title': 'Создание новой операции'})
-            
-            # Обработка множественных источников сырья для производства
-            elif movement.movement_type == 'production':
-                raw_materials_json = request.POST.get('raw_materials_json', '[]')
-                try:
-                    raw_materials_data = json.loads(raw_materials_json)
-                    
-                    # Проверяем суммарный процент
-                    total_percentage = sum(float(material.get('percentage', 0)) for material in raw_materials_data)
-                    if abs(total_percentage - 100) > 0.01:
-                        messages.error(request, "Суммарное процентное содержание компонентов должно быть равно 100%")
-                        return render(request, 'warehouse/sales/movement_form.html', {'form': form, 'title': 'Создание новой операции'})
-                except json.JSONDecodeError:
-                    messages.error(request, "Ошибка обработки данных об источниках сырья")
-                    return render(request, 'warehouse/sales/movement_form.html', {'form': form, 'title': 'Создание новой операции'})
-            
-            # Сохраняем движение
-            movement.save()
-            
-            # Создаем записи о транспортах после сохранения движения
-            if movement.movement_type == 'in' and 'reception_transports_data' in locals():
-                for transport_data in reception_transports_data:
-                    Transport.objects.create(
-                        movement=movement,
-                        transport_type=transport_data.get('transport_type', ''),
-                        transport_number=transport_data.get('transport_number', ''),
-                        density=float(transport_data.get('density', 0)) if transport_data.get('density') else None,
-                        temperature=float(transport_data.get('temperature', 20)),
-                        liter=float(transport_data.get('liter', 0)) if transport_data.get('liter') else None,
-                        quantity=float(transport_data.get('quantity', 0))
-                    )
-            
-            # Создаем записи о транспортах для продажи
-            elif movement.movement_type == 'out' and 'sales_transports_data' in locals():
-                for transport_data in sales_transports_data:
-                    Transport.objects.create(
-                        movement=movement,
-                        transport_type=transport_data.get('transport_type', ''),
-                        transport_number=transport_data.get('transport_number', ''),
-                        density=float(transport_data.get('density', 0)) if transport_data.get('density') else None,
-                        temperature=float(transport_data.get('temperature', 20)),
-                        quantity=float(transport_data.get('expected_weight', 0))
-                    )
-            
-            # Создаем записи об источниках сырья для производства
-            elif movement.movement_type == 'production' and 'raw_materials_data' in locals():
-                for material_data in raw_materials_data:
-                    source_type = material_data.get('source_type')
-                    source_id = material_data.get('source_id')
-                    product_id = material_data.get('product_id')
-                    
-                    # Создаем промежуточную запись для источника сырья
-                    source_kwargs = {'movement': movement, 'product_id': product_id}
-                    
-                    if source_type == 'reservoir':
-                        source_kwargs['source_reservoir_id'] = source_id
-                    elif source_type == 'wagon':
-                        source_kwargs['source_wagon_id'] = source_id
-                    elif source_type == 'warehouse':
-                        source_kwargs['source_warehouse_id'] = source_id
-                    
-                    # Добавляем информацию о количестве и процентном содержании
-                    source_kwargs['quantity'] = float(material_data.get('quantity', 0))
-                    source_kwargs['percentage'] = float(material_data.get('percentage', 0))
-                    
-                    # Создаем запись в связной таблице (предполагается, что такая модель существует)
-                    ProductionSource.objects.create(**source_kwargs)
-            
-            movement_type = movement.get_movement_type_display()
-            messages.success(request, f"{movement_type} #{movement.id} успешно создана")
+                        # Сохраняем дополнительные данные для вагонов
+                        if transport_type == 'wagon' and 'wagon_type' in transport_data:
+                            wagon_type_id = transport_data.get('wagon_type')
+                            if wagon_type_id:
+                                try:
+                                    # Здесь можно добавить связь с типом вагона, если нужно
+                                    pass
+                                except Exception as e:
+                                    print(f"Ошибка при обработке типа вагона: {e}")
+                
+            except json.JSONDecodeError:
+                form.add_error(None, 'Ошибка в данных о транспорте. Проверьте заполнение формы.')
+                context = {
+                    'form': form,
+                    'title': 'Создание новой операции'
+                }
+                return render(request, 'warehouse/sales/movement_form.html', context)
             
             # Перенаправление на соответствующую страницу в зависимости от типа движения
             if movement.movement_type == 'in':
@@ -1484,7 +1448,7 @@ def sales_movement_create(request):
             
             return redirect('warehouse:sales_department_dashboard')
     else:
-        form = MovementForm(user=request.user)
+        form = MovementForm(user=request.user, department='sales')
     
     context = {
         'form': form,
@@ -1558,26 +1522,95 @@ def sales_movement_edit(request, pk):
     """Редактирование операции движения"""
     movement = get_object_or_404(Movement, pk=pk)
     
-    # Не позволяем редактировать обработанные или завершенные операции
-    if movement.status in ['processed', 'completed']:
-        messages.error(request, f"Операция #{movement.id} уже обработана и не может быть изменена")
-        return redirect('warehouse:sales_movement_detail', pk=movement.pk)
+    # Проверка статуса - нельзя редактировать подтвержденные или отмененные операции
+    if movement.status in ['confirmed', 'cancelled']:
+        messages.error(request, "Невозможно редактировать подтвержденную или отмененную операцию")
+        return redirect('warehouse:sales_movement_detail', pk=movement.id)
     
     if request.method == 'POST':
-        form = MovementForm(request.POST, request.FILES, instance=movement, user=request.user)
+        form = MovementForm(request.POST, request.FILES, instance=movement, user=request.user, department='sales')
         
         if form.is_valid():
-            movement = form.save()
+            updated_movement = form.save(commit=False)
             
-            messages.success(request, f"{movement.get_movement_type_display()} #{movement.id} успешно обновлена")
-            return redirect('warehouse:sales_movement_detail', pk=movement.pk)
+            # Обработка транспортных данных
+            try:
+                transports_json = request.POST.get('transports_json', '[]')
+                transports_data = json.loads(transports_json)
+                
+                if movement.movement_type in ['in', 'out'] and not transports_data:
+                    form.add_error(None, 'Необходимо добавить хотя бы один транспорт')
+                    context = {
+                        'form': form,
+                        'movement': movement,
+                        'title': f'Редактирование {movement.get_movement_type_display()}'
+                    }
+                    return render(request, 'warehouse/sales/movement_form.html', context)
+                
+                # Для приемки и продажи пересчитываем общие значения
+                if movement.movement_type in ['in', 'out']:
+                    total_quantity = 0
+                    total_doc_mass = 0
+                    
+                    for transport_data in transports_data:
+                        mass = float(transport_data.get('mass', 0) or 0)
+                        doc_mass = float(transport_data.get('doc_mass', 0) or 0)
+                        
+                        total_quantity += mass
+                        total_doc_mass += doc_mass
+                    
+                    # Обновляем поля движения (кг в тонны)
+                    updated_movement.quantity = total_quantity / 1000
+                    updated_movement.expected_quantity = total_quantity / 1000
+                    updated_movement.doc_ton = total_doc_mass / 1000
+                    updated_movement.difference = updated_movement.quantity - updated_movement.doc_ton
+                
+                # Сохраняем обновленные данные движения
+                updated_movement.save()
+                
+                # Удаляем существующие записи транспорта
+                Transport.objects.filter(movement=movement).delete()
+                
+                # Создаем новые записи транспорта
+                for transport_data in transports_data:
+                    transport_type = transport_data.get('transport_type', '')
+                    transport_number = transport_data.get('transport_number', '')
+                    mass_kg = float(transport_data.get('mass', 0) or 0)
+                    doc_mass_kg = float(transport_data.get('doc_mass', 0) or 0)
+                    
+                    Transport.objects.create(
+                        movement=movement,
+                        transport_number=transport_number,
+                        quantity=mass_kg,  # В кг
+                        doc_ton=doc_mass_kg / 1000  # Преобразуем кг в тонны
+                    )
+                    
+                messages.success(request, f"{movement.get_movement_type_display()} #{movement.id} успешно обновлена")
+                return redirect('warehouse:sales_movement_detail', pk=movement.id)
+                
+            except json.JSONDecodeError:
+                form.add_error(None, 'Ошибка в данных о транспорте')
+                context = {
+                    'form': form,
+                    'movement': movement,
+                    'title': f'Редактирование {movement.get_movement_type_display()}'
+                }
+                return render(request, 'warehouse/sales/movement_form.html', context)
+        else:
+            # Если форма невалидна
+            context = {
+                'form': form,
+                'movement': movement,
+                'title': f'Редактирование {movement.get_movement_type_display()}'
+            }
+            return render(request, 'warehouse/sales/movement_form.html', context)
     else:
-        form = MovementForm(instance=movement)
+        form = MovementForm(instance=movement, user=request.user, department='sales')
     
     context = {
         'form': form,
         'movement': movement,
-        'title': f'Редактирование {movement.get_movement_type_display()} #{movement.id}'
+        'title': f'Редактирование {movement.get_movement_type_display()}'
     }
     
     return render(request, 'warehouse/sales/movement_form.html', context)

@@ -55,14 +55,14 @@
                 {% csrf_token %}
                 
                 <div class="row g-3">
-                    <!-- Тип движения -->
+                    <!-- Тип операции -->
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="id_movement_type" class="form-label">Тип операции:</label>
                             <select name="movement_type" id="id_movement_type" class="form-select" required>
                                 <option value="">-- Выберите тип операции --</option>
                                 {% for value, text in form.fields.movement_type.choices %}
-                                <option value="{{ value }}" {% if form.movement_type.value == value %}selected{% endif %}>{{ text }}</option>
+                                    <option value="{{ value }}" {% if form.movement_type.value == value %}selected{% endif %}>{{ text }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -83,7 +83,7 @@
                             <select name="product" id="id_product" class="form-select" required>
                                 <option value="">-- Выберите продукт --</option>
                                 {% for product in form.fields.product.queryset %}
-                                <option value="{{ product.id }}" {% if form.product.value == product.id %}selected{% endif %}>{{ product.name }}</option>
+                                    <option value="{{ product.id }}" {% if form.product.value == product.id %}selected{% endif %}>{{ product.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -97,677 +97,719 @@
                         </div>
                     </div>
 
-                    <!-- Ожидаемое количество -->
-                    <div class="col-md-6">
+                    <!-- Ожидаемое количество (тонны) - скрытое поле, будет заполняться скриптом -->
+                    <div class="col-md-6 d-none">
                         <div class="form-group">
-                            <label for="id_expected_quantity" class="form-label">Ожидаемое количество (тонн):</label>
+                            <label for="id_expected_quantity" class="form-label">Ожидаемое количество (тонны):</label>
                             <input type="number" name="expected_quantity" id="id_expected_quantity" step="0.001" class="form-control" value="{{ form.expected_quantity.value|default:'' }}">
                         </div>
                     </div>
-                    
-                    <!-- Номер транспорта -->
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="id_transport_number" class="form-label">Номер транспорта:</label>
-                            <input type="text" name="transport_number" id="id_transport_number" class="form-control" value="{{ form.transport_number.value|default:'' }}">
+                    <!-- Скрытое поле для JSON данных о транспортных средствах -->
+                    <input type="hidden" name="transports_json" id="sales-transports-json" value="{{ form.transports_json.value|default:'' }}">
+                </div>
+                
+                <!-- Разделы в зависимости от типа операции -->
+                <!-- 1. Приёмка (in) -->
+                <div id="reception-fields" class="col-12 operation-fields">
+                    <div class="card mb-3">
+                        <div class="card-header bg-success bg-opacity-10">
+                            <h5 class="mb-0">Данные о приемке</h5>
                         </div>
-                    </div>
-                    
-                    <!-- Разделы, зависящие от типа операции -->
-                    <!-- Приемка (in) -->
-                    <div id="reception-fields" class="col-12 operation-fields">
-                        <div class="card mb-3">
-                            <div class="card-header bg-success bg-opacity-10">
-                                <h5 class="mb-0">Данные о приемке</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    <!-- Поставщик -->
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="id_supplier" class="form-label">Поставщик:</label>
-                                            <select name="supplier" id="id_supplier" class="form-select">
-                                                <option value="">-- Выберите поставщика --</option>
-                                                {% for supplier in form.fields.supplier.queryset %}
-                                                <option value="{{ supplier.id }}" {% if form.supplier.value == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Клиент -->
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="id_client_type" class="form-label">Тип клиента:</label>
-                                            <select name="client_type" id="id_client_type" class="form-select">
-                                                <option value="">-- Выберите тип клиента --</option>
-                                                {% for value, text in form.fields.client_type.choices %}
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <!-- Тип клиента -->
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="id_client_type" class="form-label">Тип клиента:</label>
+                                        <select name="client_type" id="id_client_type" class="form-select" required>
+                                            <option value="">-- Выберите тип клиента --</option>
+                                            {% for value, text in form.fields.client_type.choices %}
                                                 <option value="{{ value }}" {% if form.client_type.value == value %}selected{% endif %}>{{ text }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
+                                            {% endfor %}
+                                        </select>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Транспортные средства -->
-                        <div class="card mb-3">
-                            <div class="card-header bg-success bg-opacity-10 d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">Транспортные средства</h5>
-                                <button type="button" class="btn btn-success btn-sm" id="add-reception-transport">
-                                    <i class="bi bi-plus-circle"></i> Добавить транспорт
-                                </button>
-                            </div>
-                            <div class="card-body">
-                                <div id="reception-transports-container">
-                                    <!-- Шаблон для транспортного средства -->
-                                    <div class="transport-entry card mb-3" data-index="0">
-                                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-                                            <h6 class="mb-0">Транспорт #<span class="transport-number">1</span></h6>
-                                            <button type="button" class="btn btn-danger btn-sm remove-transport" style="display:none">
-                                                <i class="bi bi-x-circle"></i>
-                                            </button>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="row g-3">
-                                                <!-- Тип транспорта -->
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Тип транспорта:</label>
-                                                        <select class="form-select transport-type" name="reception_transport_type_0" required>
-                                                            <option value="">-- Выберите тип --</option>
-                                                            <option value="truck">Грузовик</option>
-                                                            <option value="wagon">Вагон</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Номер транспорта -->
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Номер транспорта:</label>
-                                                        <input type="text" class="form-control transport-number-input" name="reception_transport_number_0" required>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Плотность -->
-                                                <div class="col-md-4">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Плотность (кг/м³):</label>
-                                                        <input type="number" class="form-control density-input" name="reception_density_0" step="0.001" required>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Температура -->
-                                                <div class="col-md-4">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Температура (°C):</label>
-                                                        <input type="number" class="form-control temperature-input" name="reception_temperature_0" step="0.1" value="20" required>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Объем (литры) / Высота (см) -->
-                                                <div class="col-md-4 liter-field">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Объем (литры):</label>
-                                                        <input type="number" class="form-control liter-input" name="reception_liter_0" step="0.001" required>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4 height-field" style="display:none">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Высота (см):</label>
-                                                        <input type="number" class="form-control height-input" name="reception_height_0" step="0.1">
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Расчетная масса -->
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Расчетная масса (тонны):</label>
-                                                        <input type="number" class="form-control quantity-input" name="reception_quantity_0" step="0.001" readonly>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Фото транспорта -->
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Фото транспорта:</label>
-                                                        <input type="file" class="form-control transport-photo" name="reception_transport_photo_0" accept="image/*">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Итоговая информация -->
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0">Итоговая информация</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row g-3">
-                                            <!-- Общее количество -->
-                                            <div class="col-md-6">
-                                                <div class="form-group">
-                                                    <label class="form-label">Общее количество (тонны):</label>
-                                                    <input type="number" id="reception-total-quantity" class="form-control" readonly>
-                                                    <input type="hidden" name="reception_transports_json" id="reception-transports-json">
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- Целевое хранилище -->
-                                            <div class="col-md-6">
-                                                <div class="form-group">
-                                                    <label class="form-label">Целевое хранилище:</label>
-                                                    <div class="row g-2">
-                                                        <div class="col-4">
-                                                            <div class="form-group">
-                                                                <label for="id_target_warehouse" class="form-label">Склад:</label>
-                                                                <select name="target_warehouse" id="id_target_warehouse" class="form-select">
-                                                                    <option value="">-- Выберите склад --</option>
-                                                                    {% for warehouse in form.fields.target_warehouse.queryset %}
-                                                                    <option value="{{ warehouse.id }}" {% if form.target_warehouse.value == warehouse.id %}selected{% endif %}>{{ warehouse.name }}</option>
-                                                                    {% endfor %}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-4">
-                                                            <div class="form-group">
-                                                                <label for="id_target_reservoir" class="form-label">Резервуар:</label>
-                                                                <select name="target_reservoir" id="id_target_reservoir" class="form-select">
-                                                                    <option value="">-- Выберите резервуар --</option>
-                                                                    {% for reservoir in form.fields.target_reservoir.queryset %}
-                                                                    <option value="{{ reservoir.id }}" {% if form.target_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
-                                                                    {% endfor %}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-4">
-                                                            <div class="form-group">
-                                                                <label for="id_target_wagon" class="form-label">Вагон:</label>
-                                                                <select name="target_wagon" id="id_target_wagon" class="form-select">
-                                                                    <option value="">-- Выберите вагон --</option>
-                                                                    {% for wagon in form.fields.target_wagon.queryset %}
-                                                                    <option value="{{ wagon.id }}" {% if form.target_wagon.value == wagon.id %}selected{% endif %}>{{ wagon.wagon_number }}</option>
-                                                                    {% endfor %}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Продажа (out) -->
-                    <div id="sales-fields" class="col-12 operation-fields">
-                        <div class="card mb-3">
-                            <div class="card-header bg-warning bg-opacity-10">
-                                <h5 class="mb-0">Данные о продаже</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    <!-- Клиент -->
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="id_client" class="form-label">Клиент:</label>
-                                            <select name="client" id="id_client" class="form-select" required>
-                                                <option value="">-- Выберите клиента --</option>
-                                                {% for client in form.fields.client.queryset %}
+                                <!-- Клиент -->
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="id_client" class="form-label">Клиент:</label>
+                                        <select name="client" id="id_client" class="form-select" required>
+                                            <option value="">-- Выберите клиента --</option>
+                                            {% for client in form.fields.client.queryset %}
                                                 <option value="{{ client.id }}" {% if form.client.value == client.id %}selected{% endif %}>{{ client.title }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Тип клиента -->
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="id_client_type" class="form-label">Тип клиента:</label>
-                                            <select name="client_type" id="id_client_type_sale" class="form-select" required>
-                                                <option value="">-- Выберите тип клиента --</option>
-                                                {% for value, text in form.fields.client_type.choices %}
-                                                <option value="{{ value }}" {% if form.client_type.value == value %}selected{% endif %}>{{ text }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Источник (откуда отгружаем) -->
-                        <div class="card mb-3">
-                            <div class="card-header bg-warning bg-opacity-10">
-                                <h5 class="mb-0">Источник (откуда отгружаем)</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <div class="form-group">
-                                            <label for="id_source_warehouse" class="form-label">Склад:</label>
-                                            <select name="source_warehouse" id="id_source_warehouse" class="form-select">
-                                                <option value="">-- Выберите склад --</option>
-                                                {% for warehouse in form.fields.source_warehouse.queryset %}
-                                                <option value="{{ warehouse.id }}" {% if form.source_warehouse.value == warehouse.id %}selected{% endif %}>{{ warehouse.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="form-group">
-                                            <label for="id_source_reservoir" class="form-label">Резервуар:</label>
-                                            <select name="source_reservoir" id="id_source_reservoir" class="form-select">
-                                                <option value="">-- Выберите резервуар --</option>
-                                                {% for reservoir in form.fields.source_reservoir.queryset %}
-                                                <option value="{{ reservoir.id }}" {% if form.source_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="form-group">
-                                            <label for="id_source_wagon" class="form-label">Вагон:</label>
-                                            <select name="source_wagon" id="id_source_wagon" class="form-select">
-                                                <option value="">-- Выберите вагон --</option>
-                                                {% for wagon in form.fields.source_wagon.queryset %}
-                                                <option value="{{ wagon.id }}" {% if form.source_wagon.value == wagon.id %}selected{% endif %}>{{ wagon.wagon_number }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Транспортные средства -->
-                        <div class="card mb-3">
-                            <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">Транспортные средства для отгрузки</h5>
-                                <button type="button" class="btn btn-warning btn-sm" id="add-sales-transport">
-                                    <i class="bi bi-plus-circle"></i> Добавить транспорт
-                                </button>
-                            </div>
-                            <div class="card-body">
-                                <div id="sales-transports-container">
-                                    <!-- Шаблон для транспортного средства -->
-                                    <div class="sales-transport-entry card mb-3" data-index="0">
-                                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-                                            <h6 class="mb-0">Транспорт #<span class="transport-number">1</span></h6>
-                                            <button type="button" class="btn btn-danger btn-sm remove-sales-transport" style="display:none">
-                                                <i class="bi bi-x-circle"></i>
-                                            </button>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="row g-3">
-                                                <!-- Тип транспорта -->
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Тип транспорта:</label>
-                                                        <select class="form-select sales-transport-type" name="sales_transport_type_0" required>
-                                                            <option value="">-- Выберите тип --</option>
-                                                            <option value="truck">Грузовик</option>
-                                                            <option value="wagon">Вагон</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Номер транспорта -->
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Номер транспорта:</label>
-                                                        <input type="text" class="form-control sales-transport-number" name="sales_transport_number_0" required>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Ожидаемый вес -->
-                                                <div class="col-md-4">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Ожидаемый вес (тонны):</label>
-                                                        <input type="number" class="form-control sales-expected-weight" name="sales_expected_weight_0" step="0.001" required>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Плотность -->
-                                                <div class="col-md-4">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Плотность (кг/м³):</label>
-                                                        <input type="number" class="form-control sales-density" name="sales_density_0" step="0.001">
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Температура -->
-                                                <div class="col-md-4">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Температура (°C):</label>
-                                                        <input type="number" class="form-control sales-temperature" name="sales_temperature_0" step="0.1" value="20">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Итоговая информация -->
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0">Итоговая информация</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row g-3">
-                                            <!-- Общее количество -->
-                                            <div class="col-md-12">
-                                                <div class="form-group">
-                                                    <label class="form-label">Общее количество (тонны):</label>
-                                                    <input type="number" id="sales-total-quantity" class="form-control" readonly>
-                                                    <input type="hidden" name="sales_transports_json" id="sales-transports-json">
-                                                </div>
-                                            </div>
-                                        </div>
+                                            {% endfor %}
+                                        </select>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Производство (production) -->
-                    <div id="production-fields" class="col-12 operation-fields">
-                        <div class="card mb-3">
-                            <div class="card-header bg-info bg-opacity-10">
-                                <h5 class="mb-0">Данные о производстве</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    <!-- Целевой продукт -->
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label class="form-label">Целевой продукт:</label>
-                                            <select name="target_product" id="id_target_product" class="form-select">
-                                                <option value="">-- Выберите целевой продукт --</option>
-                                                {% for product in form.fields.product.queryset %}
-                                                <option value="{{ product.id }}" {% if form.product.value == product.id %}selected{% endif %}>{{ product.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
+                    <!-- Блок "Куда поместить продукт" -->
+                    <div class="card mb-3 p-3" id="target_storage_section">
+                        <h5>Куда поместить продукт</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card p-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="target_type" id="target_reservoir" value="reservoir">
+                                        <label class="form-check-label" for="target_reservoir">
+                                            Резервуар
+                                        </label>
                                     </div>
-                                    
-                                    <!-- Ожидаемое количество продукта -->
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label class="form-label">Ожидаемое количество продукта (тонны):</label>
-                                            <input type="number" class="form-control" name="production_expected_quantity" id="id_production_expected_quantity" step="0.001" required>
-                                        </div>
+                                    <div class="mt-2">
+                                        <select class="form-select target-select" name="target_reservoir" data-target-type="reservoir" disabled>
+                                            <option value="">Выберите резервуар</option>
+                                            {% for reservoir in form.reservoirs %}
+                                            <option value="{{ reservoir.id }}" {% if form.target_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card p-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="target_type" id="target_wagon" value="wagon">
+                                        <label class="form-check-label" for="target_wagon">
+                                            Вагон
+                                        </label>
+                                    </div>
+                                    <div class="mt-2">
+                                        <select class="form-select target-select" name="target_wagon" data-target-type="wagon" disabled>
+                                            <option value="">Выберите вагон</option>
+                                            {% for wagon in form.wagons %}
+                                            <option value="{{ wagon.id }}" {% if form.target_wagon.value == wagon.id %}selected{% endif %}>{{ wagon.wagon_number }}</option>
+                                            {% endfor %}
+                                        </select>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Источники сырья -->
-                        <div class="card mb-3">
-                            <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">Источники сырья</h5>
-                                <button type="button" class="btn btn-info btn-sm" id="add-raw-material">
-                                    <i class="bi bi-plus-circle"></i> Добавить источник сырья
-                                </button>
-                            </div>
-                            <div class="card-body">
-                                <div id="raw-materials-container">
-                                    <!-- Шаблон для источника сырья -->
-                                    <div class="raw-material-entry card mb-3" data-index="0">
-                                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
-                                            <h6 class="mb-0">Источник сырья #<span class="material-number">1</span></h6>
-                                            <button type="button" class="btn btn-danger btn-sm remove-raw-material" style="display:none">
-                                                <i class="bi bi-x-circle"></i>
-                                            </button>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="row g-3">
-                                                <!-- Тип сырья / Компонент -->
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Компонент:</label>
-                                                        <select class="form-select raw-material-product" name="raw_material_product_0" required>
-                                                            <option value="">-- Выберите компонент --</option>
-                                                            {% for product in form.fields.product.queryset %}
-                                                            <option value="{{ product.id }}">{{ product.name }}</option>
-                                                            {% endfor %}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Процентное содержание -->
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Процентное содержание (%):</label>
-                                                        <input type="number" class="form-control raw-material-percentage" name="raw_material_percentage_0" step="0.01" min="0" max="100" required>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Источник хранения -->
-                                                <div class="col-md-12">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Источник хранения:</label>
-                                                        <div class="row g-2">
-                                                            <div class="col-md-4">
-                                                                <select class="form-select raw-material-source-type" name="raw_material_source_type_0" required>
-                                                                    <option value="">-- Выберите тип --</option>
-                                                                    <option value="reservoir">Резервуар</option>
-                                                                    <option value="wagon">Вагон</option>
-                                                                    <option value="warehouse">Склад</option>
-                                                                </select>
-                                                            </div>
-                                                            <div class="col-md-8">
-                                                                <div class="raw-material-source-reservoir" style="display:none">
-                                                                    <select class="form-select" name="raw_material_source_reservoir_0">
-                                                                        <option value="">-- Выберите резервуар --</option>
-                                                                        {% for reservoir in form.fields.source_reservoir.queryset %}
-                                                                        <option value="{{ reservoir.id }}">{{ reservoir.name }}</option>
-                                                                        {% endfor %}
-                                                                    </select>
-                                                                </div>
-                                                                <div class="raw-material-source-wagon" style="display:none">
-                                                                    <select class="form-select" name="raw_material_source_wagon_0">
-                                                                        <option value="">-- Выберите вагон --</option>
-                                                                        {% for wagon in form.fields.source_wagon.queryset %}
-                                                                        <option value="{{ wagon.id }}">{{ wagon.wagon_number }}</option>
-                                                                        {% endfor %}
-                                                                    </select>
-                                                                </div>
-                                                                <div class="raw-material-source-warehouse" style="display:none">
-                                                                    <select class="form-select" name="raw_material_source_warehouse_0">
-                                                                        <option value="">-- Выберите склад --</option>
-                                                                        {% for warehouse in form.fields.source_warehouse.queryset %}
-                                                                        <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
-                                                                        {% endfor %}
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Расчетное количество -->
-                                                <div class="col-md-6">
-                                                    <div class="form-group">
-                                                        <label class="form-label">Расчетное количество (тонны):</label>
-                                                        <input type="number" class="form-control raw-material-quantity" name="raw_material_quantity_0" step="0.001" readonly>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Итоговая информация -->
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0">Итоговая информация</h6>
+                    </div>
+                    
+                    <!-- Транспортные средства для приемки -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-success bg-opacity-10 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Транспортные средства для приемки</h5>
+                            <button type="button" class="btn btn-success btn-sm" id="add-reception-transport">
+                                <i class="bi bi-plus-circle"></i> Добавить транспорт
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="reception-transports-container">
+                                <div class="reception-transport-entry card mb-3" data-index="0">
+                                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                                        <h6 class="mb-0">Транспорт #<span class="transport-number">1</span></h6>
+                                        <button type="button" class="btn btn-danger btn-sm remove-reception-transport" style="display:none">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
                                     </div>
                                     <div class="card-body">
                                         <div class="row g-3">
-                                            <!-- Суммарное процентное содержание -->
+                                            <!-- Тип транспорта -->
                                             <div class="col-md-6">
                                                 <div class="form-group">
-                                                    <label class="form-label">Суммарное процентное содержание (%):</label>
-                                                    <div class="input-group">
-                                                        <input type="number" id="total-percentage" class="form-control" readonly>
-                                                        <span class="input-group-text">%</span>
-                                                    </div>
-                                                    <div class="form-text text-danger" id="percentage-warning" style="display:none">
-                                                        Сумма процентов должна быть равна 100%
-                                                    </div>
+                                                    <label class="form-label">Тип транспорта:</label>
+                                                    <select class="form-select reception-transport-type" name="reception_transport_type_0" required>
+                                                        <option value="">-- Выберите тип --</option>
+                                                        <option value="truck">Грузовик</option>
+                                                        <option value="wagon">Вагон</option>
+                                                    </select>
                                                 </div>
                                             </div>
                                             
-                                            <!-- Общее количество сырья -->
+                                            <!-- Номер транспорта (общее поле) -->
                                             <div class="col-md-6">
                                                 <div class="form-group">
-                                                    <label class="form-label">Общее количество сырья (тонны):</label>
-                                                    <input type="number" id="raw-materials-total-quantity" class="form-control" readonly>
-                                                    <input type="hidden" name="raw_materials_json" id="raw-materials-json">
+                                                    <label class="form-label">Номер транспорта:</label>
+                                                    <input type="text" class="form-control reception-transport-number" name="reception_transport_number_0" required>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Поля для вагонов -->
+                                            <div class="col-md-6 wagon-specific-field">
+                                                <div class="form-group">
+                                                    <label class="form-label">Тип вагона:</label>
+                                                    <select class="form-select" name="reception_wagon_type_0">
+                                                        <option value="">-- Выберите тип вагона --</option>
+                                                        {% for wagon_type in form.wagon_types %}
+                                                            <option value="{{ wagon_type.id }}">{{ wagon_type.name }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Поля для грузовиков -->
+                                            <div class="col-md-6 truck-specific-field">
+                                                <div class="form-group">
+                                                    <label class="form-label">Грузоподъемность (кг):</label>
+                                                    <input type="number" class="form-control" name="reception_truck_capacity_0" step="0.001">
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Вес по документу (кг) -->
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label class="form-label">Вес по документу (кг):</label>
+                                                    <input type="number" class="form-control reception-doc-mass" name="reception_doc_mass_0" step="0.001" required>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Фактический вес (кг) -->
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label class="form-label">Фактический вес (кг):</label>
+                                                    <input type="number" class="form-control reception-mass-input" name="reception_mass_0" step="0.001" required>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Разница -->
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label class="form-label">Разница (кг):</label>
+                                                    <input type="number" class="form-control reception-diff-mass" name="reception_diff_mass_0" step="0.001" readonly>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <!-- Целевое хранилище -->
-                        <div class="card mb-3">
-                            <div class="card-header bg-info bg-opacity-10">
-                                <h5 class="mb-0">Целевое хранилище</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <div class="form-group">
-                                            <label for="id_target_warehouse_production" class="form-label">Склад:</label>
-                                            <select name="target_warehouse" id="id_target_warehouse_production" class="form-select">
-                                                <option value="">-- Выберите склад --</option>
-                                                {% for warehouse in form.fields.target_warehouse.queryset %}
-                                                <option value="{{ warehouse.id }}" {% if form.target_warehouse.value == warehouse.id %}selected{% endif %}>{{ warehouse.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="form-group">
-                                            <label for="id_target_reservoir_production" class="form-label">Резервуар:</label>
-                                            <select name="target_reservoir" id="id_target_reservoir_production" class="form-select">
-                                                <option value="">-- Выберите резервуар --</option>
-                                                {% for reservoir in form.fields.target_reservoir.queryset %}
-                                                <option value="{{ reservoir.id }}" {% if form.target_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="form-group">
-                                            <label for="id_target_wagon_production" class="form-label">Вагон:</label>
-                                            <select name="target_wagon" id="id_target_wagon_production" class="form-select">
-                                                <option value="">-- Выберите вагон --</option>
-                                                {% for wagon in form.fields.target_wagon.queryset %}
-                                                <option value="{{ wagon.id }}" {% if form.target_wagon.value == wagon.id %}selected{% endif %}>{{ wagon.wagon_number }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
+                            
+                            <!-- Итоговая информация по приемке -->
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Итоговая информация</h6>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Перемещение (transfer) -->
-                    <div id="transfer-fields" class="col-12 operation-fields">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="card h-100">
-                                    <div class="card-header bg-info bg-opacity-10">
-                                        <h5 class="mb-0">Источник (откуда перемещаем)</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row g-3">
-                                            <div class="col-12">
-                                                <div class="form-group">
-                                                    <label for="id_source_reservoir" class="form-label">Резервуар:</label>
-                                                    <select name="source_reservoir" id="id_source_reservoir_transfer" class="form-select">
-                                                        <option value="">-- Выберите резервуар --</option>
-                                                        {% for reservoir in form.fields.source_reservoir.queryset %}
-                                                        <option value="{{ reservoir.id }}" {% if form.source_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
-                                                        {% endfor %}
-                                                    </select>
-                                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Общий вес по документам (кг):</label>
+                                                <input type="number" id="reception-total-doc-mass" class="form-control" readonly>
                                             </div>
-                                            <div class="col-12">
-                                                <div class="form-group">
-                                                    <label for="id_source_wagon" class="form-label">Вагон:</label>
-                                                    <select name="source_wagon" id="id_source_wagon_transfer" class="form-select">
-                                                        <option value="">-- Выберите вагон --</option>
-                                                        {% for wagon in form.fields.source_wagon.queryset %}
-                                                        <option value="{{ wagon.id }}" {% if form.source_wagon.value == wagon.id %}selected{% endif %}>{{ wagon.wagon_number }}</option>
-                                                        {% endfor %}
-                                                    </select>
-                                                </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Общий фактический вес (кг):</label>
+                                                <input type="number" id="reception-total-mass" class="form-control" readonly>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Общая разница (кг):</label>
+                                                <input type="number" id="reception-total-diff-mass" class="form-control" readonly>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="card h-100">
-                                    <div class="card-header bg-info bg-opacity-10">
-                                        <h5 class="mb-0">Назначение (куда перемещаем)</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row g-3">
-                                            <div class="col-12">
-                                                <div class="form-group">
-                                                    <label for="id_target_reservoir" class="form-label">Резервуар:</label>
-                                                    <select name="target_reservoir" id="id_target_reservoir_transfer" class="form-select">
-                                                        <option value="">-- Выберите резервуар --</option>
-                                                        {% for reservoir in form.fields.target_reservoir.queryset %}
-                                                        <option value="{{ reservoir.id }}" {% if form.target_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
-                                                        {% endfor %}
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="col-12">
-                                                <div class="form-group">
-                                                    <label for="id_target_wagon" class="form-label">Вагон:</label>
-                                                    <select name="target_wagon" id="id_target_wagon_transfer" class="form-select">
-                                                        <option value="">-- Выберите вагон --</option>
-                                                        {% for wagon in form.fields.target_wagon.queryset %}
-                                                        <option value="{{ wagon.id }}" {% if form.target_wagon.value == wagon.id %}selected{% endif %}>{{ wagon.wagon_number }}</option>
-                                                        {% endfor %}
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Примечание -->
-                    <div class="col-12">
-                        <div class="form-group">
-                            <label for="id_note" class="form-label">Примечание:</label>
-                            <textarea name="note" id="id_note" class="form-control" rows="3">{{ form.note.value|default:'' }}</textarea>
                         </div>
                     </div>
                 </div>
                 
+                <!-- 2. Продажа (out) -->
+                <div id="sales-fields" class="col-12 operation-fields">
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning bg-opacity-10">
+                            <h5 class="mb-0">Данные о продаже</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <!-- Тип клиента -->
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="id_client_type_sale" class="form-label">Тип клиента:</label>
+                                        <select name="client_type" id="id_client_type_sale" class="form-select" required>
+                                            <option value="">-- Выберите тип клиента --</option>
+                                            {% for value, text in form.fields.client_type.choices %}
+                                                <option value="{{ value }}" {% if form.client_type.value == value %}selected{% endif %}>{{ text }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Клиент -->
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="id_client_sale" class="form-label">Клиент:</label>
+                                        <select name="client" id="id_client_sale" class="form-select" required>
+                                            <option value="">-- Выберите клиента --</option>
+                                            {% for client in form.fields.client.queryset %}
+                                                <option value="{{ client.id }}" {% if form.client.value == client.id %}selected{% endif %}>{{ client.title }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Источник (откуда отгружаем) -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning bg-opacity-10">
+                            <h5 class="mb-0">Источник (откуда отгружаем)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="source_type" id="source_type_reservoir" value="reservoir" checked>
+                                                <label class="form-check-label" for="source_type_reservoir">
+                                                    <strong>Резервуар</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="form-group">
+                                                <label for="id_source_reservoir" class="form-label">Выберите резервуар:</label>
+                                                <select name="source_reservoir" id="id_source_reservoir" class="form-select source-select" data-source-type="reservoir">
+                                                    <option value="">-- Выберите резервуар --</option>
+                                                    {% for reservoir in form.reservoirs %}
+                                                    <option value="{{ reservoir.id }}" {% if form.source_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="source_type" id="source_type_wagon" value="wagon">
+                                                <label class="form-check-label" for="source_type_wagon">
+                                                    <strong>Вагон</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="form-group">
+                                                <label for="id_source_wagon" class="form-label">Выберите вагон:</label>
+                                                <select name="source_wagon" id="id_source_wagon" class="form-select source-select" data-source-type="wagon">
+                                                    <option value="">-- Выберите вагон --</option>
+                                                    {% for wagon in form.wagons %}
+                                                    <option value="{{ wagon.id }}" {% if form.source_wagon.value == wagon.id %}selected{% endif %}>{{ wagon.wagon_number }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Транспортные средства для отгрузки (без номера, плотности и температуры) -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Транспортные средства для отгрузки</h5>
+                            <button type="button" class="btn btn-warning btn-sm" id="add-sales-transport">
+                                <i class="bi bi-plus-circle"></i> Добавить транспорт
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="sales-transports-container">
+                                <div class="sales-transport-entry card mb-3" data-index="0">
+                                    <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                                        <h6 class="mb-0">Транспорт #<span class="transport-number">1</span></h6>
+                                        <button type="button" class="btn btn-danger btn-sm remove-sales-transport" style="display:none">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-3">
+                                            <!-- Тип транспорта -->
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label">Тип транспорта:</label>
+                                                    <select class="form-select sales-transport-type" name="sales_transport_type_0" required>
+                                                        <option value="">-- Выберите тип --</option>
+                                                        <option value="truck">Грузовик</option>
+                                                        <option value="wagon">Вагон</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Номер транспорта (общее поле) -->
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label">Номер транспорта:</label>
+                                                    <input type="text" class="form-control sales-transport-number" name="sales_transport_number_0" required>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Поля для вагонов -->
+                                            <div class="col-md-6 wagon-specific-field">
+                                                <div class="form-group">
+                                                    <label class="form-label">Тип вагона:</label>
+                                                    <select class="form-select" name="sales_wagon_type_0">
+                                                        <option value="">-- Выберите тип вагона --</option>
+                                                        {% for wagon_type in form.wagon_types %}
+                                                            <option value="{{ wagon_type.id }}">{{ wagon_type.name }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Поля для грузовиков -->
+                                            <div class="col-md-6 truck-specific-field">
+                                                <div class="form-group">
+                                                    <label class="form-label">Грузоподъемность (кг):</label>
+                                                    <input type="number" class="form-control" name="sales_truck_capacity_0" step="0.001">
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Вес по документу (кг) -->
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label class="form-label">Вес по документу (кг):</label>
+                                                    <input type="number" class="form-control sales-doc-mass" name="sales_doc_mass_0" step="0.001" required>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Фактический вес (кг) -->
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label class="form-label">Фактический вес (кг):</label>
+                                                    <input type="number" class="form-control sales-mass-input" name="sales_mass_0" step="0.001" required>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Разница -->
+                                            <div class="col-md-4">
+                                                <div class="form-group">
+                                                    <label class="form-label">Разница (кг):</label>
+                                                    <input type="number" class="form-control sales-diff-mass" name="sales_diff_mass_0" step="0.001" readonly>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Итоговая информация по продаже -->
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Итоговая информация</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Общий вес по документам (кг):</label>
+                                                <input type="number" id="sales-total-doc-mass" class="form-control" readonly>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Общий фактический вес (кг):</label>
+                                                <input type="number" id="sales-total-mass" class="form-control" readonly>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Общая разница (кг):</label>
+                                                <input type="number" id="sales-total-diff-mass" class="form-control" readonly>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 3. Производство (production) -->
+                <div id="production-fields" class="col-12 operation-fields">
+                    <div class="card mb-3">
+                        <div class="card-header bg-info bg-opacity-10">
+                            <h5 class="mb-0">Данные о производстве</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <!-- Производимый продукт -->
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="id_product_production" class="form-label">Производимый продукт:</label>
+                                        <select name="product" id="id_product_production" class="form-select" required>
+                                            <option value="">-- Выберите продукт --</option>
+                                            {% for product in form.fields.product.queryset %}
+                                                <option value="{{ product.id }}" {% if form.product.value == product.id %}selected{% endif %}>{{ product.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Дата -->
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="id_date_production" class="form-label">Дата:</label>
+                                        <input type="date" name="date" id="id_date_production" class="form-control" value="{{ form.date.value|date:'Y-m-d'|default:'' }}" required>
+                                    </div>
+                                </div>
+                                
+                                <!-- Предполагаемый вес (кг) -->
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="id_material_quantity" class="form-label">Предполагаемый вес (кг):</label>
+                                        <input type="number" name="material_quantity" id="id_material_quantity" class="form-control" step="0.001" value="{{ form.material_quantity.value|default:'' }}" required>
+                                    </div>
+                                </div>
+                                
+                                <!-- Сырье (продукт) -->
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="id_source_product" class="form-label">Сырьё (продукт):</label>
+                                        <select name="source_product" id="id_source_product" class="form-select" required>
+                                            <option value="">-- Выберите продукт --</option>
+                                            {% for product in form.fields.product.queryset %}
+                                                <option value="{{ product.id }}" {% if form.source_product.value == product.id %}selected{% endif %}>{{ product.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Откуда брать сырье -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-info bg-opacity-10">
+                            <h5 class="mb-0">Откуда брать сырьё</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <!-- Вариант 1: резервуар -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="source_type_production" id="source_type_reservoir_production" value="reservoir" checked>
+                                                <label class="form-check-label" for="source_type_reservoir_production">
+                                                    <strong>Резервуар</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="form-group">
+                                                <select name="source_reservoir" id="id_source_reservoir_production" class="form-select production-source-select" data-source-type="reservoir">
+                                                    <option value="">-- Выберите резервуар --</option>
+                                                    {% for reservoir in form.reservoirs %}
+                                                        <option value="{{ reservoir.id }}" {% if form.source_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Вариант 2: вагон -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="source_type_production" id="source_type_wagon_production" value="wagon">
+                                                <label class="form-check-label" for="source_type_wagon_production">
+                                                    <strong>Вагон</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="form-group">
+                                                <label for="id_source_wagon_number_production" class="form-label">Номер вагона:</label>
+                                                <input type="text" name="source_wagon_number" id="id_source_wagon_number_production" class="form-control production-source-input" data-source-type="wagon" disabled>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Куда поставить результат производства -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-info bg-opacity-10">
+                            <h5 class="mb-0">Куда поставить (результат производства)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <!-- Вариант 1: резервуар -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="target_type_production" id="target_type_reservoir_production" value="reservoir" checked>
+                                                <label class="form-check-label" for="target_type_reservoir_production">
+                                                    <strong>Резервуар</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="form-group">
+                                                <select name="target_reservoir" id="id_target_reservoir_production" class="form-select production-target-select" data-target-type="reservoir">
+                                                    <option value="">-- Выберите резервуар --</option>
+                                                    {% for reservoir in form.reservoirs %}
+                                                        <option value="{{ reservoir.id }}" {% if form.target_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Вариант 2: вагон -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="target_type_production" id="target_type_wagon_production" value="wagon">
+                                                <label class="form-check-label" for="target_type_wagon_production">
+                                                    <strong>Вагон</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row g-2">
+                                                <div class="col-12">
+                                                    <div class="form-group">
+                                                        <label for="id_target_wagon_production" class="form-label">Выбор вагона:</label>
+                                                        <select name="target_wagon" id="id_target_wagon_production" class="form-select production-target-select" data-target-type="wagon" disabled>
+                                                            <option value="">-- Выберите вагон --</option>
+                                                            {% for wagon in form.wagons %}
+                                                                <option value="{{ wagon.id }}" {% if form.target_wagon.value == wagon.id %}selected{% endif %}>{{ wagon.wagon_number }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="form-group">
+                                                        <label for="id_target_wagon_type_production" class="form-label">Тип вагона:</label>
+                                                        <select name="target_wagon_type" id="id_target_wagon_type_production" class="form-select production-target-wagon-type" disabled>
+                                                            <option value="">-- Выберите тип вагона --</option>
+                                                            {% for wagon_type in form.wagon_types %}
+                                                                <option value="{{ wagon_type.id }}">{{ wagon_type.name }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Комментарий -->
+                    <div class="form-group mb-3">
+                        <label for="id_note_production" class="form-label">Комментарий:</label>
+                        <textarea name="note" id="id_note_production" class="form-control" rows="3">{{ form.note.value|default:'' }}</textarea>
+                    </div>
+                </div>
+                
+                <!-- 4. Перемещение (transfer) -->
+                <div id="transfer-fields" class="col-12 operation-fields">
+                    <div class="row g-3">
+                        <!-- Источник (откуда перемещаем) -->
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-info bg-opacity-10">
+                                    <h5 class="mb-0">Источник (откуда перемещаем)</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <div class="form-group">
+                                                <label for="id_source_reservoir_transfer" class="form-label">Резервуар:</label>
+                                                <select name="source_reservoir" id="id_source_reservoir_transfer" class="form-select">
+                                                    <option value="">-- Выберите резервуар --</option>
+                                                    {% for reservoir in form.fields.source_reservoir.queryset %}
+                                                        <option value="{{ reservoir.id }}" {% if form.source_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="form-group">
+                                                <label for="id_source_wagon_transfer" class="form-label">Вагон:</label>
+                                                <select name="source_wagon" id="id_source_wagon_transfer" class="form-select">
+                                                    <option value="">-- Выберите вагон --</option>
+                                                    {% for wagon in form.fields.source_wagon.queryset %}
+                                                        <option value="{{ wagon.id }}" {% if form.source_wagon.value == wagon.id %}selected{% endif %}>{{ wagon.wagon_number }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <!-- Новое поле: Количество источника (кг) -->
+                                        <div class="col-12">
+                                            <div class="form-group">
+                                                <label for="id_source_quantity" class="form-label">Количество источника (кг):</label>
+                                                <input type="number" name="source_quantity" id="id_source_quantity" class="form-control" step="0.001" value="{{ form.source_quantity.value|default:'' }}" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Назначение (куда перемещаем) -->
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-info bg-opacity-10">
+                                    <h5 class="mb-0">Назначение (куда перемещаем)</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <div class="form-group">
+                                                <label for="id_target_reservoir_transfer" class="form-label">Резервуар:</label>
+                                                <select name="target_reservoir" id="id_target_reservoir_transfer" class="form-select">
+                                                    <option value="">-- Выберите резервуар --</option>
+                                                    {% for reservoir in form.fields.target_reservoir.queryset %}
+                                                        <option value="{{ reservoir.id }}" {% if form.target_reservoir.value == reservoir.id %}selected{% endif %}>{{ reservoir.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="form-group">
+                                                <label for="id_target_wagon_transfer" class="form-label">Вагон:</label>
+                                                <select name="target_wagon" id="id_target_wagon_transfer" class="form-select">
+                                                    <option value="">-- Выберите вагон --</option>
+                                                    {% for wagon in form.fields.target_wagon.queryset %}
+                                                        <option value="{{ wagon.id }}" {% if form.target_wagon.value == wagon.id %}selected{% endif %}>{{ wagon.wagon_number }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <!-- Новое поле: Количество назначения (кг) -->
+                                        <div class="col-12">
+                                            <div class="form-group">
+                                                <label for="id_target_quantity" class="form-label">Количество назначения (кг):</label>
+                                                <input type="number" name="target_quantity" id="id_target_quantity" class="form-control" step="0.001" value="{{ form.target_quantity.value|default:'' }}" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Примечание -->
+                <div class="col-12 mt-3">
+                    <div class="form-group">
+                        <label for="id_note" class="form-label">Примечание:</label>
+                        <textarea name="note" id="id_note" class="form-control" rows="3">{{ form.note.value|default:'' }}</textarea>
+                    </div>
+                </div>
+                
+                <!-- Кнопки формы -->
                 <div class="mt-4 d-flex justify-content-end">
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-circle"></i> 
+                        <i class="bi bi-check-circle"></i>
                         {% if movement %}Сохранить изменения{% else %}Создать операцию{% endif %}
                     </button>
                 </div>
@@ -778,557 +820,912 @@
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Функция показа/скрытия полей в зависимости от типа операции
-        function toggleOperationFields() {
-            const movementType = document.getElementById('id_movement_type').value;
-            
-            // Скрываем все поля
-            document.querySelectorAll('.operation-fields').forEach(function(field) {
-                field.style.display = 'none';
-            });
-            
-            // Показываем поля соответствующие выбранному типу операции
-            if (movementType === 'in') {
-                document.getElementById('reception-fields').style.display = 'block';
-            } else if (movementType === 'out') {
-                document.getElementById('sales-fields').style.display = 'block';
-            } else if (movementType === 'production') {
-                document.getElementById('production-fields').style.display = 'block';
-            } else if (movementType === 'transfer') {
-                document.getElementById('transfer-fields').style.display = 'block';
-            }
-        }
+document.addEventListener('DOMContentLoaded', function() {
+    // Функция показа/скрытия блоков в зависимости от типа операции
+    function toggleOperationFields() {
+        const movementType = document.getElementById('id_movement_type').value;
         
-        // Слушаем изменения типа операции
-        document.getElementById('id_movement_type').addEventListener('change', toggleOperationFields);
+        // Скрываем все блоки операций
+        document.querySelectorAll('.operation-fields').forEach(field => {
+            field.style.display = 'none';
+            
+            // Сначала удаляем атрибут required у всех полей
+            field.querySelectorAll('input, select').forEach(input => {
+                // Запоминаем, было ли поле обязательным (для последующего восстановления)
+                if (input.required) {
+                    input.setAttribute('data-was-required', 'true');
+                    input.required = false;
+                }
+            });
+        });
+        
+        // Показываем нужный блок и восстанавливаем required для его полей
+        if (movementType === 'in') {
+            const receptionFields = document.getElementById('reception-fields');
+            receptionFields.style.display = 'block';
+            
+            // Восстанавливаем required для видимых полей
+            receptionFields.querySelectorAll('input, select').forEach(input => {
+                if (input.getAttribute('data-was-required') === 'true') {
+                    input.required = true;
+                }
+            });
+        } else if (movementType === 'out') {
+            const salesFields = document.getElementById('sales-fields');
+            salesFields.style.display = 'block';
+            
+            // Восстанавливаем required для видимых полей
+            salesFields.querySelectorAll('input, select').forEach(input => {
+                if (input.getAttribute('data-was-required') === 'true') {
+                    input.required = true;
+                }
+            });
+        } else if (movementType === 'production') {
+            const productionFields = document.getElementById('production-fields');
+            productionFields.style.display = 'block';
+            
+            // Восстанавливаем required для видимых полей
+            productionFields.querySelectorAll('input, select').forEach(input => {
+                if (input.getAttribute('data-was-required') === 'true') {
+                    input.required = true;
+                }
+            });
+        } else if (movementType === 'transfer') {
+            const transferFields = document.getElementById('transfer-fields');
+            transferFields.style.display = 'block';
+            
+            // Восстанавливаем required для видимых полей
+            transferFields.querySelectorAll('input, select').forEach(input => {
+                if (input.getAttribute('data-was-required') === 'true') {
+                    input.required = true;
+                }
+            });
+        }
+    }
+    
+    const movementTypeSelect = document.getElementById('id_movement_type');
+    if (movementTypeSelect) {
+        // При изменении типа операции
+        movementTypeSelect.addEventListener('change', toggleOperationFields);
+        
+        // Устанавливаем data-was-required при загрузке страницы
+        document.querySelectorAll('.operation-fields input[required], .operation-fields select[required]').forEach(input => {
+            input.setAttribute('data-was-required', 'true');
+        });
         
         // Инициализация при загрузке страницы
         toggleOperationFields();
+    }
 
-        // ==========================================================
-        // Функциональность для работы с множественными транспортами в ПРИЕМКЕ
-        // ==========================================================
+    // --- Фильтрация клиентов по типу клиента ---
+    function setupClientTypeHandlers() {
+        // Общий селектор типа клиента
+        const mainClientType = document.getElementById('id_client_type');
+        const mainClient = document.getElementById('id_client');
         
-        let receptionTransportCounter = 1;
+        if (mainClientType && mainClient) {
+            mainClientType.addEventListener('change', function() {
+                filterClientsByType(this.value, mainClient);
+            });
+            
+            // Инициализация при загрузке
+            filterClientsByType(mainClientType.value, mainClient);
+        }
         
-        // Добавление нового транспорта
-        const addReceptionTransportBtn = document.getElementById('add-reception-transport');
-        if (addReceptionTransportBtn) {
-            addReceptionTransportBtn.addEventListener('click', function() {
-                const container = document.getElementById('reception-transports-container');
-                const transportEntries = container.querySelectorAll('.transport-entry');
-                const lastEntry = transportEntries[transportEntries.length - 1];
-                const newEntry = lastEntry.cloneNode(true);
-                
-                // Обновляем индекс и заголовок
-                receptionTransportCounter++;
-                newEntry.setAttribute('data-index', receptionTransportCounter - 1);
-                newEntry.querySelector('.transport-number').textContent = receptionTransportCounter;
-                
-                // Очищаем значения полей
-                newEntry.querySelectorAll('input').forEach(input => {
-                    if (input.type === 'number') {
-                        if (input.classList.contains('temperature-input')) {
-                            input.value = '20'; // Стандартная температура
-                        } else {
-                            input.value = '';
-                        }
-                    } else if (input.type === 'file') {
-                        input.value = '';
-                    } else {
-                        input.value = '';
-                    }
-                    
-                    // Обновляем имена полей
-                    const name = input.getAttribute('name');
-                    if (name) {
-                        const baseName = name.split('_').slice(0, -1).join('_');
-                        input.setAttribute('name', `${baseName}_${receptionTransportCounter - 1}`);
-                    }
-                });
-                
-                // Обновляем имена селекторов
-                newEntry.querySelectorAll('select').forEach(select => {
-                    const name = select.getAttribute('name');
-                    if (name) {
-                        const baseName = name.split('_').slice(0, -1).join('_');
-                        select.setAttribute('name', `${baseName}_${receptionTransportCounter - 1}`);
-                        select.value = '';
-                    }
-                });
-                
-                // Показываем кнопку удаления
-                newEntry.querySelector('.remove-transport').style.display = 'block';
-                
-                // Добавляем новый блок в контейнер
-                container.appendChild(newEntry);
-                
-                // Обновляем обработчики событий
-                setupReceptionEventHandlers();
-                updateReceptionTotals();
+        // Селектор типа клиента для приемки
+        const receptionClientType = document.getElementById('id_client_type');
+        const receptionClient = document.getElementById('id_client');
+        
+        if (receptionClientType && receptionClient) {
+            receptionClientType.addEventListener('change', function() {
+                filterClientsByType(this.value, receptionClient);
             });
         }
         
-        // Настройка обработчиков событий для приемки
-        function setupReceptionEventHandlers() {
-            // Обработчики для кнопок удаления
-            document.querySelectorAll('.remove-transport').forEach(button => {
-                button.addEventListener('click', function() {
-                    const entry = this.closest('.transport-entry');
-                    entry.remove();
-                    updateReceptionTransportNumbers();
-                    updateReceptionTotals();
-                });
-            });
-            
-            // Обработчики для типа транспорта
-            document.querySelectorAll('.transport-type').forEach(select => {
-                select.addEventListener('change', function() {
-                    const entry = this.closest('.transport-entry');
-                    const literField = entry.querySelector('.liter-field');
-                    const heightField = entry.querySelector('.height-field');
-                    
-                    if (this.value === 'truck') {
-                        literField.style.display = 'block';
-                        heightField.style.display = 'none';
-                    } else if (this.value === 'wagon') {
-                        literField.style.display = 'none';
-                        heightField.style.display = 'block';
-                    }
-                });
-            });
-            
-            // Обработчики для полей ввода плотности, температуры и объема
-            document.querySelectorAll('.density-input, .temperature-input, .liter-input, .height-input').forEach(input => {
-                input.addEventListener('input', function() {
-                    calculateReceptionQuantity(this.closest('.transport-entry'));
-                    updateReceptionTotals();
-                });
-            });
-        }
+        // Селектор типа клиента для продажи
+        const saleClientType = document.getElementById('id_client_type_sale');
+        const saleClient = document.getElementById('id_client_sale');
         
-        // Обновление номеров транспорта в приемке
-        function updateReceptionTransportNumbers() {
-            let counter = 1;
-            document.querySelectorAll('.transport-entry').forEach(entry => {
-                entry.querySelector('.transport-number').textContent = counter++;
+        if (saleClientType && saleClient) {
+            saleClientType.addEventListener('change', function() {
+                filterClientsByType(this.value, saleClient);
             });
-            receptionTransportCounter = counter - 1;
-        }
-        
-        // Расчет массы по плотности, температуре и объему для приемки
-        function calculateReceptionQuantity(transportEntry) {
-            const density = parseFloat(transportEntry.querySelector('.density-input').value) || 0;
-            const temperature = parseFloat(transportEntry.querySelector('.temperature-input').value) || 20;
-            const transportType = transportEntry.querySelector('.transport-type').value;
-            let quantity = 0;
             
-            if (transportType === 'truck') {
-                const liter = parseFloat(transportEntry.querySelector('.liter-input').value) || 0;
-                // Формула для расчета массы в тоннах: Плотность * Объем / 1000 = масса в тоннах
-                if (density > 0 && liter > 0) {
-                    quantity = (density * liter) / 1000;
-                }
-            } else if (transportType === 'wagon') {
-                const height = parseFloat(transportEntry.querySelector('.height-input').value) || 0;
-                // Здесь должна быть формула расчета для вагона по высоте
-                // Это зависит от типа вагона, его объема и т.д.
-                // Пример: quantity = (height * коэффициент_вагона * density) / 1000;
-                if (density > 0 && height > 0) {
-                    // Упрощенная формула для примера
-                    quantity = (height * 100 * density) / 1000; // предполагаем, что 1 см высоты = 100 литров
+            // Инициализация при загрузке
+            filterClientsByType(saleClientType.value, saleClient);
+        }
+    }
+    
+    function filterClientsByType(clientType, clientSelect) {
+        if (!clientType || !clientSelect) return;
+        
+        // Скрываем все опции, кроме первой (пустой)
+        Array.from(clientSelect.options).forEach((option, index) => {
+            if (index === 0) {
+                // Оставляем первую опцию видимой
+                option.style.display = '';
+            } else {
+                // Скрываем остальные опции по умолчанию
+                option.style.display = 'none';
+                
+                // В реальном приложении здесь должен быть код для фильтрации по типу клиента
+                // Для примера, будем показывать все опции с четными индексами для local, 
+                // и с нечетными для international
+                const isLocal = clientType === 'local';
+                const isInternational = clientType === 'international';
+                
+                if ((isLocal && index % 2 === 0) || (isInternational && index % 2 !== 0)) {
+                    option.style.display = '';
                 }
             }
-            
-            transportEntry.querySelector('.quantity-input').value = quantity.toFixed(3);
-        }
+        });
         
-        // Обновление итоговых значений для приемки
-        function updateReceptionTotals() {
-            let totalQuantity = 0;
-            const transportsData = [];
-            
-            document.querySelectorAll('.transport-entry').forEach(entry => {
-                const quantity = parseFloat(entry.querySelector('.quantity-input').value) || 0;
-                const transportType = entry.querySelector('.transport-type').value;
-                const transportNumber = entry.querySelector('.transport-number-input').value;
-                const density = parseFloat(entry.querySelector('.density-input').value) || 0;
-                const temperature = parseFloat(entry.querySelector('.temperature-input').value) || 20;
-                
-                totalQuantity += quantity;
-                
-                if (transportType && transportNumber && quantity > 0) {
-                    const transportData = {
-                        transport_type: transportType,
-                        transport_number: transportNumber,
-                        density: density,
-                        temperature: temperature,
-                        quantity: quantity
-                    };
-                    
-                    if (transportType === 'truck') {
-                        transportData.liter = parseFloat(entry.querySelector('.liter-input').value) || 0;
-                    } else if (transportType === 'wagon') {
-                        transportData.height = parseFloat(entry.querySelector('.height-input').value) || 0;
-                    }
-                    
-                    transportsData.push(transportData);
-                }
-            });
-            
-            // Обновляем общее количество
-            const totalQuantityElement = document.getElementById('reception-total-quantity');
-            if (totalQuantityElement) {
-                totalQuantityElement.value = totalQuantity.toFixed(3);
-            }
-            
-            // Обновляем скрытое поле с JSON данными о транспорте
-            const transportsJsonElement = document.getElementById('reception-transports-json');
-            if (transportsJsonElement) {
-                transportsJsonElement.value = JSON.stringify(transportsData);
-            }
-            
-            // Копируем значение в основное поле expected_quantity
-            const expectedQuantityElement = document.getElementById('id_expected_quantity');
-            if (expectedQuantityElement) {
-                expectedQuantityElement.value = totalQuantity.toFixed(3);
-            }
+        // Сбрасываем выбор, если выбранный элемент больше не виден
+        if (clientSelect.selectedIndex > 0 && 
+            clientSelect.options[clientSelect.selectedIndex].style.display === 'none') {
+            clientSelect.selectedIndex = 0;
         }
+    }
+    
+    setupClientTypeHandlers();
 
-        // ==========================================================
-        // Функциональность для работы с множественными транспортами в ПРОДАЖЕ
-        // ==========================================================
-        
-        let salesTransportCounter = 1;
-        
-        // Добавление нового транспорта для продажи
+    // --- Функционал для работы с транспортом в продаже ---
+    let salesTransportCounter = 1;
+    
+    function setupSalesTransport() {
         const addSalesTransportBtn = document.getElementById('add-sales-transport');
         if (addSalesTransportBtn) {
             addSalesTransportBtn.addEventListener('click', function() {
-                const container = document.getElementById('sales-transports-container');
-                const transportEntries = container.querySelectorAll('.sales-transport-entry');
-                const lastEntry = transportEntries[transportEntries.length - 1];
-                const newEntry = lastEntry.cloneNode(true);
-                
-                // Обновляем индекс и заголовок
-                salesTransportCounter++;
-                newEntry.setAttribute('data-index', salesTransportCounter - 1);
-                newEntry.querySelector('.transport-number').textContent = salesTransportCounter;
-                
-                // Очищаем значения полей
-                newEntry.querySelectorAll('input').forEach(input => {
-                    if (input.type === 'number') {
-                        if (input.classList.contains('sales-temperature')) {
-                            input.value = '20'; // Стандартная температура
-                        } else {
-                            input.value = '';
-                        }
-                    } else {
-                        input.value = '';
-                    }
+                addSalesTransportEntry();
+            });
+        }
+        
+        // Инициализируем обработчики для существующих транспортов
+        setupSalesEventHandlers();
+    }
+    
+    function addSalesTransportEntry() {
+        const container = document.getElementById('sales-transports-container');
+        if (!container) return;
+        
+        const transportEntries = container.querySelectorAll('.sales-transport-entry');
+        if (transportEntries.length === 0) return;
+        
+        const lastEntry = transportEntries[transportEntries.length - 1];
+        const newEntry = lastEntry.cloneNode(true);
+        
+        salesTransportCounter++;
+        newEntry.setAttribute('data-index', salesTransportCounter - 1);
+        
+        // Обновляем номер транспорта
+        const transportNumberEl = newEntry.querySelector('.transport-number');
+        if (transportNumberEl) {
+            transportNumberEl.textContent = salesTransportCounter;
+        }
+        
+        // Очищаем значения полей ввода
+        newEntry.querySelectorAll('input').forEach(input => {
+            input.value = '';
+            
+            // Для полей только для чтения (разница) не очищаем
+            if (input.classList.contains('sales-diff-mass')) {
+                input.value = '0.000';
+            }
+            
+            // Обновляем имя поля с новым индексом
+            const name = input.getAttribute('name');
+            if (name) {
+                const baseName = name.split('_').slice(0, -1).join('_');
+                input.setAttribute('name', `${baseName}_${salesTransportCounter - 1}`);
+            }
+        });
+        
+        // Обновляем селекты
+        newEntry.querySelectorAll('select').forEach(select => {
+            select.selectedIndex = 0;
+            
+            // Обновляем имя селекта с новым индексом
+            const name = select.getAttribute('name');
+            if (name) {
+                const baseName = name.split('_').slice(0, -1).join('_');
+                select.setAttribute('name', `${baseName}_${salesTransportCounter - 1}`);
+            }
+        });
+        
+        // Показываем кнопку удаления
+        const removeBtn = newEntry.querySelector('.remove-sales-transport');
+        if (removeBtn) {
+            removeBtn.style.display = 'block';
+        }
+        
+        // Добавляем новую запись
+        container.appendChild(newEntry);
+        
+        // Получаем тип транспорта в новой записи
+        const transportTypeSelect = newEntry.querySelector('.sales-transport-type');
+        if (transportTypeSelect) {
+            // Инициализируем видимость полей в зависимости от выбранного типа
+            toggleTransportFields(newEntry, transportTypeSelect.value);
+            
+            // Добавляем обработчик события изменения типа транспорта
+            transportTypeSelect.addEventListener('change', function() {
+                toggleTransportFields(newEntry, this.value);
+            });
+        }
+        
+        // Обновляем обработчики событий и пересчитываем итоги
+        setupSalesEventHandlers();
+        setupMassCalculation(); // Добавляем обработчики для новых полей массы
+        updateTotalMass('sales');
+    }
+    
+    function setupSalesEventHandlers() {
+        // Добавляем обработчики для удаления транспорта
+        document.querySelectorAll('.remove-sales-transport').forEach(button => {
+            button.onclick = function() {
+                const transportEntry = this.closest('.sales-transport-entry');
+                if (transportEntry) {
+                    transportEntry.remove();
+                    updateSalesTransportNumbers();
+                    updateTotalMass('sales');
+                    updateTransportsJson();
+                }
+            };
+        });
+
+        // Добавляем обработчики для изменения типа транспорта
+        document.querySelectorAll('.sales-transport-type').forEach(select => {
+            const transportEntry = select.closest('.sales-transport-entry');
+            if (transportEntry) {
+                select.onchange = function() {
+                    toggleTransportFields(transportEntry, this.value);
+                    updateTransportsJson();
+                };
+            }
+        });
+
+        // Добавляем обработчики для всех полей ввода в транспортных секциях
+        document.querySelectorAll('.sales-transport-entry input, .sales-transport-entry select').forEach(element => {
+            element.addEventListener('change', function() {
+                updateTransportsJson();
+            });
+            if (element.tagName === 'INPUT') {
+                element.addEventListener('input', function() {
+                    updateTransportsJson();
+                });
+            }
+        });
+    }
+    
+    function updateSalesTransportNumbers() {
+        let counter = 1;
+        document.querySelectorAll('.sales-transport-entry').forEach(entry => {
+            const transportNumberEl = entry.querySelector('.transport-number');
+            if (transportNumberEl) {
+                transportNumberEl.textContent = counter++;
+            }
+        });
+        salesTransportCounter = counter - 1;
+    }
+    
+    function updateSalesTotalMass() {
+        updateTotalMass('sales');
+    }
+    
+    setupSalesTransport();
+    
+    // Устанавливаем обработчики для расчета разницы весов
+    function setupMassCalculation() {
+        // Обработчики для ввода данных о массе
+        document.querySelectorAll('.sales-doc-mass, .sales-mass-input, .reception-doc-mass, .reception-mass-input').forEach(input => {
+            input.addEventListener('input', function() {
+                const entry = this.closest('.sales-transport-entry, .reception-transport-entry');
+                if (entry) {
+                    const entryClass = entry.classList.contains('sales-transport-entry') ? 'sales' : 'reception';
+                    const massInput = entry.querySelector(`.${entryClass}-mass-input`);
+                    const docMassInput = entry.querySelector(`.${entryClass}-doc-mass`);
+                    const diffMassInput = entry.querySelector(`.${entryClass}-diff-mass`);
                     
-                    // Обновляем имена полей
-                    const name = input.getAttribute('name');
-                    if (name) {
-                        const baseName = name.split('_').slice(0, -1).join('_');
-                        input.setAttribute('name', `${baseName}_${salesTransportCounter - 1}`);
+                    if (massInput && docMassInput && diffMassInput) {
+                        const mass = parseFloat(massInput.value) || 0;
+                        const docMass = parseFloat(docMassInput.value) || 0;
+                        const diff = mass - docMass;
+                        
+                        // Обновляем поле разницы
+                        diffMassInput.value = diff.toFixed(3);
+                    }
+                }
+                
+                // Обновляем общие данные
+                updateTotalMass(entryClass);
+            });
+        });
+    }
+    
+    setupMassCalculation();
+    
+    // Единая функция для обновления общей массы
+    function updateTotalMass(type) {
+        const prefix = type || 'sales';
+        let totalMass = 0;
+        let totalDocMass = 0;
+        let totalDiffMass = 0;
+        const transportsData = [];
+        
+        document.querySelectorAll(`.${prefix}-transport-entry`).forEach(entry => {
+            const massInput = entry.querySelector(`.${prefix}-mass-input`);
+            const transportTypeSelect = entry.querySelector(`.${prefix}-transport-type`);
+            const transportNumberInput = entry.querySelector(`.${prefix}-transport-number`);
+            const docMassInput = entry.querySelector(`.${prefix}-doc-mass`);
+            const diffMassInput = entry.querySelector(`.${prefix}-diff-mass`);
+            
+            if (massInput && transportTypeSelect && transportNumberInput && docMassInput && diffMassInput) {
+                const mass = parseFloat(massInput.value) || 0;
+                const docMass = parseFloat(docMassInput.value) || 0;
+                const diff = mass - docMass;
+                
+                // Обновляем поле разницы
+                diffMassInput.value = diff.toFixed(3);
+                
+                totalMass += mass;
+                totalDocMass += docMass;
+                totalDiffMass += diff;
+                
+                // Соберем данные в зависимости от типа транспорта
+                const transportData = {
+                    transport_type: transportTypeSelect.value,
+                    transport_number: transportNumberInput.value,
+                    doc_mass: docMass,
+                    mass: mass,
+                    diff: diff
+                };
+                
+                // Добавляем специфичные для типа транспорта данные
+                if (transportTypeSelect.value === 'wagon') {
+                    const wagonTypeSelect = entry.querySelector(`[name^="${prefix}_wagon_type_"]`);
+                    if (wagonTypeSelect) {
+                        transportData.wagon_type = wagonTypeSelect.value;
+                    }
+                } else if (transportTypeSelect.value === 'truck') {
+                    const truckCapacityInput = entry.querySelector(`[name^="${prefix}_truck_capacity_"]`);
+                    if (truckCapacityInput) {
+                        transportData.truck_capacity = parseFloat(truckCapacityInput.value) || 0;
+                    }
+                }
+                
+                transportsData.push(transportData);
+            }
+        });
+        
+        // Обновляем общие суммы
+        const totalMassElement = document.getElementById(`${prefix}-total-mass`);
+        if (totalMassElement) {
+            totalMassElement.value = totalMass.toFixed(3);
+        }
+        
+        const totalDocMassElement = document.getElementById(`${prefix}-total-doc-mass`);
+        if (totalDocMassElement) {
+            totalDocMassElement.value = totalDocMass.toFixed(3);
+        }
+        
+        const totalDiffMassElement = document.getElementById(`${prefix}-total-diff-mass`);
+        if (totalDiffMassElement) {
+            totalDiffMassElement.value = totalDiffMass.toFixed(3);
+        }
+        
+        // Сохраняем данные в скрытом поле JSON
+        updateTransportsJson(transportsData);
+        
+        // Обновляем поле expected_quantity
+        const expectedQuantityElement = document.getElementById('id_expected_quantity');
+        if (expectedQuantityElement) {
+            // Конвертируем кг в тонны для поля формы
+            expectedQuantityElement.value = (totalMass / 1000).toFixed(3);
+        }
+    }
+    
+    function updateTransportsJson(transportsData) {
+        // Если данные не переданы, соберем их с формы
+        if (!transportsData) {
+            let currentType = document.getElementById('id_movement_type').value;
+            transportsData = [];
+            
+            // Определяем префикс и контейнер в зависимости от типа операции
+            let prefix, container;
+            if (currentType === 'in') {
+                prefix = 'reception';
+                container = document.getElementById('reception-transports-container');
+            } else if (currentType === 'out') {
+                prefix = 'sales';
+                container = document.getElementById('sales-transports-container');
+            } else {
+                // Для остальных типов операций данные о транспортах не нужны
+                return;
+            }
+            
+            // Собираем данные о транспортах
+            if (container) {
+                container.querySelectorAll(`.${prefix}-transport-entry`).forEach(entry => {
+                    const transportType = entry.querySelector(`.${prefix}-transport-type`).value;
+                    const transportNumber = entry.querySelector(`.${prefix}-transport-number`).value;
+                    const docMass = parseFloat(entry.querySelector(`.${prefix}-doc-mass`).value) || 0;
+                    const mass = parseFloat(entry.querySelector(`.${prefix}-mass-input`).value) || 0;
+                    const diffMass = parseFloat(entry.querySelector(`.${prefix}-diff-mass`).value) || 0;
+                    
+                    // Только если есть транспортное средство и вес
+                    if (transportType && transportNumber && mass > 0) {
+                        // Базовые данные о транспорте
+                        const transportData = {
+                            transport_type: transportType,
+                            transport_number: transportNumber,
+                            doc_mass: docMass,  // в кг
+                            mass: mass,         // в кг
+                            diff: diffMass      // в кг
+                        };
+                        
+                        // Добавляем специфичные для типа транспорта данные
+                        if (transportType === 'wagon') {
+                            const wagonTypeSelect = entry.querySelector(`[name^="${prefix}_wagon_type_"]`);
+                            if (wagonTypeSelect) {
+                                transportData.wagon_type = wagonTypeSelect.value;
+                            }
+                        } else if (transportType === 'truck') {
+                            const truckCapacityInput = entry.querySelector(`[name^="${prefix}_truck_capacity_"]`);
+                            if (truckCapacityInput) {
+                                transportData.truck_capacity = parseFloat(truckCapacityInput.value) || 0;
+                            }
+                        }
+                        
+                        transportsData.push(transportData);
                     }
                 });
+            }
+        }
+        
+        // Сохраняем в скрытое поле формы
+        const jsonElement = document.getElementById('sales-transports-json');
+        if (jsonElement) {
+            jsonElement.value = JSON.stringify(transportsData);
+        }
+    }
+    
+    // Функции для работы с транспортными средствами приемки
+    let receptionTransportCounter = 1;
+    
+    function setupReceptionTransport() {
+        const addReceptionTransportBtn = document.getElementById('add-reception-transport');
+        if (addReceptionTransportBtn) {
+            addReceptionTransportBtn.addEventListener('click', function() {
+                addReceptionTransportEntry();
+            });
+        }
+        
+        // Инициализируем обработчики для существующих транспортов приемки
+        setupReceptionEventHandlers();
+    }
+    
+    function addReceptionTransportEntry() {
+        const container = document.getElementById('reception-transports-container');
+        if (!container) return;
+        
+        const transportEntries = container.querySelectorAll('.reception-transport-entry');
+        if (transportEntries.length === 0) return;
+        
+        const lastEntry = transportEntries[transportEntries.length - 1];
+        const newEntry = lastEntry.cloneNode(true);
+        
+        receptionTransportCounter++;
+        newEntry.setAttribute('data-index', receptionTransportCounter - 1);
+        
+        // Обновляем номер транспорта
+        const transportNumberEl = newEntry.querySelector('.transport-number');
+        if (transportNumberEl) {
+            transportNumberEl.textContent = receptionTransportCounter;
+        }
+        
+        // Очищаем значения полей ввода
+        newEntry.querySelectorAll('input').forEach(input => {
+            input.value = '';
+            
+            // Для полей только для чтения (разница) не очищаем
+            if (input.classList.contains('reception-diff-mass')) {
+                input.value = '0.000';
+            }
+            
+            // Обновляем имя поля с новым индексом
+            const name = input.getAttribute('name');
+            if (name) {
+                const baseName = name.split('_').slice(0, -1).join('_');
+                input.setAttribute('name', `${baseName}_${receptionTransportCounter - 1}`);
+            }
+        });
+        
+        // Обновляем селекты
+        newEntry.querySelectorAll('select').forEach(select => {
+            select.selectedIndex = 0;
+            
+            // Обновляем имя селекта с новым индексом
+            const name = select.getAttribute('name');
+            if (name) {
+                const baseName = name.split('_').slice(0, -1).join('_');
+                select.setAttribute('name', `${baseName}_${receptionTransportCounter - 1}`);
+            }
+        });
+        
+        // Показываем кнопку удаления
+        const removeBtn = newEntry.querySelector('.remove-reception-transport');
+        if (removeBtn) {
+            removeBtn.style.display = 'block';
+        }
+        
+        // Добавляем новую запись
+        container.appendChild(newEntry);
+        
+        // Инициализируем обработчики для новой записи
+        setupReceptionEventHandlers();
+        // Обновляем общие данные
+        updateTotalMass('reception');
+    }
+    
+    function setupReceptionEventHandlers() {
+        // Обработчики для кнопок удаления транспорта
+        document.querySelectorAll('.remove-reception-transport').forEach(button => {
+            // Удаляем существующие обработчики
+            const newButton = button.cloneNode(true);
+            if (button.parentNode) {
+                button.parentNode.replaceChild(newButton, button);
+            }
+            
+            // Добавляем новый обработчик
+            newButton.addEventListener('click', function() {
+                const entry = this.closest('.reception-transport-entry');
+                if (entry) {
+                    entry.remove();
+                    updateReceptionTransportNumbers();
+                    updateTotalMass('reception');
+                }
+            });
+        });
+        
+        // Обработчики для полей ввода массы
+        document.querySelectorAll('.reception-mass-input, .reception-doc-mass').forEach(input => {
+            input.addEventListener('input', function() {
+                updateTotalMass('reception');
+            });
+        });
+        
+        // Обработчики для селекторов типа транспорта
+        document.querySelectorAll('.reception-transport-type').forEach(select => {
+            select.addEventListener('change', function() {
+                const transportEntry = this.closest('.reception-transport-entry');
+                if (transportEntry) {
+                    toggleTransportFields(transportEntry, this.value);
+                }
+            });
+            
+            // Инициализируем состояние полей при загрузке
+            const transportEntry = select.closest('.reception-transport-entry');
+            if (transportEntry) {
+                toggleTransportFields(transportEntry, select.value);
+            }
+        });
+    }
+    
+    function updateReceptionTransportNumbers() {
+        let counter = 1;
+        document.querySelectorAll('.reception-transport-entry').forEach(entry => {
+            const transportNumberEl = entry.querySelector('.transport-number');
+            if (transportNumberEl) {
+                transportNumberEl.textContent = counter++;
+            }
+        });
+        receptionTransportCounter = counter - 1;
+    }
+    
+    // Инициализируем обработчики для транспортных средств приемки
+    setupReceptionTransport();
+
+    // Инициализация обработчиков для источника товара
+    function setupSourceSelectionHandlers() {
+        // Радиокнопки для выбора типа источника
+        const sourceTypeRadios = document.querySelectorAll('input[name="source_type"]');
+        // Селекторы источников (резервуар и вагон)
+        const sourceSelects = document.querySelectorAll('.source-select');
+        
+        // Обработчик изменения типа источника
+        sourceTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                // Определяем выбранный тип источника
+                const selectedSourceType = this.value;
                 
-                // Обновляем имена селекторов
-                newEntry.querySelectorAll('select').forEach(select => {
-                    const name = select.getAttribute('name');
-                    if (name) {
-                        const baseName = name.split('_').slice(0, -1).join('_');
-                        select.setAttribute('name', `${baseName}_${salesTransportCounter - 1}`);
+                // Деактивируем все селекторы источников
+                sourceSelects.forEach(select => {
+                    const selectSourceType = select.getAttribute('data-source-type');
+                    
+                    // Если тип источника совпадает с выбранным, активируем селектор
+                    if (selectSourceType === selectedSourceType) {
+                        select.disabled = false;
+                        select.closest('.card').classList.add('border-primary');
+                    } else {
+                        // Иначе деактивируем и очищаем
+                        select.disabled = true;
+                        select.value = '';
+                        select.closest('.card').classList.remove('border-primary');
+                    }
+                });
+            });
+        });
+        
+        // Проверяем начальное состояние
+        const checkedRadio = document.querySelector('input[name="source_type"]:checked');
+        if (checkedRadio) {
+            // Имитируем событие change для установки начального состояния
+            checkedRadio.dispatchEvent(new Event('change'));
+        }
+        
+        // Предотвращаем одновременный выбор нескольких источников при прямом взаимодействии с селекторами
+        sourceSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                if (this.value) {
+                    // Активируем соответствующую радиокнопку
+                    const sourceType = this.getAttribute('data-source-type');
+                    const radio = document.querySelector(`input[name="source_type"][value="${sourceType}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                        radio.dispatchEvent(new Event('change'));
+                    }
+                }
+            });
+        });
+    }
+    
+    setupSourceSelectionHandlers();
+
+    // Обработчики для целевого места хранения в блоке приемки
+    function setupTargetSelectionHandlers() {
+        // Радиокнопки для выбора типа целевого хранилища
+        const targetTypeRadios = document.querySelectorAll('input[name="target_type"]');
+        // Селекторы целевых хранилищ (резервуар и вагон)
+        const targetSelects = document.querySelectorAll('.target-select');
+        
+        // Обработчик изменения типа целевого хранилища
+        targetTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                // Определяем выбранный тип хранилища
+                const selectedTargetType = this.value;
+                
+                // Деактивируем все селекторы хранилищ
+                targetSelects.forEach(select => {
+                    const selectTargetType = select.getAttribute('data-target-type');
+                    
+                    // Если тип хранилища совпадает с выбранным, активируем селектор
+                    if (selectTargetType === selectedTargetType) {
+                        select.disabled = false;
+                        select.closest('.card').classList.add('border-primary');
+                    } else {
+                        // Иначе деактивируем и очищаем
+                        select.disabled = true;
+                        select.value = '';
+                        select.closest('.card').classList.remove('border-primary');
+                    }
+                });
+            });
+        });
+        
+        // Проверяем начальное состояние
+        const checkedRadio = document.querySelector('input[name="target_type"]:checked');
+        if (checkedRadio) {
+            // Имитируем событие change для установки начального состояния
+            checkedRadio.dispatchEvent(new Event('change'));
+        }
+        
+        // Предотвращаем одновременный выбор нескольких хранилищ при прямом взаимодействии с селекторами
+        targetSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                if (this.value) {
+                    // Активируем соответствующую радиокнопку
+                    const targetType = this.getAttribute('data-target-type');
+                    const radio = document.querySelector(`input[name="target_type"][value="${targetType}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                        radio.dispatchEvent(new Event('change'));
+                    }
+                }
+            });
+        });
+    }
+    
+    setupTargetSelectionHandlers();
+
+    // Обработчики для полей перемещения
+    function setupTransferHandlers() {
+        const sourceQuantityInput = document.getElementById('id_source_quantity');
+        if (sourceQuantityInput) {
+            sourceQuantityInput.addEventListener('input', function() {
+                // При вводе количества источника, обновляем ожидаемое количество в тоннах
+                const sourceValue = parseFloat(this.value) || 0;
+                const expectedQuantityInput = document.getElementById('id_expected_quantity');
+                if (expectedQuantityInput) {
+                    // Преобразуем кг в тонны
+                    expectedQuantityInput.value = (sourceValue / 1000).toFixed(3);
+                }
+            });
+        }
+    }
+    
+    setupTransferHandlers();
+    
+    // Обработчики для полей производства
+    function setupProductionHandlers() {
+        const materialQuantityInput = document.getElementById('id_material_quantity');
+        const sourceQuantityInput = document.getElementById('id_source_quantity');
+        
+        if (materialQuantityInput) {
+            materialQuantityInput.addEventListener('input', function() {
+                // При вводе массы продукта в кг, обновляем ожидаемое количество в тоннах
+                const materialValue = parseFloat(this.value) || 0;
+                const expectedQuantityInput = document.getElementById('id_expected_quantity');
+                if (expectedQuantityInput) {
+                    // Преобразуем кг в тонны
+                    expectedQuantityInput.value = (materialValue / 1000).toFixed(3);
+                }
+            });
+        }
+        
+        if (sourceQuantityInput) {
+            sourceQuantityInput.addEventListener('input', function() {
+                // При необходимости можно добавить дополнительную логику обработки
+            });
+        }
+        
+        // Обработчики для выбора источника сырья в производстве
+        setupProductionSourceHandlers();
+        
+        // Обработчики для выбора назначения в производстве
+        setupProductionTargetHandlers();
+    }
+    
+    // Обработчики для выбора источника сырья в производстве
+    function setupProductionSourceHandlers() {
+        const sourceTypeRadios = document.querySelectorAll('input[name="source_type_production"]');
+        const sourceSelects = document.querySelectorAll('.production-source-select');
+        const sourceInputs = document.querySelectorAll('.production-source-input');
+        
+        sourceTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                const selectedSourceType = this.value;
+                
+                // Деактивируем все селекты и инпуты
+                sourceSelects.forEach(select => {
+                    const selectSourceType = select.getAttribute('data-source-type');
+                    select.disabled = selectSourceType !== selectedSourceType;
+                    
+                    if (selectSourceType !== selectedSourceType) {
                         select.value = '';
                     }
                 });
                 
-                // Показываем кнопку удаления
-                newEntry.querySelector('.remove-sales-transport').style.display = 'block';
-                
-                // Добавляем новый блок в контейнер
-                container.appendChild(newEntry);
-                
-                // Обновляем обработчики событий
-                setupSalesEventHandlers();
-                updateSalesTotals();
-            });
-        }
-        
-        // Настройка обработчиков событий для продажи
-        function setupSalesEventHandlers() {
-            // Обработчики для кнопок удаления
-            document.querySelectorAll('.remove-sales-transport').forEach(button => {
-                button.addEventListener('click', function() {
-                    const entry = this.closest('.sales-transport-entry');
-                    entry.remove();
-                    updateSalesTransportNumbers();
-                    updateSalesTotals();
-                });
-            });
-            
-            // Обработчики для ожидаемого веса
-            document.querySelectorAll('.sales-expected-weight').forEach(input => {
-                input.addEventListener('input', updateSalesTotals);
-            });
-        }
-        
-        // Обновление номеров транспорта в продаже
-        function updateSalesTransportNumbers() {
-            let counter = 1;
-            document.querySelectorAll('.sales-transport-entry').forEach(entry => {
-                entry.querySelector('.transport-number').textContent = counter++;
-            });
-            salesTransportCounter = counter - 1;
-        }
-        
-        // Обновление итоговых значений для продажи
-        function updateSalesTotals() {
-            let totalQuantity = 0;
-            const transportsData = [];
-            
-            document.querySelectorAll('.sales-transport-entry').forEach(entry => {
-                const expectedWeight = parseFloat(entry.querySelector('.sales-expected-weight').value) || 0;
-                const transportType = entry.querySelector('.sales-transport-type').value;
-                const transportNumber = entry.querySelector('.sales-transport-number').value;
-                const density = parseFloat(entry.querySelector('.sales-density').value) || 0;
-                const temperature = parseFloat(entry.querySelector('.sales-temperature').value) || 20;
-                
-                totalQuantity += expectedWeight;
-                
-                if (transportType && transportNumber && expectedWeight > 0) {
-                    const transportData = {
-                        transport_type: transportType,
-                        transport_number: transportNumber,
-                        expected_weight: expectedWeight,
-                        density: density,
-                        temperature: temperature
-                    };
+                sourceInputs.forEach(input => {
+                    const inputSourceType = input.getAttribute('data-source-type');
+                    input.disabled = inputSourceType !== selectedSourceType;
                     
-                    transportsData.push(transportData);
-                }
-            });
-            
-            // Обновляем общее количество
-            const totalQuantityElement = document.getElementById('sales-total-quantity');
-            if (totalQuantityElement) {
-                totalQuantityElement.value = totalQuantity.toFixed(3);
-            }
-            
-            // Обновляем скрытое поле с JSON данными о транспорте
-            const transportsJsonElement = document.getElementById('sales-transports-json');
-            if (transportsJsonElement) {
-                transportsJsonElement.value = JSON.stringify(transportsData);
-            }
-            
-            // Копируем значение в основное поле expected_quantity
-            const expectedQuantityElement = document.getElementById('id_expected_quantity');
-            if (expectedQuantityElement) {
-                expectedQuantityElement.value = totalQuantity.toFixed(3);
-            }
-        }
-
-        // ==========================================================
-        // Функциональность для работы с множественными источниками сырья в ПРОИЗВОДСТВЕ
-        // ==========================================================
-        
-        let rawMaterialCounter = 1;
-        
-        // Добавление нового источника сырья
-        const addRawMaterialBtn = document.getElementById('add-raw-material');
-        if (addRawMaterialBtn) {
-            addRawMaterialBtn.addEventListener('click', function() {
-                const container = document.getElementById('raw-materials-container');
-                const materialEntries = container.querySelectorAll('.raw-material-entry');
-                const lastEntry = materialEntries[materialEntries.length - 1];
-                const newEntry = lastEntry.cloneNode(true);
-                
-                // Обновляем индекс и заголовок
-                rawMaterialCounter++;
-                newEntry.setAttribute('data-index', rawMaterialCounter - 1);
-                newEntry.querySelector('.material-number').textContent = rawMaterialCounter;
-                
-                // Очищаем значения полей
-                newEntry.querySelectorAll('input, select').forEach(input => {
-                    if (input.type === 'number' || input.type === 'text') {
+                    if (inputSourceType !== selectedSourceType) {
                         input.value = '';
-                    } else if (input.tagName === 'SELECT') {
-                        input.selectedIndex = 0;
-                    }
-                    
-                    // Обновляем имена полей
-                    const name = input.getAttribute('name');
-                    if (name) {
-                        const baseName = name.split('_').slice(0, -1).join('_');
-                        input.setAttribute('name', `${baseName}_${rawMaterialCounter - 1}`);
-                    }
-                });
-                
-                // Скрываем все селекторы источников
-                newEntry.querySelector('.raw-material-source-reservoir').style.display = 'none';
-                newEntry.querySelector('.raw-material-source-wagon').style.display = 'none';
-                newEntry.querySelector('.raw-material-source-warehouse').style.display = 'none';
-                
-                // Показываем кнопку удаления
-                newEntry.querySelector('.remove-raw-material').style.display = 'block';
-                
-                // Добавляем новый блок в контейнер
-                container.appendChild(newEntry);
-                
-                // Обновляем обработчики событий
-                setupProductionEventHandlers();
-                updateProductionTotals();
-            });
-        }
-        
-        // Настройка обработчиков событий для производства
-        function setupProductionEventHandlers() {
-            // Обработчики для кнопок удаления
-            document.querySelectorAll('.remove-raw-material').forEach(button => {
-                button.addEventListener('click', function() {
-                    const entry = this.closest('.raw-material-entry');
-                    entry.remove();
-                    updateRawMaterialNumbers();
-                    updateProductionTotals();
-                });
-            });
-            
-            // Обработчики для типа источника сырья
-            document.querySelectorAll('.raw-material-source-type').forEach(select => {
-                select.addEventListener('change', function() {
-                    const entry = this.closest('.raw-material-entry');
-                    const reservoirField = entry.querySelector('.raw-material-source-reservoir');
-                    const wagonField = entry.querySelector('.raw-material-source-wagon');
-                    const warehouseField = entry.querySelector('.raw-material-source-warehouse');
-                    
-                    // Скрываем все
-                    reservoirField.style.display = 'none';
-                    wagonField.style.display = 'none';
-                    warehouseField.style.display = 'none';
-                    
-                    // Показываем нужный селектор
-                    if (this.value === 'reservoir') {
-                        reservoirField.style.display = 'block';
-                    } else if (this.value === 'wagon') {
-                        wagonField.style.display = 'block';
-                    } else if (this.value === 'warehouse') {
-                        warehouseField.style.display = 'block';
                     }
                 });
             });
-            
-            // Обработчики для процентного содержания и ожидаемого количества продукта
-            document.querySelectorAll('.raw-material-percentage').forEach(input => {
-                input.addEventListener('input', updateProductionTotals);
-            });
-            
-            // Обработчик изменения ожидаемого количества продукта
-            const productionExpectedQuantity = document.getElementById('id_production_expected_quantity');
-            if (productionExpectedQuantity) {
-                productionExpectedQuantity.addEventListener('input', updateProductionTotals);
-            }
-        }
+        });
         
-        // Обновление номеров источников сырья
-        function updateRawMaterialNumbers() {
-            let counter = 1;
-            document.querySelectorAll('.raw-material-entry').forEach(entry => {
-                entry.querySelector('.material-number').textContent = counter++;
-            });
-            rawMaterialCounter = counter - 1;
+        // Инициализация при загрузке страницы
+        const checkedSourceTypeRadio = document.querySelector('input[name="source_type_production"]:checked');
+        if (checkedSourceTypeRadio) {
+            checkedSourceTypeRadio.dispatchEvent(new Event('change'));
         }
+    }
+    
+    // Обработчики для выбора назначения в производстве
+    function setupProductionTargetHandlers() {
+        const targetTypeRadios = document.querySelectorAll('input[name="target_type_production"]');
+        const targetSelects = document.querySelectorAll('.production-target-select');
+        const targetWagonTypeSelect = document.querySelector('.production-target-wagon-type');
         
-        // Обновление итоговых значений для производства
-        function updateProductionTotals() {
-            let totalPercentage = 0;
-            let totalQuantity = 0;
-            const rawMaterialsData = [];
-            const expectedQuantity = parseFloat(document.getElementById('id_production_expected_quantity').value) || 0;
-            
-            document.querySelectorAll('.raw-material-entry').forEach(entry => {
-                const percentage = parseFloat(entry.querySelector('.raw-material-percentage').value) || 0;
-                const productId = entry.querySelector('.raw-material-product').value;
-                const sourceType = entry.querySelector('.raw-material-source-type').value;
-                let sourceId = null;
+        targetTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                const selectedTargetType = this.value;
                 
-                totalPercentage += percentage;
-                
-                // Рассчитываем количество компонента на основе процентного содержания
-                const componentQuantity = (percentage / 100) * expectedQuantity;
-                entry.querySelector('.raw-material-quantity').value = componentQuantity.toFixed(3);
-                
-                totalQuantity += componentQuantity;
-                
-                // Определяем ID выбранного источника
-                if (sourceType === 'reservoir') {
-                    sourceId = entry.querySelector('.raw-material-source-reservoir select').value;
-                } else if (sourceType === 'wagon') {
-                    sourceId = entry.querySelector('.raw-material-source-wagon select').value;
-                } else if (sourceType === 'warehouse') {
-                    sourceId = entry.querySelector('.raw-material-source-warehouse select').value;
-                }
-                
-                if (productId && sourceType && sourceId && percentage > 0) {
-                    const materialData = {
-                        product_id: productId,
-                        source_type: sourceType,
-                        source_id: sourceId,
-                        percentage: percentage,
-                        quantity: componentQuantity
-                    };
+                // Деактивируем все селекты
+                targetSelects.forEach(select => {
+                    const selectTargetType = select.getAttribute('data-target-type');
+                    select.disabled = selectTargetType !== selectedTargetType;
                     
-                    rawMaterialsData.push(materialData);
+                    if (selectTargetType !== selectedTargetType) {
+                        select.value = '';
+                    }
+                });
+                
+                // Активируем/деактивируем выбор типа вагона
+                if (selectedTargetType === 'wagon' && targetWagonTypeSelect) {
+                    targetWagonTypeSelect.disabled = false;
+                } else if (targetWagonTypeSelect) {
+                    targetWagonTypeSelect.disabled = true;
+                    targetWagonTypeSelect.value = '';
+                }
+            });
+        });
+        
+        // Инициализация при загрузке страницы
+        const checkedTargetTypeRadio = document.querySelector('input[name="target_type_production"]:checked');
+        if (checkedTargetTypeRadio) {
+            checkedTargetTypeRadio.dispatchEvent(new Event('change'));
+        }
+    }
+    
+    // Инициализация обработчиков для полей производства
+    setupProductionHandlers();
+    
+    // Обработчик отправки формы для предотвращения ошибок невидимых полей
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // Перед отправкой формы убедимся, что все скрытые поля не требуют заполнения
+            document.querySelectorAll('.operation-fields:not([style*="display: block"]) input, .operation-fields:not([style*="display: block"]) select').forEach(input => {
+                // Временно снимаем требование обязательности для скрытых полей
+                if (input.required) {
+                    input.required = false;
+                }
+            });
+        });
+    }
+
+    // Функция для переключения отображения полей специфичных для типа транспорта
+    function toggleTransportFields(transportEntry, transportType) {
+        // Скрываем все специфичные поля
+        transportEntry.querySelectorAll('.wagon-specific-field, .truck-specific-field').forEach(field => {
+            field.style.display = 'none';
+        });
+        
+        // Показываем только поля для выбранного типа транспорта
+        if (transportType === 'wagon') {
+            transportEntry.querySelectorAll('.wagon-specific-field').forEach(field => {
+                field.style.display = 'block';
+            });
+            
+            // Делаем поля для вагона обязательными
+            transportEntry.querySelectorAll('.wagon-specific-field select, .wagon-specific-field input').forEach(input => {
+                if (input.hasAttribute('data-was-required')) {
+                    input.required = true;
                 }
             });
             
-            // Обновляем суммарное процентное содержание
-            const totalPercentageElement = document.getElementById('total-percentage');
-            if (totalPercentageElement) {
-                totalPercentageElement.value = totalPercentage.toFixed(2);
-                
-                // Проверяем сумму процентов
-                const percentageWarning = document.getElementById('percentage-warning');
-                if (percentageWarning) {
-                    if (Math.abs(totalPercentage - 100) > 0.01) {
-                        percentageWarning.style.display = 'block';
-                    } else {
-                        percentageWarning.style.display = 'none';
-                    }
+            // Снимаем обязательность с полей грузовика
+            transportEntry.querySelectorAll('.truck-specific-field select, .truck-specific-field input').forEach(input => {
+                if (input.required) {
+                    input.setAttribute('data-was-required', 'true');
+                    input.required = false;
                 }
-            }
+            });
+        } else if (transportType === 'truck') {
+            transportEntry.querySelectorAll('.truck-specific-field').forEach(field => {
+                field.style.display = 'block';
+            });
             
-            // Обновляем общее количество сырья
-            const totalQuantityElement = document.getElementById('raw-materials-total-quantity');
-            if (totalQuantityElement) {
-                totalQuantityElement.value = totalQuantity.toFixed(3);
-            }
+            // Делаем поля для грузовика обязательными
+            transportEntry.querySelectorAll('.truck-specific-field select, .truck-specific-field input').forEach(input => {
+                if (input.hasAttribute('data-was-required')) {
+                    input.required = true;
+                }
+            });
             
-            // Обновляем скрытое поле с JSON данными об источниках сырья
-            const rawMaterialsJsonElement = document.getElementById('raw-materials-json');
-            if (rawMaterialsJsonElement) {
-                rawMaterialsJsonElement.value = JSON.stringify(rawMaterialsData);
-            }
-            
-            // Копируем значение в основное поле expected_quantity
-            const expectedQuantityElement = document.getElementById('id_expected_quantity');
-            if (expectedQuantityElement) {
-                expectedQuantityElement.value = expectedQuantity.toFixed(3);
-            }
+            // Снимаем обязательность с полей вагона
+            transportEntry.querySelectorAll('.wagon-specific-field select, .wagon-specific-field input').forEach(input => {
+                if (input.required) {
+                    input.setAttribute('data-was-required', 'true');
+                    input.required = false;
+                }
+            });
         }
-        
-        // Инициализация обработчиков событий
-        setupReceptionEventHandlers();
-        setupSalesEventHandlers();
-        setupProductionEventHandlers();
-        
-        // Инициализация итоговых значений
-        updateReceptionTotals();
-        updateSalesTotals();
-        updateProductionTotals();
-    });
+    }
+});
 </script>
 {% endblock %}
-{% endblock %} 
+{% endblock %}
