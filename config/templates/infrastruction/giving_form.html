@@ -1,0 +1,161 @@
+{% extends 'infrastruction/base.html' %}
+{% load static %}
+
+{% block title %}{% if form.instance.pk %}Редактирование выдачи{% else %}Новая выдача{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">{% if form.instance.pk %}Редактирование выдачи{% else %}Новая выдача{% endif %}</h5>
+            <button type="button" class="btn btn-success btn-sm" id="addRow">
+                <i class="fas fa-plus me-1"></i> Добавить строку
+            </button>
+        </div>
+        <div class="card-body">
+            <form method="post" id="givingForm">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="id_date" class="form-label">Дата</label>
+                    {{ form.date }}
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="productsTable">
+                        <thead>
+                            <tr>
+                                <th>Товар</th>
+                                <th>Количество</th>
+                                <th>Выдано (сотруднику)</th>
+                                <th>Комментарий</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productRows">
+                            <tr class="product-row">
+                                <td>
+                                    <select name="products[]" class="form-control product-select" required>
+                                        <option value="">Выберите товар</option>
+                                        {{ form.product.field.queryset|safe }}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" name="quantities[]" class="form-control" min="1" value="1" required>
+                                </td>
+                                <td>
+                                    <input type="text" name="given_to[]" class="form-control" required>
+                                </td>
+                                <td>
+                                    <textarea name="comments[]" class="form-control" rows="1"></textarea>
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm remove-row">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex gap-2 mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Сохранить
+                    </button>
+                    <a href="{% url 'infrastruction:giving_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i> Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set default date to today if not editing
+        {% if not form.instance.pk %}
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('{{ form.date.id_for_label }}').value = today;
+        {% endif %}
+
+        // Add new row
+        document.getElementById('addRow').addEventListener('click', function() {
+            const tbody = document.getElementById('productRows');
+            const firstRow = tbody.querySelector('.product-row');
+            const newRow = firstRow.cloneNode(true);
+            
+            // Clear values in the new row
+            newRow.querySelectorAll('input, select, textarea').forEach(input => {
+                if (input.type === 'number') {
+                    input.value = '1';
+                } else {
+                    input.value = '';
+                }
+            });
+
+            // Add remove button functionality
+            newRow.querySelector('.remove-row').addEventListener('click', function() {
+                if (tbody.querySelectorAll('.product-row').length > 1) {
+                    newRow.remove();
+                }
+            });
+
+            tbody.appendChild(newRow);
+        });
+
+        // Remove row functionality for initial row
+        document.querySelector('.remove-row').addEventListener('click', function(e) {
+            const tbody = document.getElementById('productRows');
+            if (tbody.querySelectorAll('.product-row').length > 1) {
+                e.target.closest('.product-row').remove();
+            }
+        });
+
+        // Form submission handling
+        document.getElementById('givingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                date: document.getElementById('id_date').value,
+                items: []
+            };
+
+            // Collect data from all rows
+            document.querySelectorAll('.product-row').forEach(row => {
+                formData.items.push({
+                    product: row.querySelector('[name="products[]"]').value,
+                    quantity: row.querySelector('[name="quantities[]"]').value,
+                    given_to: row.querySelector('[name="given_to[]"]').value,
+                    comment: row.querySelector('[name="comments[]"]').value
+                });
+            });
+
+            // Send data to server
+            fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = "{% url 'infrastruction:giving_list' %}";
+                } else {
+                    alert(data.error || 'Произошла ошибка при сохранении.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Произошла ошибка при сохранении.');
+            });
+        });
+    });
+</script>
+{% endblock %} 

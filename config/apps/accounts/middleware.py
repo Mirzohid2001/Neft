@@ -44,6 +44,7 @@ class RoleBasedAccessMiddleware:
             '/accounts/login/',
             '/static/',
             '/media/',
+            '/infrastruction/',  # Allow infrastructure paths
         ]
         
         # Разрешаем доступ к статическим файлам и медиа
@@ -51,51 +52,15 @@ class RoleBasedAccessMiddleware:
             return self.get_response(request)
             
         # Разрешаем доступ к странице входа и исключенным путям
-        if request.path in exempt_paths or request.path.startswith('/admin/') or request.path.startswith('/accounts/login/'):
+        if (request.path in exempt_paths or 
+            request.path.startswith('/admin/') or 
+            request.path.startswith('/accounts/login/') or
+            request.path.startswith('/infrastruction/')):  # Allow all infrastructure paths
             return self.get_response(request)
             
         # Проверяем аутентификацию пользователя
         if not request.user.is_authenticated:
             messages.error(request, 'Пожалуйста, войдите в систему для доступа к этой странице.')
             return redirect('accounts:login')
-            
-        # Маршруты для разных ролей
-        estokada_paths = ['/estokada/']
-        sales_paths = ['/sales/']
-        finance_paths = ['/finance/']
-        accounting_paths = ['/accounting/']
-        customs_paths = ['/customs/']
-        
-        # Проверяем доступ на основе роли
-        
-        # Админы и боссы имеют доступ ко всему
-        if request.user.is_superuser or request.user.role in ['admin', 'boss']:
-            return self.get_response(request)
-            
-        # Проверки для остальных ролей
-        for path_prefix in estokada_paths:
-            if request.path.startswith(path_prefix) and request.user.role != 'estokada':
-                messages.error(request, 'Доступ ограничен. Требуется роль: Эстокада.')
-                return redirect('dashboard:dashboard')
-                
-        for path_prefix in sales_paths:
-            if request.path.startswith(path_prefix) and request.user.role != 'sales':
-                messages.error(request, 'Доступ ограничен. Требуется роль: Отдел продаж.')
-                return redirect('dashboard:dashboard')
-                
-        for path_prefix in finance_paths:
-            if request.path.startswith(path_prefix) and request.user.role != 'finance':
-                messages.error(request, 'Доступ ограничен. Требуется роль: Финансовый отдел.')
-                return redirect('dashboard:dashboard')
-                
-        for path_prefix in accounting_paths:
-            if request.path.startswith(path_prefix) and request.user.role != 'accounting':
-                messages.error(request, 'Доступ ограничен. Требуется роль: Бухгалтерия.')
-                return redirect('dashboard:dashboard')
-                
-        for path_prefix in customs_paths:
-            if request.path.startswith(path_prefix) and request.user.role != 'customs':
-                messages.error(request, 'Доступ ограничен. Требуется роль: Таможенный отдел.')
-                return redirect('dashboard:dashboard')
-                
+
         return self.get_response(request) 
