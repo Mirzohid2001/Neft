@@ -30,6 +30,7 @@ urlpatterns = [
     path('purchasing/', include('apps.purchasing.urls')),
     path('customs/', include('apps.customs.urls')),
     path('logistics/', include('apps.logistics.urls')),
+    path('infrastruction/', include('apps.infrastruction.urls')),
     path('quality_control/', include('apps.quality_control.urls')),
     path('analytics/', include('apps.analytics.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -10,6 +10,7 @@ class CustomUser(AbstractUser):
         ('estokada', 'Эстокада'),
         ('accounting', 'Бухгалтерия'),
         ('customs', 'Отдел таможни'),
+        ('infrastructure', 'Инфраструктура'),
     )
     
     middle_name = models.CharField(max_length=50, verbose_name='Отасининг исми', blank=True, null=True)
@@ -54,3 +55,7 @@ class CustomUser(AbstractUser):
     @property
     def is_customs(self):
         return self.role == 'customs'
+        
+    @property
+    def is_infrastructure(self):
+        return self.role == 'infrastructure'

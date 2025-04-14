@@ -94,9 +94,22 @@ def customs_required(view_func):
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
+def infrastructure_required(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('accounts:login')
+        if not (request.user.is_infrastructure or request.user.is_admin or request.user.is_superuser):
+            messages.error(request, 'Доступ разрешен только для сотрудников инфраструктуры.')
+            return redirect('accounts:login')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
 class LoginView(View):
     def get(self, request):
         if request.user.is_authenticated:
+            if request.user.role == 'infrastructure':
+                return redirect('infrastruction:dashboard')
             return redirect('dashboard:dashboard')
         return render(request, 'accounts/login.html')
 
@@ -108,6 +121,8 @@ class LoginView(View):
         
         if user is not None:
             login(request, user)
+            if user.role == 'infrastructure':
+                return redirect('infrastruction:dashboard')
             return redirect('dashboard:dashboard')
         else:
             messages.error(request, 'Неверное имя пользователя или пароль.')

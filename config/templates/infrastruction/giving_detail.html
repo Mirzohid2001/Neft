@@ -1,0 +1,111 @@
+{% extends 'infrastruction/base.html' %}
+
+{% block title %}Детали выдачи - Инфраструктура{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Детали выдачи</h1>
+        <div>
+            <a href="{% url 'infrastruction:giving_edit' giving.id %}" class="btn btn-primary">
+                <i class="fas fa-edit me-2"></i>Редактировать
+            </a>
+            <a href="{% url 'infrastruction:giving_delete' giving.id %}" class="btn btn-danger">
+                <i class="fas fa-trash me-2"></i>Удалить
+            </a>
+            <a href="{% url 'infrastruction:giving_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Назад к списку
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-8">
+            <!-- Basic Info Card -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Основная информация</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <tr>
+                                <th style="width: 200px;">Дата выдачи:</th>
+                                <td>{{ giving.date|date:"d.m.Y" }}</td>
+                            </tr>
+                            <tr>
+                                <th>Товар:</th>
+                                <td>{{ giving.product.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>Количество:</th>
+                                <td>{{ giving.quantity }}</td>
+                            </tr>
+                            <tr>
+                                <th>Цена за единицу:</th>
+                                <td>{{ giving.product.unit_price }} ₸</td>
+                            </tr>
+                            <tr>
+                                <th>Общая стоимость:</th>
+                                <td>{{ giving.total_price }} ₸</td>
+                            </tr>
+                            <tr>
+                                <th>Выдано (сотруднику):</th>
+                                <td>{{ giving.given_to }}</td>
+                            </tr>
+                            <tr>
+                                <th>Табельный номер:</th>
+                                <td>{{ giving.employee_id }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <!-- Meta Info Card -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Дополнительная информация</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <tr>
+                                <th>Создано:</th>
+                                <td>{{ giving.created_at|date:"d.m.Y H:i" }}</td>
+                            </tr>
+                            <tr>
+                                <th>Создал:</th>
+                                <td>{{ giving.created_by }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock Info Card -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Информация о складе</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <tr>
+                                <th>Текущий остаток:</th>
+                                <td>{{ giving.product.stock.quantity }}</td>
+                            </tr>
+                            <tr>
+                                <th>Последнее обновление:</th>
+                                <td>{{ giving.product.stock.last_updated|date:"d.m.Y H:i" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

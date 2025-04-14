@@ -1,0 +1,130 @@
+{% extends 'infrastruction/base.html' %}
+
+{% block title %}{% if form.instance.pk %}Редактировать{% else %}Добавить{% endif %} расход столовой - Инфраструктура{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            {% if form.instance.pk %}Редактировать{% else %}Добавить{% endif %} расход столовой
+        </h1>
+    </div>
+
+    <!-- Content Row -->
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        {% if form.instance.pk %}Редактирование{% else %}Добавление{% endif %} расхода
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.product.id_for_label }}" class="form-label">{{ form.product.label }}</label>
+                            {{ form.product }}
+                            {% if form.product.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.product.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.product.help_text %}
+                                <div class="form-text">{{ form.product.help_text }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.unit_price.id_for_label }}" class="form-label">{{ form.unit_price.label }}</label>
+                            {{ form.unit_price }}
+                            {% if form.unit_price.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.unit_price.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.unit_price.help_text %}
+                                <div class="form-text">{{ form.unit_price.help_text }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.quantity.id_for_label }}" class="form-label">{{ form.quantity.label }}</label>
+                            {{ form.quantity }}
+                            {% if form.quantity.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.quantity.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.quantity.help_text %}
+                                <div class="form-text">{{ form.quantity.help_text }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.date.id_for_label }}" class="form-label">{{ form.date.label }}</label>
+                            {{ form.date }}
+                            {% if form.date.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.date.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {% if form.date.help_text %}
+                                <div class="form-text">{{ form.date.help_text }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Сохранить
+                            </button>
+                            <a href="{% url 'infrastruction:canteen_expenses_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add any JavaScript for form validation or dynamic behavior here
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-calculate total when unit price or quantity changes
+        const unitPriceInput = document.getElementById('{{ form.unit_price.id_for_label }}');
+        const quantityInput = document.getElementById('{{ form.quantity.id_for_label }}');
+        
+        function updateTotal() {
+            const unitPrice = parseFloat(unitPriceInput.value) || 0;
+            const quantity = parseFloat(quantityInput.value) || 0;
+            const total = unitPrice * quantity;
+            // You can display the total somewhere if needed
+        }
+
+        unitPriceInput.addEventListener('input', updateTotal);
+        quantityInput.addEventListener('input', updateTotal);
+    });
+</script>
+{% endblock %} 

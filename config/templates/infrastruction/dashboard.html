@@ -1,0 +1,150 @@
+{% extends 'infrastruction/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Daily Expenses Card -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Ежедневные расходы</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                Получено: {{ total_received }}<br>
+                                Выдано: {{ total_given }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stock Value Card -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Общая стоимость запасов</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ total_stock_value|floatformat:2 }} ₸
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-boxes fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canteen Monthly Total Card -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Расходы столовой (месяц)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ canteen_monthly_total|floatformat:2 }} ₸
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-utensils fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Projects Card -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Активные проекты</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% for project, cost in project_costs.items %}
+                                    {{ project }}: {{ cost|floatformat:2 }} ₸<br>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-project-diagram fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Быстрые действия</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <a href="{% url 'infrastruction:receiving_add' %}" class="btn btn-primary btn-block">
+                                <i class="fas fa-plus"></i> Добавить поступление
+                            </a>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <a href="{% url 'infrastruction:giving_add' %}" class="btn btn-success btn-block">
+                                <i class="fas fa-minus"></i> Добавить выдачу
+                            </a>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <a href="{% url 'infrastruction:canteen_expense_add' %}" class="btn btn-info btn-block">
+                                <i class="fas fa-utensils"></i> Добавить расход столовой
+                            </a>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <a href="{% url 'infrastruction:project_add' %}" class="btn btn-warning btn-block">
+                                <i class="fas fa-project-diagram"></i> Создать проект
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Последние действия</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Действие</th>
+                                    <th>Сумма</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Здесь можно добавить последние действия -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
