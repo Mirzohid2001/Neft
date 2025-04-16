@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -38,6 +39,31 @@
         .content {
             min-height: 100vh;
             background-color: #f8f9fc;
+        }
+        .border-left-primary {
+            border-left: 0.25rem solid #4e73df !important;
+        }
+        .border-left-success {
+            border-left: 0.25rem solid #1cc88a !important;
+        }
+        .border-left-info {
+            border-left: 0.25rem solid #36b9cc !important;
+        }
+        .border-left-warning {
+            border-left: 0.25rem solid #f6c23e !important;
+        }
+        .text-xs {
+            font-size: 0.7rem;
+        }
+        .text-gray-300 {
+            color: #dddfeb !important;
+        }
+        .text-gray-800 {
+            color: #5a5c69 !important;
+        }
+        .btn-block {
+            display: block;
+            width: 100%;
         }
     </style>
 </head>
@@ -96,6 +122,15 @@
                         </a>
                     </li>
                 </ul>
+                
+                <!-- Logout Button -->
+                <div class="mt-5">
+                    <hr class="bg-light">
+                    <a href="{% url 'accounts:logout' %}" class="nav-link text-white text-center">
+                        <i class="fas fa-sign-out-alt me-2"></i>
+                        <span>Выйти</span>
+                    </a>
+                </div>
             </div>
 
             <!-- Main Content -->
@@ -116,6 +151,21 @@
 
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript for dictionary access -->
+    <script>
+        // JavaScript помощник для доступа к словарям в шаблонах
+        document.addEventListener('DOMContentLoaded', function() {
+            // Имитация Python-фильтра get_item для словарей в JavaScript
+            function getItemFromDict(dict, key, defaultValue='') {
+                return dict.hasOwnProperty(key) ? dict[key] : defaultValue;
+            }
+            
+            // Делаем функцию доступной глобально
+            window.getItemFromDict = getItemFromDict;
+        });
+    </script>
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html> 

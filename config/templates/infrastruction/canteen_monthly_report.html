@@ -1,0 +1,158 @@
+{% extends 'infrastruction/base.html' %}
+{% load infrastruction_extras %}
+
+{% block title %}Отчет за {{ month_name }} {{ year }} - Столовая{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Отчет расходов столовой: {{ month_name }} {{ year }}</h1>
+        <div>
+            <a href="{% url 'infrastruction:export_canteen_monthly_report_excel' %}?month={{ month }}&year={{ year }}" class="btn btn-success me-2">
+                <i class="fas fa-file-excel me-1"></i> Экспорт в Excel
+            </a>
+            <a href="{% url 'infrastruction:canteen_expenses_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Назад к списку
+            </a>
+        </div>
+    </div>
+
+    <!-- Report Controls -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Выбрать период</h6>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="month" class="form-label">Месяц и год:</label>
+                    <select name="month" id="month" class="form-select">
+                        <option value="{{ month }}">{{ month_name }} {{ year }}</option>
+                        {% for year_val, month_val in available_months %}
+                            {% if year_val != year or month_val != month %}
+                                <option value="{{ month_val }}?year={{ year_val }}">
+                                    {{ year_val }}, {{ month_val }}
+                                </option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 align-self-end">
+                    <button type="submit" class="btn btn-primary">Применить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Card -->
+    <div class="row mb-4">
+        <div class="col-xl-6">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Общие расходы за {{ month_name }}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ total_cost|floatformat:0 }} SUM
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Summary -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Расходы по продуктам</h6>
+                </div>
+                <div class="card-body">
+                    {% if product_summary %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Продукт</th>
+                                        <th>Общая сумма</th>
+                                        <th>% от общего</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in product_summary %}
+                                    <tr>
+                                        <td>{{ item.name }}</td>
+                                        <td>{{ item.total|floatformat:0 }} SUM</td>
+                                        <td>{{ item.total|percentage:total_cost|floatformat:1 }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <p class="text-muted mb-0">Расходы за выбранный период не найдены</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Expenses -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Детализация расходов</h6>
+                </div>
+                <div class="card-body">
+                    {% if expenses %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Дата</th>
+                                        <th>Описание</th>
+                                        <th>Количество</th>
+                                        <th>Цена за единицу</th>
+                                        <th>Сумма</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for expense in expenses %}
+                                    <tr>
+                                        <td>{{ expense.date|date:"d.m.Y" }}</td>
+                                        <td>{{ expense.product }}</td>
+                                        <td>{{ expense.quantity }}</td>
+                                        <td>{{ expense.unit_price }} SUM</td>
+                                        <td>{{ expense.total_cost }} SUM</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="4" class="text-end"><strong>Итого:</strong></td>
+                                        <td><strong>{{ total_cost|floatformat:0 }} SUM</strong></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <p class="text-muted mb-0">Расходы за выбранный период не найдены</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

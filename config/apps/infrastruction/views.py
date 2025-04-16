@@ -5,16 +5,16 @@ from django.db.models import Sum, DecimalField
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from decimal import Decimal
 from apps.accounts.views import infrastructure_required
 from .models import (
     Product, Receiving, Giving, Stock,
-    CanteenExpense, Project, ProjectItem
+    CanteenExpense, Project, ProjectItem, ReceivingItem, ProjectProduct
 )
 from .forms import (
     ProductForm, ReceivingForm, GivingForm,
-    CanteenExpenseForm, ProjectForm, ProjectItemForm
+    CanteenExpenseForm, ProjectForm, ProjectItemForm, ProjectProductForm
 )
 import json
 from django.db.models.deletion import ProtectedError
@@ -23,6 +23,8 @@ from django.db.models.fields.related import (
     ForeignKey, ManyToManyField, OneToOneField
 )
 from django.db import models
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill
 
 @login_required
 @infrastructure_required
@@ -30,30 +32,182 @@ def dashboard(request):
     # Get today's date
     today = timezone.now().date()
     
-    # Get daily expenses - calculate total_cost as quantity * unit_price
-    daily_expenses = CanteenExpense.objects.filter(date=today).annotate(
-        item_cost=models.F('quantity') * models.F('unit_price')
-    ).aggregate(total=Sum('item_cost'))['total'] or 0
+    # Get daily expenses for receiving and giving
+    today_receivings = Receiving.objects.filter(date=today)
+    today_givings = Giving.objects.filter(date=today)
     
-    # Get total stock value - calculate as quantity * product__unit_price
+    # Calculate totals for today's receivings
+    total_received = 0
+    for receiving in today_receivings:
+        for item in receiving.items.all():
+            total_received += item.quantity * item.unit_price
+    
+    # Calculate totals for today's givings
+    total_given = 0
+    for giving in Giving.objects.filter(date=today):
+        total_given += giving.quantity * giving.product.unit_price
+    
+    # Get the current month data for canteen expenses
+    current_month = today.month
+    current_year = today.year
+    start_date = datetime(current_year, current_month, 1).date()
+    if current_month == 12:
+        end_date = datetime(current_year + 1, 1, 1).date() - timedelta(days=1)
+    else:
+        end_date = datetime(current_year, current_month + 1, 1).date() - timedelta(days=1)
+    
+    # Get monthly canteen expenses total
+    canteen_monthly_expenses = CanteenExpense.objects.filter(
+        date__gte=start_date,
+        date__lte=end_date
+    ).aggregate(monthly_total=Sum(models.F('quantity') * models.F('unit_price')))['monthly_total'] or 0
+    
+    # Get total stock value and recent stocks
     stocks = Stock.objects.select_related('product').all()
     total_stock_value = sum(stock.quantity * stock.product.unit_price for stock in stocks)
+    recent_stocks = stocks.order_by('-last_updated')[:10] if hasattr(Stock, 'last_updated') else stocks[:10]
     
-    # Get project summaries
-    projects = Project.objects.all()
+    # Get active projects and their costs
+    projects = Project.objects.filter(status='in_progress')
+    
+    # Calculate costs for each project
+    project_costs = {}
+    for project in projects:
+        project_total = sum(pp.total_cost for pp in ProjectProduct.objects.filter(project=project))
+        project_costs[project.id] = project_total
+    
+    # Recent activities (combined from receiving, giving, and canteen expenses)
+    recent_activities = []
+    
+    # Add receivings to activities
+    for receiving in Receiving.objects.order_by('-date', '-created_at')[:5]:
+        total_amount = sum(item.quantity * item.unit_price for item in receiving.items.all())
+        recent_activities.append({
+            'date': receiving.date,
+            'description': f'Поступление #{receiving.id}',
+            'amount': total_amount
+        })
+    
+    # Add givings to activities
+    for giving in Giving.objects.order_by('-date', '-created_at')[:5]:
+        recent_activities.append({
+            'date': giving.date,
+            'description': f'Выдача: {giving.product.name}',
+            'amount': giving.quantity * giving.product.unit_price
+        })
+    
+    # Add canteen expenses to activities
+    for expense in CanteenExpense.objects.order_by('-date', '-created_at')[:5]:
+        recent_activities.append({
+            'date': expense.date,
+            'description': f'Расход столовой: {expense.product}',
+            'amount': expense.quantity * expense.unit_price
+        })
+    
+    # Sort activities by date (newest first)
+    recent_activities.sort(key=lambda x: x['date'], reverse=True)
+    recent_activities = recent_activities[:10]  # Keep only the 10 most recent
+    
+    # Generate monthly statistics for the last 6 months
+    monthly_stats = []
+    
+    for i in range(5, -1, -1):  # From 5 months ago to current month
+        # Calculate month and year
+        stats_month = current_month - i
+        stats_year = current_year
+        
+        while stats_month <= 0:
+            stats_month += 12
+            stats_year -= 1
+        
+        # Get month start and end dates
+        month_start = datetime(stats_year, stats_month, 1).date()
+        if stats_month == 12:
+            month_end = datetime(stats_year + 1, 1, 1).date() - timedelta(days=1)
+        else:
+            month_end = datetime(stats_year, stats_month + 1, 1).date() - timedelta(days=1)
+        
+        # Calculate receiving total for the month
+        month_receiving_total = 0
+        for receiving in Receiving.objects.filter(date__gte=month_start, date__lte=month_end):
+            for item in receiving.items.all():
+                month_receiving_total += item.quantity * item.unit_price
+        
+        # Calculate giving total for the month
+        month_giving_total = 0
+        for giving in Giving.objects.filter(date__gte=month_start, date__lte=month_end):
+            month_giving_total += giving.quantity * giving.product.unit_price
+        
+        # Calculate canteen total for the month
+        month_canteen_total = CanteenExpense.objects.filter(
+            date__gte=month_start, 
+            date__lte=month_end
+        ).aggregate(total=Sum(models.F('quantity') * models.F('unit_price')))['total'] or 0
+        
+        # Calculate month balance
+        month_balance = month_receiving_total - month_giving_total - month_canteen_total
+        
+        # Get month name
+        month_name = month_start.strftime('%B %Y')
+        
+        # Add to stats
+        monthly_stats.append({
+            'month_name': month_name,
+            'receiving_total': month_receiving_total,
+            'giving_total': month_giving_total,
+            'canteen_total': month_canteen_total,
+            'balance': month_balance
+        })
     
     return render(request, 'infrastruction/dashboard.html', {
-        'daily_expenses': daily_expenses,
+        'total_received': total_received,
+        'total_given': total_given,
+        'canteen_monthly_total': canteen_monthly_expenses,
         'total_stock_value': total_stock_value,
-        'projects': projects
+        'projects': projects,
+        'project_costs': project_costs,
+        'recent_stocks': recent_stocks,
+        'recent_activities': recent_activities,
+        'monthly_stats': monthly_stats
     })
 
 @login_required
 @infrastructure_required
 def product_list(request):
-    products = Product.objects.all()
+    # Get all products with their related stock information
+    products = Product.objects.all().prefetch_related('stock')
+    
+    # Create dictionaries for easier access to stock information and totals
+    stock_dict = {}
+    total_value_dict = {}
+    comments_dict = {}
+    
+    for stock in Stock.objects.select_related('product').all():
+        stock_dict[stock.product_id] = stock.quantity
+        total_value_dict[stock.product_id] = stock.quantity * stock.product.unit_price
+    
+    # Get the most recent comments for each product from receiving transactions
+    for product in products:
+        # Get the most recent receiving items with comments for this product
+        recent_items = ReceivingItem.objects.filter(
+            product_id=product.id, 
+            comment__isnull=False
+        ).exclude(
+            comment__exact=''
+        ).order_by('-receiving__date', '-created_at')[:3]
+        
+        if recent_items:
+            comments_dict[product.id] = recent_items
+    
+    # Calculate the grand total
+    grand_total = sum(total_value_dict.values())
+    
     return render(request, 'infrastruction/product_list.html', {
         'products': products,
+        'stock_dict': stock_dict,
+        'total_value_dict': total_value_dict,
+        'comments_dict': comments_dict,
+        'grand_total': grand_total,
         'title': 'Список продуктов'
     })
 
@@ -65,7 +219,7 @@ def product_add(request):
         if form.is_valid():
             form.save()
             messages.success(request, 'Продукт успешно добавлен.')
-            return redirect('product_list')
+            return redirect('infrastruction:product_list')
     else:
         form = ProductForm()
     
@@ -83,7 +237,7 @@ def product_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, 'Продукт успешно обновлен.')
-            return redirect('product_list')
+            return redirect('infrastruction:product_list')
     else:
         form = ProductForm(instance=product)
     
@@ -101,7 +255,7 @@ def product_delete(request, pk):
         messages.success(request, 'Продукт успешно удален.')
     except ProtectedError:
         messages.error(request, 'Невозможно удалить продукт, так как он используется в других записях.')
-    return redirect('product_list')
+    return redirect('infrastruction:product_list')
 
 @login_required
 @infrastructure_required
@@ -116,43 +270,75 @@ def receiving_list(request):
 @infrastructure_required
 def receiving_form(request):
     if request.method == 'POST':
-        form = ReceivingForm(request.POST)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    receiving = form.save(commit=False)
-                    receiving.created_by = request.user
-                    receiving.save()
-
+        try:
+            with transaction.atomic():
+                # Extract data from the form
+                date_str = request.POST.get('date')
+                date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else timezone.now().date()
+                notes = request.POST.get('notes', '')
+                
+                # Create the receiving record
+                receiving = Receiving.objects.create(
+                    date=date,
+                    notes=notes,
+                    created_by=request.user
+                )
+                
+                # Get products data from hidden input
+                products_data = json.loads(request.POST.get('products_data', '[]'))
+                
+                if not products_data:
+                    raise ValueError('Необходимо добавить хотя бы один товар')
+                
+                # Process each product
+                for product_data in products_data:
+                    product_name = product_data.get('product', '').strip()
+                    quantity = float(product_data.get('quantity', 0))
+                    unit_price = float(product_data.get('unit_price', 0))
+                    comment = product_data.get('comment', '')
+                    
+                    if not product_name or quantity <= 0 or unit_price < 0:
+                        raise ValueError('Заполните корректно все поля товара')
+                    
                     # Get or create product
-                    product_name = form.cleaned_data['product_name']
                     product, created = Product.objects.get_or_create(
                         name=product_name,
-                        defaults={
-                            'unit': form.cleaned_data.get('unit', 'шт'),
-                            'unit_price': form.cleaned_data['unit_price']
-                        }
+                        defaults={'unit_price': unit_price}
                     )
-
+                    
+                    # If product exists but price is different, update the price
+                    if not created and product.unit_price != unit_price:
+                        product.unit_price = unit_price
+                        product.save()
+                    
+                    # Create receiving item
+                    ReceivingItem.objects.create(
+                        receiving=receiving,
+                        product=product,
+                        quantity=quantity,
+                        unit_price=unit_price,
+                        comment=comment
+                    )
+                    
                     # Update stock
                     stock, created = Stock.objects.get_or_create(
                         product=product,
-                        defaults={'quantity': form.cleaned_data['quantity']}
+                        defaults={'quantity': quantity}
                     )
                     if not created:
-                        stock.quantity += form.cleaned_data['quantity']
+                        stock.quantity += quantity
                         stock.save()
-
-                    messages.success(request, 'Приход успешно добавлен.')
-                    return redirect('receiving_list')
-            except Exception as e:
-                messages.error(request, f'Ошибка при сохранении: {str(e)}')
-    else:
-        form = ReceivingForm(initial={'date': timezone.now().date()})
-    
+                
+                messages.success(request, 'Приход успешно добавлен')
+                return redirect('infrastruction:receiving_list')
+                
+        except Exception as e:
+            messages.error(request, f'Ошибка при сохранении: {str(e)}')
+            
+    # For GET request or if there are errors in POST
     return render(request, 'infrastruction/receiving_form.html', {
-        'form': form,
-        'title': 'Добавить приход'
+        'title': 'Добавить приход',
+        'products': Product.objects.all()
     })
 
 # Alias for receiving_form to match URL pattern
@@ -172,33 +358,151 @@ def receiving_detail(request, pk):
 def receiving_edit(request, pk):
     receiving = get_object_or_404(Receiving, pk=pk)
     if request.method == 'POST':
-        form = ReceivingForm(request.POST, instance=receiving)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    receiving = form.save(commit=False)
-                    receiving.save()
-
-                    # Update stock if quantity changed
-                    if 'quantity' in form.changed_data:
-                        old_quantity = form.initial['quantity']
-                        new_quantity = form.cleaned_data['quantity']
-                        quantity_diff = new_quantity - old_quantity
+        try:
+            with transaction.atomic():
+                # Extract data from the form
+                date_str = request.POST.get('date')
+                date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else timezone.now().date()
+                notes = request.POST.get('notes', '')
+                
+                # Update the receiving record
+                receiving.date = date
+                receiving.notes = notes
+                receiving.save()
+                
+                # Get products data from hidden input
+                products_data = json.loads(request.POST.get('products_data', '[]'))
+                
+                if not products_data:
+                    raise ValueError('Необходимо добавить хотя бы один товар')
+                
+                # First, keep track of all items to be kept
+                kept_item_ids = []
+                
+                # Process each product
+                for product_data in products_data:
+                    item_id = product_data.get('id')
+                    product_name = product_data.get('product', '').strip()
+                    quantity = float(product_data.get('quantity', 0))
+                    unit_price = float(product_data.get('unit_price', 0))
+                    comment = product_data.get('comment', '')
+                    
+                    if not product_name or quantity <= 0 or unit_price < 0:
+                        raise ValueError('Заполните корректно все поля товара')
+                    
+                    # Get or create product
+                    product, created = Product.objects.get_or_create(
+                        name=product_name,
+                        defaults={'unit_price': unit_price}
+                    )
+                    
+                    # If product exists but price is different, update the price
+                    if not created and product.unit_price != unit_price:
+                        product.unit_price = unit_price
+                        product.save()
+                    
+                    if item_id:
+                        # Update existing item
+                        try:
+                            item = ReceivingItem.objects.get(id=item_id, receiving=receiving)
+                            
+                            # Update stock if product or quantity changed
+                            if item.product_id != product.id or item.quantity != quantity:
+                                # Revert old quantity first
+                                old_stock, _ = Stock.objects.get_or_create(
+                                    product=item.product,
+                                    defaults={'quantity': 0}
+                                )
+                                old_stock.quantity -= item.quantity
+                                old_stock.save()
+                                
+                                # Add new quantity
+                                new_stock, _ = Stock.objects.get_or_create(
+                                    product=product,
+                                    defaults={'quantity': 0}
+                                )
+                                new_stock.quantity += quantity
+                                new_stock.save()
+                            
+                            # Update item
+                            item.product = product
+                            item.quantity = quantity
+                            item.unit_price = unit_price
+                            item.comment = comment
+                            item.save()
+                            kept_item_ids.append(item.id)
+                            
+                        except ReceivingItem.DoesNotExist:
+                            # Shouldn't happen, but just in case - create new
+                            item = ReceivingItem.objects.create(
+                                receiving=receiving,
+                                product=product,
+                                quantity=quantity,
+                                unit_price=unit_price,
+                                comment=comment
+                            )
+                            kept_item_ids.append(item.id)
+                            
+                            # Update stock
+                            stock, created = Stock.objects.get_or_create(
+                                product=product,
+                                defaults={'quantity': quantity}
+                            )
+                            if not created:
+                                stock.quantity += quantity
+                                stock.save()
+                    else:
+                        # Create new item
+                        item = ReceivingItem.objects.create(
+                            receiving=receiving,
+                            product=product,
+                            quantity=quantity,
+                            unit_price=unit_price,
+                            comment=comment
+                        )
+                        kept_item_ids.append(item.id)
                         
-                        stock = Stock.objects.get(product=receiving.product)
-                        stock.quantity += quantity_diff
+                        # Update stock
+                        stock, created = Stock.objects.get_or_create(
+                            product=product,
+                            defaults={'quantity': quantity}
+                        )
+                        if not created:
+                            stock.quantity += quantity
+                            stock.save()
+                
+                # Remove items that are no longer in the form
+                items_to_delete = receiving.items.exclude(id__in=kept_item_ids)
+                for item in items_to_delete:
+                    # Update stock
+                    try:
+                        stock = Stock.objects.get(product=item.product)
+                        stock.quantity -= item.quantity
                         stock.save()
-
-                    messages.success(request, 'Приход успешно обновлен.')
-                    return redirect('receiving_list')
-            except Exception as e:
-                messages.error(request, f'Ошибка при сохранении: {str(e)}')
-    else:
-        form = ReceivingForm(instance=receiving)
+                    except Stock.DoesNotExist:
+                        pass
+                
+                # Now actually delete the items
+                items_to_delete.delete()
+                
+                messages.success(request, 'Приход успешно обновлен')
+                return redirect('infrastruction:receiving_list')
+                
+        except Exception as e:
+            messages.error(request, f'Ошибка при сохранении: {str(e)}')
     
+    # For GET requests, we'll need to load the existing data
+    items = list(receiving.items.all())
+    print(f"DEBUG: Found {len(items)} items for receiving {pk}")
+    for item in items:
+        print(f"DEBUG: Item {item.id}: Product={item.product.name}, Quantity={item.quantity}, Comment={item.comment}")
+    
+    # Send the items to the template
     return render(request, 'infrastruction/receiving_form.html', {
-        'form': form,
-        'title': 'Редактировать приход'
+        'title': 'Редактировать приход',
+        'receiving': receiving,
+        'products': Product.objects.all(),
+        'edit_mode': True
     })
 
 @login_required
@@ -207,19 +511,23 @@ def receiving_delete(request, pk):
     receiving = get_object_or_404(Receiving, pk=pk)
     try:
         with transaction.atomic():
-            # Update stock quantity
-            stock = Stock.objects.get(product=receiving.product)
-            stock.quantity -= receiving.quantity
-            stock.save()
+            # Update stock quantities for all items
+            for item in receiving.items.all():
+                try:
+                    stock = Stock.objects.get(product=item.product)
+                    stock.quantity -= item.quantity
+                    stock.save()
+                except Stock.DoesNotExist:
+                    pass
             
-            # Delete the receiving record
+            # Delete the receiving record (which will cascade delete items)
             receiving.delete()
             
             messages.success(request, 'Приход успешно удален.')
     except Exception as e:
         messages.error(request, f'Ошибка при удалении: {str(e)}')
     
-    return redirect('receiving_list')
+    return redirect('infrastruction:receiving_list')
 
 @login_required
 @infrastructure_required
@@ -239,14 +547,14 @@ def canteen_expense_add(request):
             expense = form.save(commit=False)
             expense.created_by = request.user
             expense.save()
-            messages.success(request, 'Расход успешно добавлен.')
-            return redirect('canteen_expenses_list')
+            messages.success(request, 'Расход столовой успешно добавлен.')
+            return redirect('infrastruction:canteen_expenses_list')
     else:
         form = CanteenExpenseForm(initial={'date': timezone.now().date()})
     
     return render(request, 'infrastruction/canteen_expense_form.html', {
         'form': form,
-        'title': 'Добавить расход'
+        'title': 'Добавить расход столовой'
     })
 
 @login_required
@@ -257,14 +565,14 @@ def canteen_expense_edit(request, pk):
         form = CanteenExpenseForm(request.POST, instance=expense)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Расход успешно обновлен.')
-            return redirect('canteen_expenses_list')
+            messages.success(request, 'Расход столовой успешно обновлен.')
+            return redirect('infrastruction:canteen_expenses_list')
     else:
         form = CanteenExpenseForm(instance=expense)
     
     return render(request, 'infrastruction/canteen_expense_form.html', {
         'form': form,
-        'title': 'Редактировать расход'
+        'title': 'Редактировать расход столовой'
     })
 
 @login_required
@@ -280,12 +588,9 @@ def canteen_expense_detail(request, pk):
 @infrastructure_required
 def canteen_expense_delete(request, pk):
     expense = get_object_or_404(CanteenExpense, pk=pk)
-    try:
-        expense.delete()
-        messages.success(request, 'Расход столовой успешно удален.')
-    except Exception as e:
-        messages.error(request, f'Ошибка при удалении: {str(e)}')
-    return redirect('canteen_expenses_list')
+    expense.delete()
+    messages.success(request, 'Расход столовой успешно удален.')
+    return redirect('infrastruction:canteen_expenses_list')
 
 @login_required
 @infrastructure_required
@@ -300,8 +605,18 @@ def project_list(request):
 @infrastructure_required
 def project_detail(request, pk):
     project = get_object_or_404(Project, pk=pk)
+    items = project.projectitem_set.all()
+    # Get all products used in this project
+    products = project.used_products.all().select_related('product')
+    
+    # Calculate total product cost
+    total_product_cost = sum(product.total_cost for product in products)
+    
     return render(request, 'infrastruction/project_detail.html', {
         'project': project,
+        'items': items,
+        'products': products,
+        'total_product_cost': total_product_cost,
         'title': project.name
     })
 
@@ -315,9 +630,12 @@ def project_add(request):
             project.created_by = request.user
             project.save()
             messages.success(request, 'Проект успешно создан.')
-            return redirect('project_list')
+            return redirect('infrastruction:project_list')
     else:
-        form = ProjectForm()
+        form = ProjectForm(initial={
+            'start_date': timezone.now().date(),
+            'end_date': timezone.now().date() + timezone.timedelta(days=30)
+        })
     
     return render(request, 'infrastruction/project_form.html', {
         'form': form,
@@ -333,7 +651,7 @@ def project_edit(request, pk):
         if form.is_valid():
             form.save()
             messages.success(request, 'Проект успешно обновлен.')
-            return redirect('project_list')
+            return redirect('infrastruction:project_list')
     else:
         form = ProjectForm(instance=project)
     
@@ -346,13 +664,9 @@ def project_edit(request, pk):
 @infrastructure_required
 def project_delete(request, pk):
     project = get_object_or_404(Project, pk=pk)
-    try:
-        project.delete()
-        messages.success(request, 'Проект успешно удален.')
-    except Exception as e:
-        messages.error(request, f'Ошибка при удалении проекта: {str(e)}')
-    
-    return redirect('project_list')
+    project.delete()
+    messages.success(request, 'Проект успешно удален.')
+    return redirect('infrastruction:project_list')
 
 @login_required
 @infrastructure_required
@@ -365,7 +679,7 @@ def project_item_add(request, project_pk):
             item.project = project
             item.save()
             messages.success(request, 'Элемент проекта успешно добавлен.')
-            return redirect('project_detail', pk=project_pk)
+            return redirect('infrastruction:project_detail', pk=project_pk)
     else:
         form = ProjectItemForm()
     
@@ -377,32 +691,33 @@ def project_item_add(request, project_pk):
 
 @login_required
 @infrastructure_required
-def project_item_edit(request, project_pk, item_pk):
+def project_item_edit(request, project_pk, pk):
     project = get_object_or_404(Project, pk=project_pk)
-    item = get_object_or_404(ProjectItem, pk=item_pk, project=project)
+    item = get_object_or_404(ProjectItem, pk=pk, project=project)
     if request.method == 'POST':
         form = ProjectItemForm(request.POST, request.FILES, instance=item)
         if form.is_valid():
             form.save()
             messages.success(request, 'Элемент проекта успешно обновлен.')
-            return redirect('project_detail', pk=project_pk)
+            return redirect('infrastruction:project_detail', pk=project_pk)
     else:
         form = ProjectItemForm(instance=item)
     
     return render(request, 'infrastruction/project_item_form.html', {
         'form': form,
         'project': project,
+        'item': item,
         'title': 'Редактировать элемент проекта'
     })
 
 @login_required
 @infrastructure_required
-def project_item_delete(request, project_pk, item_pk):
+def project_item_delete(request, project_pk, pk):
     project = get_object_or_404(Project, pk=project_pk)
-    item = get_object_or_404(ProjectItem, pk=item_pk, project=project)
+    item = get_object_or_404(ProjectItem, pk=pk, project=project)
     item.delete()
     messages.success(request, 'Элемент проекта успешно удален.')
-    return redirect('project_detail', pk=project_pk)
+    return redirect('infrastruction:project_detail', pk=project_pk)
 
 @login_required
 @infrastructure_required
@@ -417,42 +732,81 @@ def giving_list(request):
 @infrastructure_required
 def giving_add(request):
     if request.method == 'POST':
-        form = GivingForm(request.POST)
-        if form.is_valid():
+        # Check if this is an AJAX request with JSON data
+        if request.content_type == 'application/json':
             try:
+                data = json.loads(request.body)
+                date = data.get('date')
+                items = data.get('items', [])
+                
+                if not date or not items:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Неправильный формат данных'
+                    })
+                
                 with transaction.atomic():
-                    giving = form.save(commit=False)
-                    giving.created_by = request.user
+                    for item in items:
+                        product_id = item.get('product')
+                        quantity = item.get('quantity')
+                        given_to = item.get('given_to')
+                        comment = item.get('comment', '')
+                        
+                        if not all([product_id, quantity, given_to]):
+                            continue  # Skip incomplete items
+                        
+                        # Get product and check stock
+                        product = Product.objects.get(pk=product_id)
+                        stock = Stock.objects.get(product=product)
+                        
+                        if stock.quantity < float(quantity):
+                            raise ValueError(f'Недостаточно товара на складе "{product.name}". В наличии: {stock.quantity}')
+                        
+                        # Create giving record
+                        giving = Giving.objects.create(
+                            product=product,
+                            quantity=quantity,
+                            given_to=given_to,
+                            date=date,
+                            comment=comment,
+                            created_by=request.user
+                        )
+                        
+                        # Update stock
+                        stock.quantity -= float(quantity)
+                        stock.save()
                     
-                    # Check stock availability
-                    product = form.cleaned_data['product']
-                    quantity = form.cleaned_data['quantity']
-                    
-                    try:
+                    return JsonResponse({'success': True})
+            except ValueError as e:
+                return JsonResponse({'success': False, 'error': str(e)})
+            except Exception as e:
+                return JsonResponse({'success': False, 'error': f'Ошибка при сохранении: {str(e)}'})
+        else:
+            # Handle traditional form submission (fallback)
+            form = GivingForm(request.POST)
+            if form.is_valid():
+                try:
+                    with transaction.atomic():
+                        # Save giving record
+                        giving = form.save(commit=False)
+                        giving.created_by = request.user
+                        giving.save()
+                        
+                        # Update stock
+                        product = form.cleaned_data['product']
+                        quantity = form.cleaned_data['quantity']
+                        
                         stock = Stock.objects.get(product=product)
                         if stock.quantity < quantity:
-                            messages.error(request, f'Недостаточно {product.name} на складе. Доступно: {stock.quantity} {product.unit}')
-                            return render(request, 'infrastruction/giving_form.html', {
-                                'form': form,
-                                'title': 'Добавить расход'
-                            })
-                            
-                        # Update stock
+                            raise ValueError(f'Недостаточно товара на складе. В наличии: {stock.quantity}')
+                        
                         stock.quantity -= quantity
                         stock.save()
                         
-                    except Stock.DoesNotExist:
-                        messages.error(request, f'Продукт {product.name} отсутствует на складе.')
-                        return render(request, 'infrastruction/giving_form.html', {
-                            'form': form,
-                            'title': 'Добавить расход'
-                        })
-                    
-                    giving.save()
-                    messages.success(request, 'Расход успешно добавлен.')
-                    return redirect('giving_list')
-            except Exception as e:
-                messages.error(request, f'Ошибка при сохранении: {str(e)}')
+                        messages.success(request, 'Расход успешно добавлен.')
+                        return redirect('infrastruction:giving_list')
+                except Exception as e:
+                    messages.error(request, f'Ошибка при сохранении: {str(e)}')
     else:
         form = GivingForm(initial={'date': timezone.now().date()})
     
@@ -479,44 +833,41 @@ def giving_edit(request, pk):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    # Check if quantity changed
-                    if 'quantity' in form.changed_data or 'product' in form.changed_data:
-                        # Revert old quantity
-                        old_product = giving.product
-                        old_quantity = giving.quantity
+                    # Check if product or quantity changed
+                    old_product = giving.product
+                    old_quantity = giving.quantity
+                    new_product = form.cleaned_data['product']
+                    new_quantity = form.cleaned_data['quantity']
+                    
+                    # Update stock - first return old quantity if product changed or quantity decreased
+                    if old_product != new_product:
+                        # Return old product quantity to stock
                         old_stock = Stock.objects.get(product=old_product)
                         old_stock.quantity += old_quantity
                         old_stock.save()
                         
-                        # Apply new quantity
-                        new_product = form.cleaned_data['product']
-                        new_quantity = form.cleaned_data['quantity']
-                        
-                        # If product changed, we need to update the new product's stock
-                        if 'product' in form.changed_data:
-                            new_stock = Stock.objects.get(product=new_product)
-                        else:
-                            new_stock = old_stock
-                            
-                        # Check if enough stock available
+                        # Take new product quantity from stock
+                        new_stock = Stock.objects.get(product=new_product)
                         if new_stock.quantity < new_quantity:
-                            # Rollback the old stock change
-                            old_stock.quantity -= old_quantity
-                            old_stock.save()
-                            
-                            messages.error(request, f'Недостаточно {new_product.name} на складе. Доступно: {new_stock.quantity} {new_product.unit}')
-                            return render(request, 'infrastruction/giving_form.html', {
-                                'form': form,
-                                'title': 'Редактировать расход'
-                            })
-                            
-                        # Update new stock
+                            raise ValueError(f'Недостаточно товара на складе. В наличии: {new_stock.quantity}')
                         new_stock.quantity -= new_quantity
                         new_stock.save()
+                    elif old_quantity != new_quantity:
+                        # Just update the same product stock
+                        stock = Stock.objects.get(product=old_product)
+                        quantity_diff = new_quantity - old_quantity
+                        
+                        if quantity_diff > 0 and stock.quantity < quantity_diff:
+                            raise ValueError(f'Недостаточно товара на складе. В наличии: {stock.quantity}')
+                        
+                        stock.quantity -= quantity_diff
+                        stock.save()
                     
+                    # Save the giving record
                     giving = form.save()
+                    
                     messages.success(request, 'Расход успешно обновлен.')
-                    return redirect('giving_list')
+                    return redirect('infrastruction:giving_list')
             except Exception as e:
                 messages.error(request, f'Ошибка при сохранении: {str(e)}')
     else:
@@ -545,7 +896,7 @@ def giving_delete(request, pk):
     except Exception as e:
         messages.error(request, f'Ошибка при удалении: {str(e)}')
     
-    return redirect('giving_list')
+    return redirect('infrastruction:giving_list')
 
 @login_required
 @infrastructure_required
@@ -580,13 +931,13 @@ def canteen_monthly_report(request):
         date__lte=end_date
     ).order_by('date')
     
-    # Calculate totals
-    total_cost = expenses.aggregate(total=Sum('total_cost'))['total'] or 0
+    # Calculate totals - total_cost is a property, not a DB field
+    total_cost = sum(expense.total_cost for expense in expenses)
     
     # Group expenses by product name
     product_totals = {}
     for expense in expenses:
-        product_name = expense.product_name
+        product_name = expense.product  # Use product field directly
         if product_name not in product_totals:
             product_totals[product_name] = 0
         product_totals[product_name] += expense.total_cost
@@ -617,5 +968,574 @@ def canteen_monthly_report(request):
     }
     
     return render(request, 'infrastruction/canteen_monthly_report.html', context)
+
+@login_required
+@infrastructure_required
+def project_product_add(request, project_pk):
+    project = get_object_or_404(Project, pk=project_pk)
+    if request.method == 'POST':
+        form = ProjectProductForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # Get form data
+                    product = form.cleaned_data['product']
+                    quantity = form.cleaned_data['quantity']
+                    
+                    # Check if there's enough stock
+                    stock = Stock.objects.get(product=product)
+                    if stock.quantity < quantity:
+                        raise ValueError(f'Недостаточно товара на складе. В наличии: {stock.quantity}')
+                    
+                    # Save project product
+                    project_product = form.save(commit=False)
+                    project_product.project = project
+                    project_product.created_by = request.user
+                    project_product.save()
+                    
+                    # Update stock
+                    stock.quantity -= quantity
+                    stock.save()
+                    
+                    messages.success(request, 'Продукт успешно добавлен к проекту.')
+                    return redirect('infrastruction:project_detail', pk=project_pk)
+            except Exception as e:
+                messages.error(request, f'Ошибка при сохранении: {str(e)}')
+    else:
+        form = ProjectProductForm(initial={'date_used': timezone.now().date()})
+    
+    return render(request, 'infrastruction/project_product_form.html', {
+        'form': form,
+        'project': project,
+        'title': 'Добавить продукт к проекту'
+    })
+
+@login_required
+@infrastructure_required
+def project_product_edit(request, project_pk, pk):
+    project = get_object_or_404(Project, pk=project_pk)
+    project_product = get_object_or_404(ProjectProduct, pk=pk, project=project)
+    
+    if request.method == 'POST':
+        form = ProjectProductForm(request.POST, instance=project_product)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # Get old and new data to calculate stock changes
+                    old_product = project_product.product
+                    old_quantity = project_product.quantity
+                    new_product = form.cleaned_data['product']
+                    new_quantity = form.cleaned_data['quantity']
+                    
+                    # Handle stock updates
+                    if old_product != new_product:
+                        # Return old product quantity to stock
+                        old_stock = Stock.objects.get(product=old_product)
+                        old_stock.quantity += old_quantity
+                        old_stock.save()
+                        
+                        # Take new product quantity from stock
+                        new_stock = Stock.objects.get(product=new_product)
+                        if new_stock.quantity < new_quantity:
+                            raise ValueError(f'Недостаточно товара на складе. В наличии: {new_stock.quantity}')
+                        new_stock.quantity -= new_quantity
+                        new_stock.save()
+                    elif old_quantity != new_quantity:
+                        # Update same product stock
+                        stock = Stock.objects.get(product=old_product)
+                        quantity_diff = new_quantity - old_quantity
+                        
+                        if quantity_diff > 0 and stock.quantity < quantity_diff:
+                            raise ValueError(f'Недостаточно товара на складе. В наличии: {stock.quantity}')
+                        
+                        stock.quantity -= quantity_diff
+                        stock.save()
+                    
+                    # Save the changes
+                    form.save()
+                    messages.success(request, 'Запись успешно обновлена.')
+                    return redirect('infrastruction:project_detail', pk=project_pk)
+            except Exception as e:
+                messages.error(request, f'Ошибка при сохранении: {str(e)}')
+    else:
+        form = ProjectProductForm(instance=project_product)
+    
+    return render(request, 'infrastruction/project_product_form.html', {
+        'form': form,
+        'project': project,
+        'project_product': project_product,
+        'title': 'Редактировать продукт'
+    })
+
+@login_required
+@infrastructure_required
+def project_product_delete(request, project_pk, pk):
+    project = get_object_or_404(Project, pk=project_pk)
+    project_product = get_object_or_404(ProjectProduct, pk=pk, project=project)
+    
+    try:
+        with transaction.atomic():
+            # Return quantity to stock
+            stock = Stock.objects.get(product=project_product.product)
+            stock.quantity += project_product.quantity
+            stock.save()
+            
+            # Delete record
+            project_product.delete()
+            messages.success(request, 'Запись успешно удалена.')
+    except Exception as e:
+        messages.error(request, f'Ошибка при удалении: {str(e)}')
+    
+    return redirect('infrastruction:project_detail', pk=project_pk)
+
+@login_required
+@infrastructure_required
+def project_product_report(request, pk=None):
+    # Determine if filtering by specific project
+    project = None
+    if pk:
+        project = get_object_or_404(Project, pk=pk)
+        products = ProjectProduct.objects.filter(project=project).select_related('product', 'project')
+    else:
+        # Get all project products, with optional date filtering
+        products = ProjectProduct.objects.all().select_related('product', 'project')
+    
+    # Apply date filters if provided
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    if start_date:
+        try:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            products = products.filter(date_used__gte=start_date)
+        except ValueError:
+            messages.warning(request, 'Неверный формат начальной даты.')
+    
+    if end_date:
+        try:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            products = products.filter(date_used__lte=end_date)
+        except ValueError:
+            messages.warning(request, 'Неверный формат конечной даты.')
+    
+    # Group by project and product for summary
+    summary = {}
+    for item in products:
+        if item.project.id not in summary:
+            summary[item.project.id] = {
+                'project': item.project,
+                'products': {},
+                'total': 0
+            }
+        
+        if item.product.id not in summary[item.project.id]['products']:
+            summary[item.project.id]['products'][item.product.id] = {
+                'product': item.product,
+                'quantity': 0,
+                'total_cost': 0
+            }
+        
+        summary[item.project.id]['products'][item.product.id]['quantity'] += item.quantity
+        summary[item.project.id]['products'][item.product.id]['total_cost'] += item.total_cost
+        summary[item.project.id]['total'] += item.total_cost
+    
+    # Convert summary to list for template
+    projects_summary = []
+    for project_id, data in summary.items():
+        product_list = [p for p in data['products'].values()]
+        projects_summary.append({
+            'project': data['project'],
+            'products': sorted(product_list, key=lambda x: x['total_cost'], reverse=True),
+            'total': data['total']
+        })
+    
+    # Sort projects by total cost descending
+    projects_summary.sort(key=lambda x: x['total'], reverse=True)
+    
+    # Calculate grand total
+    grand_total = sum(item.total_cost for item in products)
+    
+    context = {
+        'title': f'Отчет по продуктам проекта{f" {project.name}" if project else ""}',
+        'project': project, 
+        'products': products,
+        'projects_summary': projects_summary,
+        'grand_total': grand_total,
+        'start_date': start_date,
+        'end_date': end_date
+    }
+    
+    return render(request, 'infrastruction/project_product_report.html', context)
+
+@login_required
+@infrastructure_required
+def export_receivings_excel(request):
+    """Export receiving data to Excel"""
+    # Create a new workbook and select the active worksheet
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Поступления"
+    
+    # Set column widths
+    ws.column_dimensions['A'].width = 10  # ID
+    ws.column_dimensions['B'].width = 15  # Date
+    ws.column_dimensions['C'].width = 15  # Items count
+    ws.column_dimensions['D'].width = 20  # Total price
+    
+    # Create header row with styling
+    header_font = Font(bold=True, size=12)
+    header_fill = PatternFill(start_color="AAAAFF", end_color="AAAAFF", fill_type="solid")
+    header_alignment = Alignment(horizontal='center', vertical='center')
+    
+    headers = ['ID', 'Дата', 'Кол-во элементов', 'Общая стоимость (SUM)']
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+    
+    # Get all receivings ordered by date
+    receivings = Receiving.objects.all().order_by('-date')
+    
+    # Add data rows
+    for row_num, receiving in enumerate(receivings, 2):
+        ws.cell(row=row_num, column=1, value=receiving.id)
+        ws.cell(row=row_num, column=2, value=receiving.date.strftime('%d.%m.%Y'))
+        ws.cell(row=row_num, column=3, value=receiving.items.count())
+        ws.cell(row=row_num, column=4, value=receiving.total_price)
+    
+    # Create summary sheet for total statistics
+    ws_summary = wb.create_sheet(title="Сводка")
+    ws_summary.column_dimensions['A'].width = 30
+    ws_summary.column_dimensions['B'].width = 20
+    
+    # Add summary headers
+    summary_headers = ['Показатель', 'Значение']
+    for col_num, header in enumerate(summary_headers, 1):
+        cell = ws_summary.cell(row=1, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+    
+    # Add summary data
+    total_receivings = receivings.count()
+    total_value = sum(receiving.total_price for receiving in receivings)
+    
+    summary_data = [
+        ['Общее количество поступлений', total_receivings],
+        ['Общая стоимость всех поступлений', f"{total_value} SUM"],
+    ]
+    
+    for row_num, (label, value) in enumerate(summary_data, 2):
+        ws_summary.cell(row=row_num, column=1, value=label)
+        ws_summary.cell(row=row_num, column=2, value=value)
+    
+    # Create detailed sheet with all items
+    ws_details = wb.create_sheet(title="Детали")
+    ws_details.column_dimensions['A'].width = 10  # Receiving ID
+    ws_details.column_dimensions['B'].width = 15  # Date
+    ws_details.column_dimensions['C'].width = 30  # Product name
+    ws_details.column_dimensions['D'].width = 15  # Quantity
+    ws_details.column_dimensions['E'].width = 15  # Unit price
+    ws_details.column_dimensions['F'].width = 20  # Total price
+    ws_details.column_dimensions['G'].width = 30  # Comment
+    
+    # Add details headers
+    details_headers = ['ID поступл.', 'Дата', 'Продукт', 'Количество', 'Цена ед.', 'Общая стоимость', 'Комментарий']
+    for col_num, header in enumerate(details_headers, 1):
+        cell = ws_details.cell(row=1, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+    
+    # Add details data
+    row_num = 2
+    for receiving in receivings:
+        for item in receiving.items.all():
+            ws_details.cell(row=row_num, column=1, value=receiving.id)
+            ws_details.cell(row=row_num, column=2, value=receiving.date.strftime('%d.%m.%Y'))
+            ws_details.cell(row=row_num, column=3, value=item.product.name)
+            ws_details.cell(row=row_num, column=4, value=item.quantity)
+            ws_details.cell(row=row_num, column=5, value=item.unit_price)
+            ws_details.cell(row=row_num, column=6, value=item.total_price)
+            ws_details.cell(row=row_num, column=7, value=item.comment if item.comment else "")
+            row_num += 1
+    
+    # Set response headers for file download
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=receivings_report.xlsx'
+    
+    # Save the workbook to the response
+    wb.save(response)
+    return response
+
+@login_required
+@infrastructure_required
+def export_canteen_monthly_report_excel(request):
+    """Export canteen monthly report data to Excel"""
+    # Get the current month and year or use GET parameters
+    now = timezone.now()
+    year = int(request.GET.get('year', now.year))
+    month = int(request.GET.get('month', now.month))
+    
+    # Create date range for the selected month
+    start_date = datetime(year, month, 1).date()
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1).date() - timedelta(days=1)
+    else:
+        end_date = datetime(year, month + 1, 1).date() - timedelta(days=1)
+    
+    # Get all expenses for the selected month
+    expenses = CanteenExpense.objects.filter(
+        date__gte=start_date,
+        date__lte=end_date
+    ).order_by('date')
+    
+    # Calculate totals
+    total_cost = sum(expense.total_cost for expense in expenses)
+    
+    # Group expenses by product name
+    product_totals = {}
+    for expense in expenses:
+        product_name = expense.product
+        if product_name not in product_totals:
+            product_totals[product_name] = 0
+        product_totals[product_name] += expense.total_cost
+    
+    # Convert to list for processing
+    product_summary = [
+        {'name': name, 'total': total} 
+        for name, total in product_totals.items()
+    ]
+    # Sort by total cost (descending)
+    product_summary.sort(key=lambda x: x['total'], reverse=True)
+    
+    # Create a new workbook and select the active worksheet
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Отчет столовой"
+    
+    # Set column widths
+    ws.column_dimensions['A'].width = 15  # Date
+    ws.column_dimensions['B'].width = 35  # Product
+    ws.column_dimensions['C'].width = 15  # Quantity
+    ws.column_dimensions['D'].width = 15  # Unit Price
+    ws.column_dimensions['E'].width = 20  # Total Cost
+    
+    # Add title
+    month_name = start_date.strftime('%B')
+    title = f"Отчет расходов столовой: {month_name} {year}"
+    ws.merge_cells('A1:E1')
+    title_cell = ws.cell(row=1, column=1, value=title)
+    title_cell.font = Font(bold=True, size=14)
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Add summary data
+    ws.merge_cells('A3:B3')
+    summary_label = ws.cell(row=3, column=1, value="Общие расходы за период:")
+    summary_label.font = Font(bold=True)
+    
+    ws.merge_cells('C3:E3')
+    summary_value = ws.cell(row=3, column=3, value=f"{total_cost} SUM")
+    summary_value.font = Font(bold=True)
+    summary_value.alignment = Alignment(horizontal='right')
+    
+    # Create header row for detailed expenses with styling
+    header_font = Font(bold=True, size=12)
+    header_fill = PatternFill(start_color="AAAAFF", end_color="AAAAFF", fill_type="solid")
+    header_alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Add a little space
+    row_num = 5
+    
+    # Add detailed expenses table
+    ws.cell(row=row_num, column=1, value="Детализация расходов").font = Font(bold=True, size=12)
+    row_num += 2
+    
+    headers = ['Дата', 'Продукт/Услуга', 'Количество', 'Цена за единицу', 'Общая стоимость']
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=row_num, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+    
+    row_num += 1
+    
+    # Add data rows
+    for expense in expenses:
+        ws.cell(row=row_num, column=1, value=expense.date.strftime('%d.%m.%Y'))
+        ws.cell(row=row_num, column=2, value=expense.product)
+        ws.cell(row=row_num, column=3, value=expense.quantity)
+        ws.cell(row=row_num, column=4, value=expense.unit_price)
+        ws.cell(row=row_num, column=5, value=expense.total_cost)
+        row_num += 1
+    
+    # Add total row
+    ws.cell(row=row_num, column=1, value="Итого:").font = Font(bold=True)
+    ws.merge_cells(f'A{row_num}:D{row_num}')
+    ws.cell(row=row_num, column=1).alignment = Alignment(horizontal='right')
+    
+    total_cell = ws.cell(row=row_num, column=5, value=total_cost)
+    total_cell.font = Font(bold=True)
+    
+    # Create summary by product sheet
+    ws_summary = wb.create_sheet(title="По продуктам")
+    ws_summary.column_dimensions['A'].width = 40
+    ws_summary.column_dimensions['B'].width = 20
+    ws_summary.column_dimensions['C'].width = 15
+    
+    # Add title to summary sheet
+    ws_summary.merge_cells('A1:C1')
+    summary_title = ws_summary.cell(row=1, column=1, value=f"Расходы по продуктам: {month_name} {year}")
+    summary_title.font = Font(bold=True, size=14)
+    summary_title.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Add headers to summary sheet
+    summary_headers = ['Продукт/Услуга', 'Общая сумма', '% от общего']
+    
+    row_num = 3
+    for col_num, header in enumerate(summary_headers, 1):
+        cell = ws_summary.cell(row=row_num, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+    
+    row_num += 1
+    
+    # Add product summary data
+    for item in product_summary:
+        ws_summary.cell(row=row_num, column=1, value=item['name'])
+        ws_summary.cell(row=row_num, column=2, value=item['total'])
+        percentage = (item['total'] / total_cost * 100) if total_cost > 0 else 0
+        ws_summary.cell(row=row_num, column=3, value=f"{percentage:.1f}%")
+        row_num += 1
+    
+    # Add total row to summary
+    ws_summary.cell(row=row_num, column=1, value="Итого:").font = Font(bold=True)
+    ws_summary.cell(row=row_num, column=2, value=total_cost).font = Font(bold=True)
+    ws_summary.cell(row=row_num, column=3, value="100%").font = Font(bold=True)
+    
+    # Set response headers for file download
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename=canteen_report_{year}_{month}.xlsx'
+    
+    # Save the workbook to the response
+    wb.save(response)
+    return response
+
+@login_required
+@infrastructure_required
+def export_project_excel(request, pk):
+    """Export project data to Excel"""
+    # Get the project and its related products
+    project = get_object_or_404(Project, pk=pk)
+    products = project.used_products.all().select_related('product')
+    
+    # Calculate total product cost
+    total_product_cost = sum(product.total_cost for product in products)
+    
+    # Create a new workbook and select the active worksheet
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Детали проекта"
+    
+    # Set column widths
+    ws.column_dimensions['A'].width = 20
+    ws.column_dimensions['B'].width = 40
+    
+    # Add title
+    title = f"Проект: {project.name}"
+    ws.merge_cells('A1:B1')
+    title_cell = ws.cell(row=1, column=1, value=title)
+    title_cell.font = Font(bold=True, size=14)
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Add project information
+    row_num = 3
+    
+    # Styling
+    header_font = Font(bold=True)
+    header_fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+    
+    # Project Info section header
+    ws.merge_cells('A3:B3')
+    info_header = ws.cell(row=row_num, column=1, value="Информация о проекте")
+    info_header.font = Font(bold=True, size=12)
+    info_header.fill = header_fill
+    row_num += 1
+    
+    # Project details
+    project_details = [
+        ("Статус", {
+            'planned': 'Запланирован',
+            'in_progress': 'В процессе',
+            'completed': 'Завершен',
+            'cancelled': 'Отменен'
+        }.get(project.status, project.status)),
+        ("Дата начала", project.start_date.strftime('%d.%m.%Y')),
+        ("Дата окончания", project.end_date.strftime('%d.%m.%Y') if project.end_date else "Не указана"),
+        ("Описание", project.description or "Не указано"),
+        ("Общая стоимость продуктов", f"{total_product_cost} SUM")
+    ]
+    
+    for label, value in project_details:
+        ws.cell(row=row_num, column=1, value=label).font = header_font
+        ws.cell(row=row_num, column=2, value=value)
+        row_num += 1
+    
+    # Add space before products section
+    row_num += 2
+    
+    # Products section header
+    ws.merge_cells(f'A{row_num}:G{row_num}')
+    products_header = ws.cell(row=row_num, column=1, value="Использованные продукты")
+    products_header.font = Font(bold=True, size=12)
+    products_header.fill = header_fill
+    row_num += 1
+    
+    # Products table headers
+    headers = ['Продукт', 'Цена за единицу', 'Количество', 'Стоимость', 'Дата использования', 'Примечания']
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=row_num, column=col_num, value=header)
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color="AAAAFF", end_color="AAAAFF", fill_type="solid")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        # Adjust column width based on header
+        ws.column_dimensions[chr(64 + col_num)].width = max(15, len(header) * 1.2)
+    
+    row_num += 1
+    
+    # Add products data
+    for item in products:
+        ws.cell(row=row_num, column=1, value=item.product.name)
+        ws.cell(row=row_num, column=2, value=f"{item.product.unit_price} SUM")
+        ws.cell(row=row_num, column=3, value=item.quantity)
+        ws.cell(row=row_num, column=4, value=f"{item.total_cost} SUM")
+        ws.cell(row=row_num, column=5, value=item.date_used.strftime('%d.%m.%Y'))
+        ws.cell(row=row_num, column=6, value=item.notes if item.notes else "-")
+        row_num += 1
+    
+    # Add total row
+    ws.cell(row=row_num, column=1, value="Итого:").font = Font(bold=True)
+    ws.merge_cells(f'A{row_num}:C{row_num}')
+    total_cell = ws.cell(row=row_num, column=4, value=f"{total_product_cost} SUM")
+    total_cell.font = Font(bold=True)
+    
+    # Set response headers for file download
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename=project_{project.id}_{project.name}.xlsx'
+    
+    # Save the workbook to the response
+    wb.save(response)
+    return response
 
 # ... rest of the views ... 

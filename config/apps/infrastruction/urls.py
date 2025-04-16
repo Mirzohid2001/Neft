@@ -19,6 +19,7 @@ urlpatterns = [
     path('receiving/<int:pk>/', views.receiving_detail, name='receiving_detail'),
     path('receiving/<int:pk>/edit/', views.receiving_edit, name='receiving_edit'),
     path('receiving/<int:pk>/delete/', views.receiving_delete, name='receiving_delete'),
+    path('receiving/export/excel/', views.export_receivings_excel, name='export_receivings_excel'),
     
     # Daily Expenses - Giving to Workers
     path('giving/', views.giving_list, name='giving_list'),
@@ -37,6 +38,7 @@ urlpatterns = [
     path('canteen/<int:pk>/edit/', views.canteen_expense_edit, name='canteen_expense_edit'),
     path('canteen/<int:pk>/delete/', views.canteen_expense_delete, name='canteen_expense_delete'),
     path('canteen/report/', views.canteen_monthly_report, name='canteen_monthly_report'),
+    path('canteen/report/export/', views.export_canteen_monthly_report_excel, name='export_canteen_monthly_report_excel'),
     
     # Projects
     path('projects/', views.project_list, name='project_list'),
@@ -44,9 +46,19 @@ urlpatterns = [
     path('projects/<int:pk>/', views.project_detail, name='project_detail'),
     path('projects/<int:pk>/edit/', views.project_edit, name='project_edit'),
     path('projects/<int:pk>/delete/', views.project_delete, name='project_delete'),
+    path('projects/<int:pk>/export/excel/', views.export_project_excel, name='export_project_excel'),
     
     # Project Items
     path('projects/<int:project_pk>/items/add/', views.project_item_add, name='project_item_add'),
     path('projects/<int:project_pk>/items/<int:pk>/edit/', views.project_item_edit, name='project_item_edit'),
     path('projects/<int:project_pk>/items/<int:pk>/delete/', views.project_item_delete, name='project_item_delete'),
+    
+    # Project Products
+    path('projects/<int:project_pk>/products/add/', views.project_product_add, name='project_product_add'),
+    path('projects/<int:project_pk>/products/<int:pk>/edit/', views.project_product_edit, name='project_product_edit'),
+    path('projects/<int:project_pk>/products/<int:pk>/delete/', views.project_product_delete, name='project_product_delete'),
+    
+    # Project Product Reports
+    path('project-products/report/', views.project_product_report, name='project_product_report'),
+    path('projects/<int:pk>/products/report/', views.project_product_report, name='project_product_report_filtered'),
 ] 

@@ -19,9 +19,8 @@ class Product(models.Model):
 
 class Receiving(models.Model):
     """Model for receiving products into stock"""
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Продукт')
-    quantity = models.FloatField('Количество')
     date = models.DateField('Дата', default=timezone.now)
+    notes = models.TextField('Примечания', blank=True, null=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='Создал')
     created_at = models.DateTimeField('Дата создания', auto_now_add=True)
 
@@ -32,10 +31,31 @@ class Receiving(models.Model):
 
     @property
     def total_price(self):
-        return self.quantity * self.product.unit_price
+        return sum(item.total_price for item in self.items.all())
 
     def __str__(self):
-        return f"{self.product.name} - {self.quantity} ({self.date})"
+        return f"Поступление #{self.pk} ({self.date})"
+
+class ReceivingItem(models.Model):
+    """Model for individual items in a receiving transaction"""
+    receiving = models.ForeignKey(Receiving, related_name='items', on_delete=models.CASCADE, verbose_name='Поступление')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Продукт')
+    quantity = models.FloatField('Количество')
+    unit_price = models.FloatField('Цена за единицу')
+    comment = models.TextField('Комментарий', max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Элемент поступления'
+        verbose_name_plural = 'Элементы поступления'
+        ordering = ['id']
+
+    @property
+    def total_price(self):
+        return self.quantity * self.unit_price
+
+    def __str__(self):
+        return f"{self.product.name} - {self.quantity}"
 
 class Giving(models.Model):
     """Model for giving products to workers"""
@@ -149,3 +169,25 @@ class ProjectItem(models.Model):
 
     def __str__(self):
         return f"{self.project.name} - {self.name}"
+
+class ProjectProduct(models.Model):
+    """Model for tracking which warehouse products are used in projects"""
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='used_products', verbose_name='Проект')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Продукт')
+    quantity = models.FloatField('Количество')
+    date_used = models.DateField('Дата использования', default=timezone.now)
+    notes = models.TextField('Примечания', blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='Создал')
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Использованный продукт'
+        verbose_name_plural = 'Использованные продукты'
+        ordering = ['-date_used', 'project']
+
+    @property
+    def total_cost(self):
+        return self.quantity * self.product.unit_price
+
+    def __str__(self):
+        return f"{self.project.name} - {self.product.name} ({self.quantity})"

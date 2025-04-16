@@ -37,7 +37,9 @@
                                 <td>
                                     <select name="products[]" class="form-control product-select" required>
                                         <option value="">Выберите товар</option>
-                                        {{ form.product.field.queryset|safe }}
+                                        {% for product in form.fields.product.queryset %}
+                                            <option value="{{ product.id }}" {% if form.instance.product.id == product.id %}selected{% endif %}>{{ product.name }}</option>
+                                        {% endfor %}
                                     </select>
                                 </td>
                                 <td>

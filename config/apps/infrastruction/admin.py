@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Product, Receiving, Giving, Stock,
-    CanteenExpense, Project, ProjectItem
+    CanteenExpense, Project, ProjectItem, ReceivingItem, ProjectProduct
 )
 
 @admin.register(Product)
@@ -10,12 +10,26 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('name',)
     ordering = ('name',)
 
+class ReceivingItemInline(admin.TabularInline):
+    model = ReceivingItem
+    extra = 1
+    fields = ('product', 'quantity', 'unit_price', 'comment')
+    readonly_fields = ('total_price',)
+
 @admin.register(Receiving)
 class ReceivingAdmin(admin.ModelAdmin):
-    list_display = ('product', 'quantity', 'total_price', 'date', 'created_by')
+    list_display = ('id', 'date', 'total_price', 'created_by')
     list_filter = ('date', 'created_by')
-    search_fields = ('product__name',)
+    search_fields = ('id', 'notes')
     ordering = ('-date',)
+    inlines = [ReceivingItemInline]
+
+@admin.register(ReceivingItem)
+class ReceivingItemAdmin(admin.ModelAdmin):
+    list_display = ('product', 'receiving', 'quantity', 'unit_price', 'total_price')
+    list_filter = ('receiving__date',)
+    search_fields = ('product__name', 'comment')
+    ordering = ('-receiving__date',)
 
 @admin.register(Giving)
 class GivingAdmin(admin.ModelAdmin):
@@ -50,3 +64,10 @@ class ProjectItemAdmin(admin.ModelAdmin):
     list_filter = ('project',)
     search_fields = ('name', 'project__name')
     ordering = ('project', 'name')
+
+@admin.register(ProjectProduct)
+class ProjectProductAdmin(admin.ModelAdmin):
+    list_display = ('project', 'product', 'quantity', 'total_cost', 'date_used')
+    list_filter = ('project', 'product', 'date_used')
+    search_fields = ('project__name', 'product__name', 'notes')
+    ordering = ('-date_used',)

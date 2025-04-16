@@ -1,0 +1,90 @@
+{% extends 'infrastruction/base.html' %}
+
+{% block title %}
+{% if project_product %}Редактирование продукта{% else %}Добавление продукта{% endif %} - {{ project.name }}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            {% if project_product %}Редактирование продукта{% else %}Добавление продукта{% endif %} - {{ project.name }}
+        </h1>
+        <a href="{% url 'infrastruction:project_detail' project.id %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Назад к проекту
+        </a>
+    </div>
+
+    <!-- Form Card -->
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        {% if project_product %}Редактирование продукта{% else %}Добавление продукта{% endif %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Product -->
+                        <div class="mb-3">
+                            <label for="{{ form.product.id_for_label }}" class="form-label">Продукт <span class="text-danger">*</span></label>
+                            {{ form.product }}
+                            {% if form.product.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.product.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Quantity -->
+                        <div class="mb-3">
+                            <label for="{{ form.quantity.id_for_label }}" class="form-label">Количество <span class="text-danger">*</span></label>
+                            {{ form.quantity }}
+                            {% if form.quantity.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.quantity.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Date Used -->
+                        <div class="mb-3">
+                            <label for="{{ form.date_used.id_for_label }}" class="form-label">Дата использования <span class="text-danger">*</span></label>
+                            {{ form.date_used }}
+                            {% if form.date_used.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.date_used.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Notes -->
+                        <div class="mb-3">
+                            <label for="{{ form.notes.id_for_label }}" class="form-label">Примечания</label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.notes.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'infrastruction:project_detail' project.id %}" class="btn btn-secondary me-md-2">
+                                Отмена
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                {% if project_product %}Сохранить изменения{% else %}Добавить продукт{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
