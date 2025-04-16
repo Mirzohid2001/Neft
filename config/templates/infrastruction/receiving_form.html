@@ -1,27 +1,37 @@
 {% extends 'infrastruction/base.html' %}
 
-{% block title %}Добавление приемки - Инфраструктура{% endblock %}
+{% block title %}{{ title }} - Инфраструктура{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Добавление приемки</h1>
+        <h1 class="h3 mb-0 text-gray-800">{{ title }}</h1>
     </div>
 
     <div class="row">
         <div class="col-12">
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Новая приемка</h6>
+                    <h6 class="m-0 font-weight-bold text-primary">{% if edit_mode %}Редактирование приемки{% else %}Новая приемка{% endif %}</h6>
                 </div>
                 <div class="card-body">
+                    {% if edit_mode %}
+                    <!-- Debug info -->
+                    <div class="mb-3 alert alert-info">
+                        <p>Загружено элементов: {{ receiving.items.all|length }}</p>
+                        {% for item in receiving.items.all %}
+                        <p>Элемент {{ item.id }}: Товар={{ item.product.name }}, Количество={{ item.quantity }}, Комментарий={{ item.comment|default:"" }}</p>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
                     <form method="post" id="receivingForm">
                         {% csrf_token %}
 
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Дата</label>
-                                <input type="date" name="date" id="receiving_date" class="form-control" required>
+                                <input type="date" name="date" id="receiving_date" class="form-control" required value="{% if receiving %}{{ receiving.date|date:'Y-m-d' }}{% endif %}">
                             </div>
                         </div>
 
@@ -33,6 +43,7 @@
                                         <th>Товар</th>
                                         <th>Количество</th>
                                         <th>Цена за единицу</th>
+                                        <th>Комментарий</th>
                                         <th>Общая сумма</th>
                                         <th>Действия</th>
                                     </tr>
@@ -42,8 +53,8 @@
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="3" class="text-end"><strong>Итого:</strong></td>
-                                        <td id="totalAmount">0 ₸</td>
+                                        <td colspan="4" class="text-end"><strong>Итого:</strong></td>
+                                        <td id="totalAmount">0 SUM</td>
                                         <td></td>
                                     </tr>
                                 </tfoot>
@@ -59,7 +70,7 @@
 
                         <div class="mb-3">
                             <label class="form-label">Примечания</label>
-                            <textarea name="notes" class="form-control" rows="3"></textarea>
+                            <textarea name="notes" class="form-control" rows="3">{% if receiving %}{{ receiving.notes }}{% endif %}</textarea>
                         </div>
 
                         <!-- Hidden input for products data -->
@@ -84,31 +95,73 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Set default date to today
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('receiving_date').value = today;
+        console.log("DOM loaded");
         
-        // Add initial product row
-        addProductRow();
+        // Set default date to today if not editing
+        if (!document.getElementById('receiving_date').value) {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('receiving_date').value = today;
+        }
+        
+        {% if receiving %}
+            console.log("Editing mode detected");
+            
+            {% if receiving.items.all|length > 0 %}
+                console.log("Loading {{ receiving.items.all|length }} items");
+                // Load existing items for editing
+                {% for item in receiving.items.all %}
+                    console.log("Loading item {{ item.id }}");
+                    addProductRow(
+                        {{ item.id }}, 
+                        "{{ item.product.name|escapejs }}", 
+                        {{ item.quantity }}, 
+                        {{ item.unit_price }},
+                        "{{ item.comment|default:""|escapejs }}"
+                    );
+                {% endfor %}
+            {% else %}
+                console.log("No items found, adding empty row");
+                addProductRow(null, "", 1, 0, "");
+            {% endif %}
+        {% else %}
+            console.log("Add mode detected, adding empty row");
+            // Add initial product row
+            addProductRow(null, "", 1, 0, "");
+        {% endif %}
     });
 
-    function addProductRow() {
+    function addProductRow(itemId, productName, quantity, unitPrice, comment) {
+        console.log("Adding row:", itemId, productName, quantity, unitPrice, comment);
+        
+        const productsList = document.getElementById('productsList');
+        console.log("Products list element:", productsList);
+        
+        if (!productsList) {
+            console.error("Could not find productsList element!");
+            return;
+        }
+        
         const row = document.createElement('tr');
+        
         row.innerHTML = `
             <td>
-                <input type="text" class="form-control product-name" placeholder="Введите название товара" required>
+                <input type="text" class="form-control product-name" placeholder="Введите название товара" required value="${productName || ''}">
+                ${itemId ? `<input type="hidden" class="item-id" value="${itemId}">` : ''}
             </td>
             <td>
-                <input type="number" class="form-control product-quantity" min="1" value="1" required>
+                <input type="number" class="form-control product-quantity" min="0.01" step="0.01" value="${quantity || 1}" required>
             </td>
             <td>
                 <div class="input-group">
-                    <input type="number" class="form-control product-price" min="0" step="0.01" value="0" required>
-                    <span class="input-group-text">₸</span>
+                    <input type="number" class="form-control product-price" min="0" step="0.01" value="${unitPrice || 0}" required>
+                    <span class="input-group-text">SUM</span>
                 </div>
             </td>
             <td>
-                <span class="product-total">0 ₸</span>
+                <textarea class="form-control product-comment" rows="1" placeholder="Назначение товара">${comment || ''}</textarea>
+            </td>
+            <td>
+                <span class="product-total">0 SUM</span>
             </td>
             <td>
                 <button type="button" class="btn btn-danger btn-sm" onclick="deleteRow(this)">
@@ -116,7 +169,7 @@
                 </button>
             </td>
         `;
-        document.getElementById('productsList').appendChild(row);
+        productsList.appendChild(row);
 
         // Add event listeners for calculations
         const priceInput = row.querySelector('.product-price');
@@ -143,7 +196,7 @@
         const price = parseFloat(row.querySelector('.product-price').value) || 0;
         const quantity = parseInt(row.querySelector('.product-quantity').value) || 0;
         const total = price * quantity;
-        row.querySelector('.product-total').textContent = total.toFixed(2) + ' ₸';
+        row.querySelector('.product-total').textContent = total.toFixed(0) + ' SUM';
         updateGrandTotal();
     }
 
@@ -151,7 +204,7 @@
         const totals = Array.from(document.querySelectorAll('.product-total'))
             .map(el => parseFloat(el.textContent) || 0);
         const grandTotal = totals.reduce((sum, val) => sum + val, 0);
-        document.getElementById('totalAmount').textContent = grandTotal.toFixed(2) + ' ₸';
+        document.getElementById('totalAmount').textContent = grandTotal.toFixed(0) + ' SUM';
     }
 
     function prepareSubmit() {
@@ -174,11 +227,16 @@
         }
 
         // Collect products data
-        const productsData = Array.from(products).map(row => ({
-            product: row.querySelector('.product-name').value.trim(),
-            quantity: row.querySelector('.product-quantity').value,
-            unit_price: row.querySelector('.product-price').value
-        }));
+        const productsData = Array.from(products).map(row => {
+            const itemId = row.querySelector('.item-id')?.value || null;
+            return {
+                id: itemId,
+                product: row.querySelector('.product-name').value.trim(),
+                quantity: row.querySelector('.product-quantity').value,
+                unit_price: row.querySelector('.product-price').value,
+                comment: row.querySelector('.product-comment').value.trim()
+            };
+        });
 
         // Store in hidden input
         document.getElementById('productsData').value = JSON.stringify(productsData);

@@ -1,0 +1,175 @@
+{% extends 'infrastruction/base.html' %}
+{% load infrastruction_extras %}
+
+{% block title %}Отчет по продуктам проекта{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            {% if project %}
+            Отчет по продуктам проекта: {{ project.name }}
+            {% else %}
+            Отчет по всем продуктам проектов
+            {% endif %}
+        </h1>
+        {% if project %}
+        <a href="{% url 'infrastruction:project_detail' project.id %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Назад к проекту
+        </a>
+        {% else %}
+        <a href="{% url 'infrastruction:project_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Назад к списку проектов
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Фильтры</h6>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label">Дата начала:</label>
+                    <input type="date" id="start_date" name="start_date" class="form-control" 
+                           value="{% if start_date %}{{ start_date|date:'Y-m-d' }}{% endif %}">
+                </div>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label">Дата окончания:</label>
+                    <input type="date" id="end_date" name="end_date" class="form-control"
+                           value="{% if end_date %}{{ end_date|date:'Y-m-d' }}{% endif %}">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Применить фильтры</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Card -->
+    <div class="row mb-4">
+        <div class="col-xl-6">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Общая стоимость продуктов</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ grand_total|floatformat:0 }} SUM
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-coins fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects Summary -->
+    {% for project_summary in projects_summary %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">
+                Проект: {{ project_summary.project.name }}
+                <span class="badge bg-info ms-2">{{ project_summary.total|floatformat:0 }} SUM</span>
+                <span class="badge bg-secondary ms-2">{{ project_summary.total|percentage:grand_total|floatformat:1 }}% от общих затрат</span>
+            </h6>
+            <a href="{% url 'infrastruction:project_detail' project_summary.project.id %}" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-eye me-1"></i> Подробнее
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Продукт</th>
+                            <th>Цена за единицу</th>
+                            <th>Количество</th>
+                            <th>Общая стоимость</th>
+                            <th>% от проекта</th>
+                            <th>% от общих затрат</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in project_summary.products %}
+                        <tr>
+                            <td>{{ product.product.name }}</td>
+                            <td>{{ product.product.unit_price }} SUM</td>
+                            <td>{{ product.quantity }}</td>
+                            <td>{{ product.total_cost|floatformat:0 }} SUM</td>
+                            <td>{{ product.total_cost|percentage:project_summary.total|floatformat:1 }}%</td>
+                            <td>{{ product.total_cost|percentage:grand_total|floatformat:1 }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>Итого по проекту:</strong></td>
+                            <td><strong>{{ project_summary.total|floatformat:0 }} SUM</strong></td>
+                            <td><strong>100%</strong></td>
+                            <td><strong>{{ project_summary.total|percentage:grand_total|floatformat:1 }}%</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info">
+        Нет данных для отображения. Пожалуйста, измените критерии фильтрации или добавьте продукты к проектам.
+    </div>
+    {% endfor %}
+
+    <!-- All Products Details -->
+    {% if products %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Детализация всех продуктов</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Дата</th>
+                            <th>Проект</th>
+                            <th>Продукт</th>
+                            <th>Количество</th>
+                            <th>Цена за единицу</th>
+                            <th>Стоимость</th>
+                            <th>Примечания</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in products %}
+                        <tr>
+                            <td>{{ item.date_used|date:"d.m.Y" }}</td>
+                            <td>{{ item.project.name }}</td>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>{{ item.product.unit_price }} SUM</td>
+                            <td>{{ item.total_cost }} SUM</td>
+                            <td>{{ item.notes|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5" class="text-end"><strong>Итого:</strong></td>
+                            <td colspan="2"><strong>{{ grand_total|floatformat:0 }} SUM</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

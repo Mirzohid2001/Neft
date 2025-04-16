@@ -1,7 +1,8 @@
 {% extends 'infrastruction/base.html' %}
 {% load static %}
+{% load infrastruction_extras %}
 
-{% block title %}{% if product %}Edit{% else %}Add{% endif %} Product - Infrastructure{% endblock %}
+{% block title %}{% if product %}Редактировать{% else %}Добавить{% endif %} товар - Инфраструктура{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4">
@@ -10,7 +11,7 @@
             <div class="card mb-4">
                 <div class="card-header">
                     <i class="fas fa-{% if product %}edit{% else %}plus{% endif %} me-1"></i>
-                    {% if product %}Edit{% else %}Add{% endif %} Product
+                    {% if product %}Редактировать{% else %}Добавить{% endif %} товар
                 </div>
                 <div class="card-body">
                     <form method="post">
@@ -37,10 +38,10 @@
 
                         <div class="mt-4">
                             <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-1"></i> Save
+                                <i class="fas fa-save me-1"></i> Сохранить
                             </button>
                             <a href="{% url 'infrastruction:product_list' %}" class="btn btn-secondary">
-                                <i class="fas fa-times me-1"></i> Cancel
+                                <i class="fas fa-times me-1"></i> Отмена
                             </a>
                         </div>
                     </form>
@@ -53,6 +54,6 @@
 
 {% block extra_js %}
 <script>
-    // Add any JavaScript for form validation or dynamic behavior here
+    // Добавьте JavaScript для валидации формы или динамического поведения здесь
 </script>
 {% endblock %} 

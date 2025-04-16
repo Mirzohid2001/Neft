@@ -1,98 +1,92 @@
 {% extends 'infrastruction/base.html' %}
+{% load static %}
 
-{% block title %}Детали приемки - Инфраструктура{% endblock %}
+{% block title %}Детали поступления - Инфраструктура{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid px-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Детали приемки</h1>
+        <h1 class="mt-4">Детали поступления #{{ receiving.id }}</h1>
         <div>
-            <a href="{% url 'infrastruction:receiving_edit' receiving.id %}" class="btn btn-primary">
-                <i class="fas fa-edit me-2"></i>Редактировать
+            <a href="{% url 'infrastruction:receiving_edit' receiving.id %}" class="btn btn-warning me-2">
+                <i class="fas fa-edit me-1"></i> Редактировать
             </a>
-            <a href="{% url 'infrastruction:receiving_delete' receiving.id %}" class="btn btn-danger">
-                <i class="fas fa-trash me-2"></i>Удалить
+            <a href="{% url 'infrastruction:receiving_delete' receiving.id %}" 
+               class="btn btn-danger me-2"
+               onclick="return confirm('Вы уверены, что хотите удалить это поступление?');">
+                <i class="fas fa-trash me-1"></i> Удалить
             </a>
             <a href="{% url 'infrastruction:receiving_list' %}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Назад к списку
+                <i class="fas fa-arrow-left me-1"></i> Назад к списку
             </a>
         </div>
     </div>
 
     <div class="row">
-        <div class="col-xl-8">
-            <!-- Basic Info Card -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Основная информация</h6>
+        <div class="col-xl-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Информация о поступлении
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <tr>
-                                <th style="width: 200px;">Дата приемки:</th>
-                                <td>{{ receiving.date|date:"d.m.Y" }}</td>
-                            </tr>
-                            <tr>
-                                <th>Товар:</th>
-                                <td>{{ receiving.product.name }}</td>
-                            </tr>
-                            <tr>
-                                <th>Количество:</th>
-                                <td>{{ receiving.quantity }}</td>
-                            </tr>
-                            <tr>
-                                <th>Цена за единицу:</th>
-                                <td>{{ receiving.product.unit_price }} ₸</td>
-                            </tr>
-                            <tr>
-                                <th>Общая стоимость:</th>
-                                <td>{{ receiving.total_price }} ₸</td>
-                            </tr>
-                        </table>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5 class="mb-3">Основная информация</h5>
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th style="width: 200px;">Дата:</th>
+                                    <td>{{ receiving.date|date:"d.m.Y" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Количество товаров:</th>
+                                    <td>{{ receiving.items.count }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Общая стоимость:</th>
+                                    <td>{{ receiving.total_price }} SUM</td>
+                                </tr>
+                                <tr>
+                                    <th>Примечания:</th>
+                                    <td>{{ receiving.notes|default:"-"|linebreaks }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Создано:</th>
+                                    <td>{{ receiving.created_at|date:"d.m.Y H:i" }} ({{ receiving.created_by }})</td>
+                                </tr>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
 
-        <div class="col-xl-4">
-            <!-- Meta Info Card -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Дополнительная информация</h6>
-                </div>
-                <div class="card-body">
+                    <h5 class="mb-3">Товары в поступлении</h5>
                     <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <tr>
-                                <th>Создано:</th>
-                                <td>{{ receiving.created_at|date:"d.m.Y H:i" }}</td>
-                            </tr>
-                            <tr>
-                                <th>Создал:</th>
-                                <td>{{ receiving.created_by }}</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Stock Info Card -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Информация о складе</h6>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <tr>
-                                <th>Текущий остаток:</th>
-                                <td>{{ receiving.product.stock.quantity }}</td>
-                            </tr>
-                            <tr>
-                                <th>Последнее обновление:</th>
-                                <td>{{ receiving.product.stock.last_updated|date:"d.m.Y H:i" }}</td>
-                            </tr>
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Товар</th>
+                                    <th>Количество</th>
+                                    <th>Цена за единицу</th>
+                                    <th>Комментарий</th>
+                                    <th>Общая стоимость</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in receiving.items.all %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ item.unit_price }} SUM</td>
+                                    <td>{{ item.comment|default:"-" }}</td>
+                                    <td>{{ item.total_price }} SUM</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" class="text-end"><strong>Итого:</strong></td>
+                                    <td><strong>{{ receiving.total_price }} SUM</strong></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>

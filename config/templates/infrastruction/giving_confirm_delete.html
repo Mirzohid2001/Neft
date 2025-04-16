@@ -1,63 +1,62 @@
 {% extends 'infrastruction/base.html' %}
+{% load static %}
 
 {% block title %}Удаление выдачи - Инфраструктура{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid px-4">
     <div class="row justify-content-center">
-        <div class="col-lg-6">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Подтверждение удаления</h6>
+        <div class="col-xl-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-exclamation-triangle text-danger me-1"></i>
+                    Удаление выдачи
                 </div>
                 <div class="card-body">
-                    <div class="text-center mb-4">
-                        <i class="fas fa-exclamation-triangle text-warning fa-3x mb-3"></i>
-                        <h5>Вы уверены, что хотите удалить эту выдачу?</h5>
+                    <div class="alert alert-danger mb-4">
+                        <h5 class="alert-heading"><i class="fas fa-exclamation-circle me-2"></i>Внимание!</h5>
+                        <p>Вы собираетесь удалить выдачу. Эта операция не может быть отменена.</p>
+                        <p>Количество товара будет возвращено на склад.</p>
                     </div>
-
-                    <div class="table-responsive mb-4">
-                        <table class="table table-bordered">
-                            <tr>
-                                <th>Дата:</th>
-                                <td>{{ giving.date|date:"d.m.Y" }}</td>
-                            </tr>
-                            <tr>
-                                <th>Товар:</th>
-                                <td>{{ giving.product.name }}</td>
-                            </tr>
-                            <tr>
-                                <th>Количество:</th>
-                                <td>{{ giving.quantity }}</td>
-                            </tr>
-                            <tr>
-                                <th>Выдано (сотруднику):</th>
-                                <td>{{ giving.given_to }}</td>
-                            </tr>
-                            <tr>
-                                <th>Табельный номер:</th>
-                                <td>{{ giving.employee_id }}</td>
-                            </tr>
-                            <tr>
-                                <th>Общая стоимость:</th>
-                                <td>{{ giving.total_price }} ₸</td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <div class="alert alert-warning" role="alert">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Это действие нельзя будет отменить. Количество товара на складе будет увеличено на {{ giving.quantity }}.
-                    </div>
-
-                    <form method="post" class="text-center">
+                    
+                    <h5 class="mb-3">Информация о выдаче:</h5>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>ID:</th>
+                            <td>{{ giving.id }}</td>
+                        </tr>
+                        <tr>
+                            <th>Дата:</th>
+                            <td>{{ giving.date|date:"d.m.Y" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Продукт:</th>
+                            <td>{{ giving.product.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Количество:</th>
+                            <td>{{ giving.quantity }}</td>
+                        </tr>
+                        <tr>
+                            <th>Выдано кому:</th>
+                            <td>{{ giving.given_to }}</td>
+                        </tr>
+                        <tr>
+                            <th>Общая стоимость:</th>
+                            <td>{{ giving.total_price }} SUM</td>
+                        </tr>
+                    </table>
+                    
+                    <form method="post">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-danger">
-                            <i class="fas fa-trash me-2"></i>Удалить
-                        </button>
-                        <a href="{% url 'infrastruction:giving_list' %}" class="btn btn-secondary">
-                            <i class="fas fa-times me-2"></i>Отмена
-                        </a>
+                        <div class="text-center mt-4">
+                            <a href="{% url 'infrastruction:giving_list' %}" class="btn btn-secondary me-2">
+                                <i class="fas fa-times me-1"></i> Отмена
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-1"></i> Подтвердить удаление
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>

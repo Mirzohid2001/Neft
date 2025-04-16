@@ -1,8 +1,16 @@
 {% extends 'infrastruction/base.html' %}
 {% load static %}
+{% load infrastruction_extras %}
 
 {% block content %}
 <div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Панель управления инфраструктуры</h1>
+        <a href="{% url 'infrastruction:project_product_report' %}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+            <i class="fas fa-download fa-sm text-white-50"></i> Генерировать отчет
+        </a>
+    </div>
+
     <div class="row">
         <!-- Daily Expenses Card -->
         <div class="col-xl-3 col-md-6 mb-4">
@@ -11,10 +19,10 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                Ежедневные расходы</div>
+                                ЕЖЕДНЕВНЫЕ РАСХОДЫ</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                Получено: {{ total_received }}<br>
-                                Выдано: {{ total_given }}
+                                Получено: {{ total_received|default:"0" }} SUM<br>
+                                Выдано: {{ total_given|default:"0" }} SUM
                             </div>
                         </div>
                         <div class="col-auto">
@@ -32,9 +40,9 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                Общая стоимость запасов</div>
+                                ОБЩАЯ СТОИМОСТЬ ЗАПАСОВ</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                {{ total_stock_value|floatformat:2 }} ₸
+                                {{ total_stock_value|floatformat:0 }} SUM
                             </div>
                         </div>
                         <div class="col-auto">
@@ -52,9 +60,9 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                Расходы столовой (месяц)</div>
+                                РАСХОДЫ СТОЛОВОЙ (МЕСЯЦ)</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                {{ canteen_monthly_total|floatformat:2 }} ₸
+                                {{ canteen_monthly_total|floatformat:0 }} SUM
                             </div>
                         </div>
                         <div class="col-auto">
@@ -72,11 +80,13 @@
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                Активные проекты</div>
+                                АКТИВНЫЕ ПРОЕКТЫ</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                {% for project, cost in project_costs.items %}
-                                    {{ project }}: {{ cost|floatformat:2 }} ₸<br>
-                                {% endfor %}
+                                {% if projects %}
+                                    Количество: {{ projects|length }}
+                                {% else %}
+                                    Нет активных проектов
+                                {% endif %}
                             </div>
                         </div>
                         <div class="col-auto">
@@ -88,7 +98,99 @@
         </div>
     </div>
 
-    <!-- Quick Links -->
+    <!-- Stock Status Overview -->
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Обзор товарных запасов</h6>
+                    <a href="{% url 'infrastruction:product_list' %}" class="btn btn-sm btn-primary">
+                        Все товары
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Товар</th>
+                                    <th>Количество</th>
+                                    <th>Стоимость</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stock in recent_stocks|slice:":5" %}
+                                <tr>
+                                    <td>{{ stock.product.name }}</td>
+                                    <td>{{ stock.quantity }}</td>
+                                    <td>{{ stock.product.unit_price|floatformat:0 }} SUM</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">Нет товаров в наличии</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Projects Overview -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Активные проекты</h6>
+                    <a href="{% url 'infrastruction:project_list' %}" class="btn btn-sm btn-primary">
+                        Все проекты
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Проект</th>
+                                    <th>Статус</th>
+                                    <th>Стоимость продуктов</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for project in projects|slice:":5" %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'infrastruction:project_detail' project.id %}">
+                                            {{ project.name }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        {% if project.status == 'planned' %}
+                                            <span class="badge bg-info">Запланирован</span>
+                                        {% elif project.status == 'in_progress' %}
+                                            <span class="badge bg-primary">В процессе</span>
+                                        {% elif project.status == 'completed' %}
+                                            <span class="badge bg-success">Завершен</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Отменен</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ project_costs|get_item:project.id|default:"0"|floatformat:0 }} SUM</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">Нет активных проектов</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links and Recent Activities -->
     <div class="row">
         <div class="col-lg-6 mb-4">
             <div class="card shadow mb-4">
@@ -129,7 +231,7 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-bordered" width="100%" cellspacing="0">
+                        <table class="table table-bordered table-sm" width="100%" cellspacing="0">
                             <thead>
                                 <tr>
                                     <th>Дата</th>
@@ -138,7 +240,60 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <!-- Здесь можно добавить последние действия -->
+                                {% for activity in recent_activities %}
+                                <tr>
+                                    <td>{{ activity.date|date:"d.m.Y" }}</td>
+                                    <td>{{ activity.description }}</td>
+                                    <td>{{ activity.amount|floatformat:0 }} SUM</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">Нет недавних действий</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monthly Statistics -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Ежемесячная статистика</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Месяц</th>
+                                    <th>Общая сумма поступлений</th>
+                                    <th>Общая сумма выдач</th>
+                                    <th>Расходы столовой</th>
+                                    <th>Баланс</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in monthly_stats %}
+                                <tr>
+                                    <td>{{ stat.month_name }}</td>
+                                    <td>{{ stat.receiving_total|floatformat:0 }} SUM</td>
+                                    <td>{{ stat.giving_total|floatformat:0 }} SUM</td>
+                                    <td>{{ stat.canteen_total|floatformat:0 }} SUM</td>
+                                    <td class="{% if stat.balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ stat.balance|floatformat:0 }} SUM
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">Нет данных за последние месяцы</td>
+                                </tr>
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -147,4 +302,13 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Custom template tag replacement for Django get_item filter
+document.addEventListener('DOMContentLoaded', function() {
+    // This JavaScript will be used for any client-side enhancements
+});
+</script>
 {% endblock %} 

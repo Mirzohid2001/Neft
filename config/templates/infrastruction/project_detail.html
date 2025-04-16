@@ -8,8 +8,11 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0 text-gray-800">{{ project.name }}</h1>
         <div>
-            <a href="{% url 'infrastruction:project_item_add' project.id %}" class="btn btn-primary me-2">
-                <i class="fas fa-plus me-2"></i>Добавить элемент
+            <a href="{% url 'infrastruction:export_project_excel' project.id %}" class="btn btn-success me-2">
+                <i class="fas fa-file-excel me-1"></i> Экспорт в Excel
+            </a>
+            <a href="{% url 'infrastruction:project_product_add' project.id %}" class="btn btn-success me-2">
+                <i class="fas fa-plus me-2"></i>Добавить продукт
             </a>
             <a href="{% url 'infrastruction:project_edit' project.id %}" class="btn btn-warning me-2">
                 <i class="fas fa-edit me-2"></i>Редактировать
@@ -45,7 +48,7 @@
                             </p>
                             <p><strong>Дата начала:</strong> {{ project.start_date|date:"d.m.Y" }}</p>
                             <p><strong>Дата окончания:</strong> {{ project.end_date|date:"d.m.Y"|default:"Не указана" }}</p>
-                            <p><strong>Общая стоимость:</strong> {{ project.total_cost }} ₸</p>
+                            <p><strong>Общая стоимость продуктов:</strong> {{ total_product_cost }} SUM</p>
                         </div>
                         <div class="col-md-6">
                             <p><strong>Описание:</strong></p>
@@ -57,52 +60,49 @@
         </div>
     </div>
 
-    <!-- Project Items Card -->
+    <!-- Used Products Card -->
     <div class="row">
         <div class="col-12">
             <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Элементы проекта</h6>
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Использованные продукты склада</h6>
+                    <a href="{% url 'infrastruction:project_product_report_filtered' project.id %}" class="btn btn-info btn-sm">
+                        <i class="fas fa-chart-bar me-1"></i> Детальный отчет
+                    </a>
                 </div>
                 <div class="card-body">
-                    {% if items %}
+                    {% if products %}
                         <div class="table-responsive">
                             <table class="table table-bordered table-hover">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>Название</th>
+                                        <th>Продукт</th>
                                         <th>Цена за единицу</th>
                                         <th>Количество</th>
-                                        <th>Общая стоимость</th>
-                                        <th>Фото</th>
+                                        <th>Стоимость</th>
+                                        <th>Дата использования</th>
+                                        <th>Примечания</th>
                                         <th>Действия</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for item in items %}
+                                    {% for item in products %}
                                     <tr>
-                                        <td>{{ item.name }}</td>
-                                        <td>{{ item.unit_price }} ₸</td>
+                                        <td>{{ item.product.name }}</td>
+                                        <td>{{ item.product.unit_price }} SUM</td>
                                         <td>{{ item.quantity }}</td>
-                                        <td>{{ item.total_cost }} ₸</td>
+                                        <td>{{ item.total_cost }} SUM</td>
+                                        <td>{{ item.date_used|date:"d.m.Y" }}</td>
+                                        <td>{{ item.notes|default:"-" }}</td>
                                         <td>
-                                            {% if item.photo %}
-                                                <a href="{{ item.photo.url }}" target="_blank" class="btn btn-sm btn-info">
-                                                    <i class="fas fa-image"></i>
-                                                </a>
-                                            {% else %}
-                                                <span class="text-muted">Нет фото</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <a href="{% url 'infrastruction:project_item_edit' project.id item.id %}" 
+                                            <a href="{% url 'infrastruction:project_product_edit' project.id item.id %}" 
                                                class="btn btn-sm btn-warning me-2"
                                                title="Редактировать">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <a href="{% url 'infrastruction:project_item_delete' project.id item.id %}" 
+                                            <a href="{% url 'infrastruction:project_product_delete' project.id item.id %}" 
                                                class="btn btn-sm btn-danger"
-                                               onclick="return confirm('Вы уверены, что хотите удалить этот элемент?')"
+                                               onclick="return confirm('Вы уверены, что хотите удалить этот продукт из проекта?')"
                                                title="Удалить">
                                                 <i class="fas fa-trash"></i>
                                             </a>
@@ -113,16 +113,16 @@
                                 <tfoot>
                                     <tr>
                                         <td colspan="3" class="text-end"><strong>Итого:</strong></td>
-                                        <td colspan="3"><strong>{{ project.total_cost }} ₸</strong></td>
+                                        <td colspan="4"><strong>{{ total_product_cost }} SUM</strong></td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
                     {% else %}
                         <div class="text-center py-4">
-                            <p class="text-muted mb-0">Элементы проекта не найдены</p>
-                            <a href="{% url 'infrastruction:project_item_add' project.id %}" class="btn btn-primary mt-3">
-                                <i class="fas fa-plus me-2"></i>Добавить первый элемент
+                            <p class="text-muted mb-0">Продукты не были использованы в этом проекте</p>
+                            <a href="{% url 'infrastruction:project_product_add' project.id %}" class="btn btn-success mt-3">
+                                <i class="fas fa-plus me-2"></i>Добавить продукт
                             </a>
                         </div>
                     {% endif %}

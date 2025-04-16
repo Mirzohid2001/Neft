@@ -1,8 +1,9 @@
 from django import forms
 from .models import (
     Product, Receiving, Giving, Stock,
-    CanteenExpense, Project, ProjectItem
+    CanteenExpense, Project, ProjectItem, ReceivingItem, ProjectProduct
 )
+from django.db import models
 
 class ProductForm(forms.ModelForm):
     class Meta:
@@ -16,11 +17,21 @@ class ProductForm(forms.ModelForm):
 class ReceivingForm(forms.ModelForm):
     class Meta:
         model = Receiving
-        fields = ['product', 'quantity', 'date']
+        fields = ['date', 'notes']
+        widgets = {
+            'date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+class ReceivingItemForm(forms.ModelForm):
+    class Meta:
+        model = ReceivingItem
+        fields = ['product', 'quantity', 'unit_price', 'comment']
         widgets = {
             'product': forms.Select(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
-            'date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'unit_price': forms.NumberInput(attrs={'class': 'form-control'}),
+            'comment': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
 class GivingForm(forms.ModelForm):
@@ -34,6 +45,22 @@ class GivingForm(forms.ModelForm):
             'date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'comment': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filter products to only show those with available stock
+        products_with_stock = Stock.objects.filter(quantity__gt=0).values_list('product', flat=True)
+        
+        # If we're editing an existing record, include its product in the queryset
+        instance = kwargs.get('instance')
+        if instance and instance.pk:
+            # Create a queryset that includes both products with stock and the current product
+            self.fields['product'].queryset = Product.objects.filter(
+                models.Q(id__in=products_with_stock) | models.Q(id=instance.product_id)
+            )
+        else:
+            # For new records, only show products with stock
+            self.fields['product'].queryset = Product.objects.filter(id__in=products_with_stock)
 
 class CanteenExpenseForm(forms.ModelForm):
     class Meta:
@@ -67,4 +94,21 @@ class ProjectItemForm(forms.ModelForm):
             'unit_price': forms.NumberInput(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
             'photo': forms.FileInput(attrs={'class': 'form-control'}),
-        } 
+        }
+
+class ProjectProductForm(forms.ModelForm):
+    class Meta:
+        model = ProjectProduct
+        fields = ['product', 'quantity', 'date_used', 'notes']
+        widgets = {
+            'product': forms.Select(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'date_used': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Only show products that have stock available
+        products_with_stock = Stock.objects.filter(quantity__gt=0).values_list('product', flat=True)
+        self.fields['product'].queryset = Product.objects.filter(id__in=products_with_stock) 
