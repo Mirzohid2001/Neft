@@ -1,0 +1,341 @@
+{% extends 'infrastruction/base.html' %}
+{% load static %}
+{% load infrastruction_extras %}
+
+{% block title %}{% if order %}Редактировать{% else %}Новый{% endif %} заказ - Инфраструктура{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-{% if order %}edit{% else %}plus{% endif %} me-1"></i>
+            {% if order %}Редактировать{% else %}Новый{% endif %} заказ
+        </div>
+        <div class="card-body">
+            <form method="post" id="orderForm">
+                {% csrf_token %}
+                
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="{{ form.order_number.id_for_label }}" class="form-label">{{ form.order_number.label }}</label>
+                            {{ form.order_number.errors }}
+                            {{ form.order_number|add_class:"form-control" }}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="{{ form.date.id_for_label }}" class="form-label">{{ form.date.label }}</label>
+                            {{ form.date.errors }}
+                            {{ form.date|add_class:"form-control" }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="{{ form.notes.id_for_label }}" class="form-label">{{ form.notes.label }}</label>
+                    {{ form.notes.errors }}
+                    {{ form.notes|add_class:"form-control" }}
+                </div>
+
+                <h4 class="mt-4 mb-3">Товары в заказе</h4>
+                
+                <div id="orderItems">
+                    {{ formset.management_form }}
+                    
+                    <div class="card mb-3">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table mb-0" id="items-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Товар</th>
+                                            <th>Количество</th>
+                                            <th>Ед. изм.</th>
+                                            <th>Комментарий</th>
+                                            <th>Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="items-body">
+                                        {% for form in formset %}
+                                            <tr class="item-form">
+                                                <td>
+                                                    {{ form.id }}
+                                                    {% if form.instance.pk %}{{ form.DELETE }}{% endif %}
+                                                    <div class="input-group">
+                                                        {{ form.product }}
+                                                        <button type="button" class="btn btn-outline-secondary product-add-btn" title="Добавить новый продукт">
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    </div>
+                                                    {{ form.product.errors }}
+                                                </td>
+                                                <td>
+                                                    {{ form.quantity|add_class:"form-control" }}
+                                                    {{ form.quantity.errors }}
+                                                </td>
+                                                <td>
+                                                    {{ form.unit }}
+                                                    {{ form.unit.errors }}
+                                                </td>
+                                                <td>
+                                                    {{ form.comment|add_class:"form-control" }}
+                                                    {{ form.comment.errors }}
+                                                </td>
+                                                <td>
+                                                    {% if form.instance.pk %}
+                                                        <button type="button" class="btn btn-danger remove-item">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    {% else %}
+                                                        <button type="button" class="btn btn-danger delete-row">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="button" id="add-item" class="btn btn-secondary">
+                        <i class="fas fa-plus me-1"></i> Добавить товар
+                    </button>
+                </div>
+
+                <div class="mt-4 text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Сохранить заказ
+                    </button>
+                    <a href="{% url 'infrastruction:order_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i> Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Product search modal -->
+<div class="modal fade" id="newProductModal" tabindex="-1" aria-labelledby="newProductModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newProductModalLabel">Добавить новый продукт</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newProductName" class="form-label">Название продукта</label>
+                    <input type="text" class="form-control" id="newProductName">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="addNewProductBtn">Добавить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addItemBtn = document.getElementById('add-item');
+        const itemsBody = document.getElementById('items-body');
+        const totalForms = document.getElementById('id_items-TOTAL_FORMS');
+        const productModal = new bootstrap.Modal(document.getElementById('newProductModal'));
+        let currentProductInput = null;
+        
+        // Load initial product list for all dropdowns
+        loadProductsForAll();
+        
+        // Add Item row
+        addItemBtn.addEventListener('click', function() {
+            const formCount = parseInt(totalForms.value);
+            
+            // Clone the first form (empty template)
+            const emptyForm = document.querySelector('.item-form').cloneNode(true);
+            
+            // Update form index
+            emptyForm.innerHTML = emptyForm.innerHTML.replace(/items-0/g, `items-${formCount}`);
+            emptyForm.innerHTML = emptyForm.innerHTML.replace(/items\[0\]/g, `items[${formCount}]`);
+            
+            // Clear values
+            const inputs = emptyForm.querySelectorAll('input, textarea, select');
+            inputs.forEach(input => {
+                if (input.type !== 'hidden' && input.type !== 'checkbox') {
+                    input.value = '';
+                }
+            });
+            
+            // Add the new form to the table
+            itemsBody.appendChild(emptyForm);
+            
+            // Update total forms count
+            totalForms.value = formCount + 1;
+            
+            // Re-attach event listeners
+            attachEventListeners();
+            
+            // Load product options for the new row
+            loadProductsForAll();
+        });
+        
+        // Load products for all product input fields
+        function loadProductsForAll() {
+            document.querySelectorAll('.product-input').forEach(input => {
+                loadProductOptions(input);
+            });
+        }
+        
+        // Load product options for a specific input field
+        function loadProductOptions(input) {
+            fetch(`{% url 'infrastruction:get_order_products' %}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Create or get the datalist for this input
+                    let datalistId = input.getAttribute('list');
+                    let datalist;
+                    
+                    if (!datalistId) {
+                        datalistId = 'productList-' + Math.random().toString(36).substr(2, 9);
+                        datalist = document.createElement('datalist');
+                        datalist.id = datalistId;
+                        document.body.appendChild(datalist);
+                        input.setAttribute('list', datalistId);
+                    } else {
+                        datalist = document.getElementById(datalistId);
+                        datalist.innerHTML = '';
+                    }
+                    
+                    // Add options to the datalist
+                    data.products.forEach(product => {
+                        const option = document.createElement('option');
+                        option.value = product;
+                        datalist.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching product options:', error);
+                });
+        }
+        
+        // Delete row function
+        function deleteRow(e) {
+            e.preventDefault();
+            
+            const row = e.target.closest('.item-form');
+            row.remove();
+            
+            // Re-index the forms
+            const rows = document.querySelectorAll('.item-form');
+            totalForms.value = rows.length;
+        }
+        
+        // Mark item for deletion
+        function markForDeletion(e) {
+            e.preventDefault();
+            
+            const row = e.target.closest('.item-form');
+            const deleteCheckbox = row.querySelector('input[type="checkbox"]');
+            
+            deleteCheckbox.checked = true;
+            row.style.display = 'none';
+        }
+        
+        // Handle adding a new product
+        function handleAddProductBtn(e) {
+            const btn = e.currentTarget;
+            const input = btn.closest('.input-group').querySelector('.product-input');
+            currentProductInput = input;
+            document.getElementById('newProductName').value = input.value;
+            productModal.show();
+        }
+        
+        // Save new product
+        document.getElementById('addNewProductBtn').addEventListener('click', function() {
+            const productName = document.getElementById('newProductName').value.trim();
+            
+            if (productName && currentProductInput) {
+                // Add the new product name to the input
+                currentProductInput.value = productName;
+                
+                // Save this new product to the OrderProduct model via AJAX
+                fetch(`{% url 'infrastruction:get_order_products' %}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        name: productName
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Reload product options for all inputs
+                        loadProductsForAll();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving new product:', error);
+                });
+                
+                // Close the modal
+                productModal.hide();
+            }
+        });
+        
+        // Attach event listeners to all rows
+        function attachEventListeners() {
+            // Delete buttons
+            document.querySelectorAll('.delete-row').forEach(btn => {
+                btn.addEventListener('click', deleteRow);
+            });
+            
+            // Remove buttons (for existing items)
+            document.querySelectorAll('.remove-item').forEach(btn => {
+                btn.addEventListener('click', markForDeletion);
+            });
+            
+            // Product add buttons
+            document.querySelectorAll('.product-add-btn').forEach(btn => {
+                btn.addEventListener('click', handleAddProductBtn);
+            });
+        }
+        
+        // Function to get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // Initial event listeners
+        attachEventListeners();
+    });
+</script>
+{% endblock %} 

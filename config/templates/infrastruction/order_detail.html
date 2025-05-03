@@ -1,0 +1,194 @@
+{% extends 'infrastruction/base.html' %}
+{% load static %}
+{% load infrastruction_extras %}
+
+{% block title %}Заказ #{{ order.order_number }} - Инфраструктура{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Заказ #{{ order.order_number }}</h1>
+        <div>
+            <a href="{% url 'infrastruction:order_edit' order.id %}" class="btn btn-warning">
+                <i class="fas fa-edit me-1"></i> Редактировать
+            </a>
+            <a href="{% url 'infrastruction:order_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Назад к списку
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Информация о заказе
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Номер заказа:</div>
+                        <div class="col-md-9">{{ order.order_number }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Дата:</div>
+                        <div class="col-md-9">{{ order.date|date:"d.m.Y" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Статус:</div>
+                        <div class="col-md-9">
+                            {% if order.status == 'new' %}
+                                <span class="badge bg-primary">Новый</span>
+                            {% else %}
+                                <span class="badge bg-success">Выполнен</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Создал:</div>
+                        <div class="col-md-9">{{ order.created_by.get_full_name|default:order.created_by.username }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Дата создания:</div>
+                        <div class="col-md-9">{{ order.created_at|date:"d.m.Y H:i" }}</div>
+                    </div>
+                    {% if order.notes %}
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Примечания:</div>
+                        <div class="col-md-9">{{ order.notes }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-tasks me-1"></i>
+                    Управление заказом
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Изменить статус</label>
+                        <select class="form-select status-select" data-order-id="{{ order.id }}">
+                            <option value="new" {% if order.status == 'new' %}selected{% endif %}>Новый</option>
+                            <option value="completed" {% if order.status == 'completed' %}selected{% endif %}>Выполнен</option>
+                        </select>
+                    </div>
+                    <hr>
+                    <a href="{% url 'infrastruction:order_delete' order.id %}" class="btn btn-danger w-100">
+                        <i class="fas fa-trash me-1"></i> Удалить заказ
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-box me-1"></i>
+            Товары в заказе
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Товар</th>
+                            <th>Количество</th>
+                            <th>Ед. изм.</th>
+                            <th>Комментарий</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order.items.all %}
+                        <tr>
+                            <td>{{ item.product }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>{{ item.get_unit_display }}</td>
+                            <td>{{ item.comment|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">Нет товаров в заказе</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle status changes
+        const statusSelect = document.querySelector('.status-select');
+        
+        statusSelect.addEventListener('change', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const newStatus = this.value;
+            
+            // Send status change to server
+            const formData = new FormData();
+            formData.append('order_id', orderId);
+            formData.append('status', newStatus);
+            
+            fetch('{% url "infrastruction:change_order_status" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    const alertHtml = `
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            Статус заказа успешно изменен
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
+                    document.querySelector('.container-fluid').insertAdjacentHTML('afterbegin', alertHtml);
+                    
+                    // Update the status badge
+                    const statusBadge = document.querySelector('.col-md-9 .badge');
+                    if (newStatus === 'new') {
+                        statusBadge.className = 'badge bg-primary';
+                        statusBadge.textContent = 'Новый';
+                    } else {
+                        statusBadge.className = 'badge bg-success';
+                        statusBadge.textContent = 'Выполнен';
+                    }
+                } else {
+                    console.error('Error:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+        
+        // Function to get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    });
+</script>
+{% endblock %} 

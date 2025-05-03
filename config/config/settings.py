@@ -28,7 +28,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
+# Telegram Integration
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '7585491089:AAGCGkWZT5ONKOOToSL8usld0jt0HWVWEVk')
 # Application definition
 
 INSTALLED_APPS = [
