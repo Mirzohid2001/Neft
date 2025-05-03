@@ -25,13 +25,22 @@
                     </div>
                     {% endif %}
                     
-                    <form method="post" id="receivingForm">
+                    <form method="post" id="receivingForm" enctype="multipart/form-data">
                         {% csrf_token %}
 
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Дата</label>
                                 <input type="date" name="date" id="receiving_date" class="form-control" required value="{% if receiving %}{{ receiving.date|date:'Y-m-d' }}{% endif %}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Фото</label>
+                                <input type="file" name="photo" id="receiving_photo" class="form-control" accept="image/*">
+                                {% if receiving and receiving.photo %}
+                                <div class="mt-2">
+                                    <img src="{{ receiving.photo.url }}" class="img-thumbnail" style="max-height: 100px">
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
 
@@ -42,6 +51,7 @@
                                     <tr>
                                         <th>Товар</th>
                                         <th>Количество</th>
+                                        <th>Ед. изм.</th>
                                         <th>Цена за единицу</th>
                                         <th>Комментарий</th>
                                         <th>Общая сумма</th>
@@ -53,7 +63,7 @@
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="4" class="text-end"><strong>Итого:</strong></td>
+                                        <td colspan="5" class="text-end"><strong>Итого:</strong></td>
                                         <td id="totalAmount">0 SUM</td>
                                         <td></td>
                                     </tr>
@@ -113,25 +123,27 @@
                     console.log("Loading item {{ item.id }}");
                     addProductRow(
                         {{ item.id }}, 
-                        "{{ item.product.name|escapejs }}", 
-                        {{ item.quantity }}, 
+                        {{ item.product.id }},
+                        "{{ item.product.name|escapejs }}",
+                        {{ item.quantity }},
+                        "{{ item.unit }}",
                         {{ item.unit_price }},
                         "{{ item.comment|default:""|escapejs }}"
                     );
                 {% endfor %}
             {% else %}
                 console.log("No items found, adding empty row");
-                addProductRow(null, "", 1, 0, "");
+                addProductRow(null, "", "", 1, "pcs", 0, "");
             {% endif %}
         {% else %}
             console.log("Add mode detected, adding empty row");
             // Add initial product row
-            addProductRow(null, "", 1, 0, "");
+            addProductRow(null, "", "", 1, "pcs", 0, "");
         {% endif %}
     });
 
-    function addProductRow(itemId, productName, quantity, unitPrice, comment) {
-        console.log("Adding row:", itemId, productName, quantity, unitPrice, comment);
+    function addProductRow(itemId, productId, productName, quantity, unit, unitPrice, comment) {
+        console.log("Adding row:", itemId, productId, productName, quantity, unit, unitPrice, comment);
         
         const productsList = document.getElementById('productsList');
         console.log("Products list element:", productsList);
@@ -143,13 +155,38 @@
         
         const row = document.createElement('tr');
         
+        const unitOptions = [
+            { value: 'pcs', label: 'шт.' },
+            { value: 'kg', label: 'кг' },
+            { value: 'l', label: 'литр' },
+            { value: 'm', label: 'метр' }
+        ];
+        
+        let unitOptionsHtml = '';
+        unitOptions.forEach(option => {
+            const selected = option.value === unit ? 'selected' : '';
+            unitOptionsHtml += `<option value="${option.value}" ${selected}>${option.label}</option>`;
+        });
+        
         row.innerHTML = `
             <td>
-                <input type="text" class="form-control product-name" placeholder="Введите название товара" required value="${productName || ''}">
+                <select class="form-select product-select">
+                    <option value="">-- Выберите товар --</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}" ${productId == {{ product.id }} ? 'selected' : ''}>{{ product.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" class="form-control product-name mt-2" placeholder="Или введите новое название" value="${productName || ''}">
                 ${itemId ? `<input type="hidden" class="item-id" value="${itemId}">` : ''}
+                <input type="hidden" class="product-id" value="${productId || ''}">
             </td>
             <td>
                 <input type="number" class="form-control product-quantity" min="0.01" step="0.01" value="${quantity || 1}" required>
+            </td>
+            <td>
+                <select class="form-select product-unit">
+                    ${unitOptionsHtml}
+                </select>
             </td>
             <td>
                 <div class="input-group">
@@ -174,9 +211,31 @@
         // Add event listeners for calculations
         const priceInput = row.querySelector('.product-price');
         const quantityInput = row.querySelector('.product-quantity');
+        const productSelect = row.querySelector('.product-select');
+        const productNameInput = row.querySelector('.product-name');
+        const productIdInput = row.querySelector('.product-id');
         
         priceInput.addEventListener('input', () => updateRowTotal(row));
         quantityInput.addEventListener('input', () => updateRowTotal(row));
+        
+        // Handle product selection
+        productSelect.addEventListener('change', function() {
+            if (this.value) {
+                // Find the selected product
+                const productName = this.options[this.selectedIndex].text;
+                productNameInput.value = productName;
+                productIdInput.value = this.value;
+                
+                // Fetch product details like price if needed
+                fetch(`/infrastruction/products/${this.value}/details/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        priceInput.value = data.unit_price;
+                        updateRowTotal(row);
+                    })
+                    .catch(error => console.error('Error fetching product details:', error));
+            }
+        });
 
         // Calculate initial total
         updateRowTotal(row);
@@ -194,7 +253,7 @@
 
     function updateRowTotal(row) {
         const price = parseFloat(row.querySelector('.product-price').value) || 0;
-        const quantity = parseInt(row.querySelector('.product-quantity').value) || 0;
+        const quantity = parseFloat(row.querySelector('.product-quantity').value) || 0;
         const total = price * quantity;
         row.querySelector('.product-total').textContent = total.toFixed(0) + ' SUM';
         updateGrandTotal();
@@ -229,10 +288,13 @@
         // Collect products data
         const productsData = Array.from(products).map(row => {
             const itemId = row.querySelector('.item-id')?.value || null;
+            const productId = row.querySelector('.product-id')?.value || null;
             return {
                 id: itemId,
+                product_id: productId,
                 product: row.querySelector('.product-name').value.trim(),
                 quantity: row.querySelector('.product-quantity').value,
+                unit: row.querySelector('.product-unit').value,
                 unit_price: row.querySelector('.product-price').value,
                 comment: row.querySelector('.product-comment').value.trim()
             };

@@ -1,7 +1,9 @@
 from django import forms
+from django.forms import inlineformset_factory
 from .models import (
     Product, Receiving, Giving, Stock,
-    CanteenExpense, Project, ProjectItem, ReceivingItem, ProjectProduct
+    CanteenExpense, Project, ProjectItem, ReceivingItem, ProjectProduct,
+    Order, OrderItem
 )
 from django.db import models
 
@@ -111,4 +113,34 @@ class ProjectProductForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Only show products that have stock available
         products_with_stock = Stock.objects.filter(quantity__gt=0).values_list('product', flat=True)
-        self.fields['product'].queryset = Product.objects.filter(id__in=products_with_stock) 
+        self.fields['product'].queryset = Product.objects.filter(id__in=products_with_stock)
+
+class OrderForm(forms.ModelForm):
+    """Form for creating and editing orders"""
+    class Meta:
+        model = Order
+        fields = ['order_number', 'date', 'notes']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        }
+
+class OrderItemForm(forms.ModelForm):
+    """Form for order items"""
+    class Meta:
+        model = OrderItem
+        fields = ['product', 'quantity', 'unit', 'comment']
+        widgets = {
+            'product': forms.TextInput(attrs={'class': 'form-control product-input'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'unit': forms.Select(attrs={'class': 'form-control'}),
+            'comment': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
+        }
+
+# Create formset for OrderItems
+OrderItemFormSet = inlineformset_factory(
+    Order, OrderItem,
+    form=OrderItemForm,
+    extra=1,
+    can_delete=True
+) 

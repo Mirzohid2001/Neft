@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     Product, Receiving, Giving, Stock,
-    CanteenExpense, Project, ProjectItem, ReceivingItem, ProjectProduct
+    CanteenExpense, Project, ProjectItem, ReceivingItem, ProjectProduct,
+    TelegramGroup, Order, OrderItem
 )
 
 @admin.register(Product)
@@ -71,3 +72,20 @@ class ProjectProductAdmin(admin.ModelAdmin):
     list_filter = ('project', 'product', 'date_used')
     search_fields = ('project__name', 'product__name', 'notes')
     ordering = ('-date_used',)
+
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 1
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ('order_number', 'date', 'status', 'created_by', 'created_at')
+    list_filter = ('status', 'date')
+    search_fields = ('order_number', 'notes')
+    inlines = [OrderItemInline]
+
+@admin.register(TelegramGroup)
+class TelegramGroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'chat_id', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'chat_id')

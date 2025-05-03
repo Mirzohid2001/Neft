@@ -115,6 +115,13 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if 'orders' in request.path %}active{% endif %}" 
+                           href="{% url 'infrastruction:order_list' %}">
+                            <i class="fas fa-shopping-cart me-2"></i>
+                            <span>Заказы</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if 'product' in request.path %}active{% endif %}" 
                            href="{% url 'infrastruction:product_list' %}">
                             <i class="fas fa-box me-2"></i>

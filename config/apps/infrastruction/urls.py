@@ -12,6 +12,7 @@ urlpatterns = [
     path('products/add/', views.product_add, name='product_add'),
     path('products/<int:pk>/edit/', views.product_edit, name='product_edit'),
     path('products/<int:pk>/delete/', views.product_delete, name='product_delete'),
+    path('products/<int:pk>/details/', views.product_details, name='product_details'),
     
     # Daily Expenses - Receiving
     path('receiving/', views.receiving_list, name='receiving_list'),
@@ -61,4 +62,21 @@ urlpatterns = [
     # Project Product Reports
     path('project-products/report/', views.project_product_report, name='project_product_report'),
     path('projects/<int:pk>/products/report/', views.project_product_report, name='project_product_report_filtered'),
+    
+    # Orders
+    path('orders/', views.order_list, name='order_list'),
+    path('orders/add/', views.order_add, name='order_add'),
+    path('orders/<int:pk>/', views.order_detail, name='order_detail'),
+    path('orders/<int:pk>/edit/', views.order_edit, name='order_edit'),
+    path('orders/<int:pk>/delete/', views.order_delete, name='order_delete'),
+    
+    # AJAX endpoints
+    path('orders/change-status/', views.change_order_status, name='change_order_status'),
+    path('orders/products/', views.get_order_products, name='get_order_products'),
+    
+    # Excel export
+    path('export/receivings/', views.export_receivings_excel, name='export_receivings_excel'),
+    path('export/canteen-report/', views.export_canteen_monthly_report_excel, name='export_canteen_monthly_report_excel'),
+    path('export/project/<int:pk>/', views.export_project_excel, name='export_project_excel'),
+    path('export/products/', views.export_products_excel, name='export_products_excel'),
 ] 
