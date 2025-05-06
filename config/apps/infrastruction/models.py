@@ -21,6 +21,7 @@ class Receiving(models.Model):
     """Model for receiving products into stock"""
     date = models.DateField('Дата', default=timezone.now)
     notes = models.TextField('Примечания', blank=True, null=True)
+    photo = models.ImageField('Фото', upload_to='receiving_photos/', blank=True, null=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='Создал')
     created_at = models.DateTimeField('Дата создания', auto_now_add=True)
 
@@ -38,9 +39,17 @@ class Receiving(models.Model):
 
 class ReceivingItem(models.Model):
     """Model for individual items in a receiving transaction"""
+    UNIT_CHOICES = [
+        ('pcs', 'шт.'),
+        ('kg', 'кг'),
+        ('l', 'литр'),
+        ('m', 'метр'),
+    ]
+    
     receiving = models.ForeignKey(Receiving, related_name='items', on_delete=models.CASCADE, verbose_name='Поступление')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name='Продукт')
     quantity = models.FloatField('Количество')
+    unit = models.CharField('Единица измерения', max_length=5, choices=UNIT_CHOICES, default='pcs')
     unit_price = models.FloatField('Цена за единицу')
     comment = models.TextField('Комментарий', max_length=500, blank=True, null=True)
     created_at = models.DateTimeField('Дата создания', auto_now_add=True)
@@ -55,7 +64,7 @@ class ReceivingItem(models.Model):
         return self.quantity * self.unit_price
 
     def __str__(self):
-        return f"{self.product.name} - {self.quantity}"
+        return f"{self.product.name} - {self.quantity} {self.get_unit_display()}"
 
 class Giving(models.Model):
     """Model for giving products to workers"""
@@ -191,3 +200,79 @@ class ProjectProduct(models.Model):
 
     def __str__(self):
         return f"{self.project.name} - {self.product.name} ({self.quantity})"
+
+class TelegramGroup(models.Model):
+    """Model for storing Telegram groups for notifications"""
+    name = models.CharField('Название', max_length=255)
+    chat_id = models.CharField('ID чата', max_length=255)
+    is_active = models.BooleanField('Активен', default=True)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+    updated_at = models.DateTimeField('Дата обновления', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Телеграм группа'
+        verbose_name_plural = 'Телеграм группы'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+class OrderProduct(models.Model):
+    """Model for products that are only used in orders and not part of inventory"""
+    name = models.CharField('Наименование', max_length=255)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Продукт заказа'
+        verbose_name_plural = 'Продукты заказов'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+class Order(models.Model):
+    """Model for product orders"""
+    STATUS_CHOICES = [
+        ('new', 'Новый'),
+        ('completed', 'Выполнен'),
+    ]
+    
+    order_number = models.CharField('Номер заказа', max_length=255)
+    date = models.DateField('Дата', default=timezone.now)
+    status = models.CharField('Статус', max_length=20, choices=STATUS_CHOICES, default='new')
+    notes = models.TextField('Примечания', blank=True, null=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='Создал')
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+    updated_at = models.DateTimeField('Дата обновления', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Заказ'
+        verbose_name_plural = 'Заказы'
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"Заказ #{self.order_number} ({self.date})"
+
+class OrderItem(models.Model):
+    """Model for individual items in an order"""
+    UNIT_CHOICES = [
+        ('pcs', 'шт.'),
+        ('kg', 'кг'),
+        ('l', 'литр'),
+        ('m', 'метр'),
+    ]
+    
+    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE, verbose_name='Заказ')
+    product = models.CharField('Продукт', max_length=255)
+    quantity = models.FloatField('Количество')
+    unit = models.CharField('Единица измерения', max_length=5, choices=UNIT_CHOICES, default='pcs')
+    comment = models.TextField('Комментарий', max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Элемент заказа'
+        verbose_name_plural = 'Элементы заказа'
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.product} - {self.quantity} {self.get_unit_display()}"

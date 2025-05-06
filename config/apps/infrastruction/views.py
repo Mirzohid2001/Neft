@@ -10,11 +10,13 @@ from decimal import Decimal
 from apps.accounts.views import infrastructure_required
 from .models import (
     Product, Receiving, Giving, Stock,
-    CanteenExpense, Project, ProjectItem, ReceivingItem, ProjectProduct
+    CanteenExpense, Project, ProjectItem, ReceivingItem, ProjectProduct,
+    Order, OrderItem, TelegramGroup, OrderProduct
 )
 from .forms import (
     ProductForm, ReceivingForm, GivingForm,
-    CanteenExpenseForm, ProjectForm, ProjectItemForm, ProjectProductForm
+    CanteenExpenseForm, ProjectForm, ProjectItemForm, ProjectProductForm,
+    OrderForm, OrderItemFormSet
 )
 import json
 from django.db.models.deletion import ProtectedError
@@ -25,6 +27,11 @@ from django.db.models.fields.related import (
 from django.db import models
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
+import requests
+from django.forms import modelformset_factory
+from django.urls import reverse_lazy
+from django.views.decorators.http import require_POST
+from django.conf import settings
 
 @login_required
 @infrastructure_required
@@ -276,11 +283,13 @@ def receiving_form(request):
                 date_str = request.POST.get('date')
                 date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else timezone.now().date()
                 notes = request.POST.get('notes', '')
+                photo = request.FILES.get('photo')
                 
                 # Create the receiving record
                 receiving = Receiving.objects.create(
                     date=date,
                     notes=notes,
+                    photo=photo,
                     created_by=request.user
                 )
                 
@@ -293,18 +302,32 @@ def receiving_form(request):
                 # Process each product
                 for product_data in products_data:
                     product_name = product_data.get('product', '').strip()
+                    product_id = product_data.get('product_id')
                     quantity = float(product_data.get('quantity', 0))
+                    unit = product_data.get('unit', 'pcs')
                     unit_price = float(product_data.get('unit_price', 0))
                     comment = product_data.get('comment', '')
                     
                     if not product_name or quantity <= 0 or unit_price < 0:
                         raise ValueError('Заполните корректно все поля товара')
                     
+                    # Initialize created variable
+                    created = False
+                    
                     # Get or create product
-                    product, created = Product.objects.get_or_create(
-                        name=product_name,
-                        defaults={'unit_price': unit_price}
-                    )
+                    if product_id:
+                        try:
+                            product = Product.objects.get(pk=product_id)
+                        except Product.DoesNotExist:
+                            product, created = Product.objects.get_or_create(
+                                name=product_name,
+                                defaults={'unit_price': unit_price}
+                            )
+                    else:
+                        product, created = Product.objects.get_or_create(
+                            name=product_name,
+                            defaults={'unit_price': unit_price}
+                        )
                     
                     # If product exists but price is different, update the price
                     if not created and product.unit_price != unit_price:
@@ -316,6 +339,7 @@ def receiving_form(request):
                         receiving=receiving,
                         product=product,
                         quantity=quantity,
+                        unit=unit,
                         unit_price=unit_price,
                         comment=comment
                     )
@@ -329,6 +353,9 @@ def receiving_form(request):
                         stock.quantity += quantity
                         stock.save()
                 
+                # Send notification to Telegram
+                send_receiving_to_telegram(receiving)
+                
                 messages.success(request, 'Приход успешно добавлен')
                 return redirect('infrastruction:receiving_list')
                 
@@ -340,6 +367,80 @@ def receiving_form(request):
         'title': 'Добавить приход',
         'products': Product.objects.all()
     })
+
+# Function to send notification to Telegram about new receiving
+def send_receiving_to_telegram(receiving):
+    """Send receiving notification to Telegram groups"""
+    telegram_groups = TelegramGroup.objects.filter(is_active=True)
+    
+    if not telegram_groups:
+        return
+    
+    # Format the message
+    items_text = "\n".join([
+        f"- {item.product.name}: {item.quantity} {item.get_unit_display()}"
+        for item in receiving.items.all()
+    ])
+    
+    message = f"""📦 *ПОЛУЧЕНИЕ ТОВАРОВ* 📦
+*Дата:* {receiving.date.strftime('%d.%m.%Y')}
+*Создал:* {receiving.created_by.get_full_name() or receiving.created_by.username}
+
+*Содержимое поступления:*
+{items_text}
+
+*Примечания:* {receiving.notes or 'Нет примечаний'}
+"""
+    
+    # Send to each group
+    for group in telegram_groups:
+        try:
+            # Send message with photo if available
+            if receiving.photo:
+                send_telegram_photo(group.chat_id, receiving.photo.path, message)
+            else:
+                send_telegram_message(group.chat_id, message)
+        except Exception as e:
+            # Log error, but continue with other groups
+            print(f"Error sending to Telegram group {group.name}: {e}")
+
+def send_telegram_photo(chat_id, photo_path, caption):
+    """Send photo with caption to Telegram chat using bot API"""
+    # Get bot token from settings
+    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
+    
+    if not bot_token:
+        # Log error and return
+        print("Telegram bot token not configured")
+        return
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+    
+    with open(photo_path, 'rb') as photo:
+        files = {'photo': photo}
+        data = {
+            'chat_id': chat_id,
+            'caption': caption,
+            'parse_mode': 'Markdown'
+        }
+        
+        response = requests.post(url, data=data, files=files)
+    
+    return response.json()
+
+@login_required
+@infrastructure_required
+def product_details(request, pk):
+    """API endpoint to get product details"""
+    try:
+        product = Product.objects.get(pk=pk)
+        return JsonResponse({
+            'id': product.id,
+            'name': product.name,
+            'unit_price': product.unit_price
+        })
+    except Product.DoesNotExist:
+        return JsonResponse({'error': 'Product not found'}, status=404)
 
 # Alias for receiving_form to match URL pattern
 receiving_add = receiving_form
@@ -365,6 +466,10 @@ def receiving_edit(request, pk):
                 date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else timezone.now().date()
                 notes = request.POST.get('notes', '')
                 
+                # Handle photo update
+                if 'photo' in request.FILES:
+                    receiving.photo = request.FILES['photo']
+                
                 # Update the receiving record
                 receiving.date = date
                 receiving.notes = notes
@@ -382,19 +487,33 @@ def receiving_edit(request, pk):
                 # Process each product
                 for product_data in products_data:
                     item_id = product_data.get('id')
+                    product_id = product_data.get('product_id')
                     product_name = product_data.get('product', '').strip()
                     quantity = float(product_data.get('quantity', 0))
+                    unit = product_data.get('unit', 'pcs')
                     unit_price = float(product_data.get('unit_price', 0))
                     comment = product_data.get('comment', '')
                     
                     if not product_name or quantity <= 0 or unit_price < 0:
                         raise ValueError('Заполните корректно все поля товара')
                     
+                    # Initialize created variable
+                    created = False
+                    
                     # Get or create product
-                    product, created = Product.objects.get_or_create(
-                        name=product_name,
-                        defaults={'unit_price': unit_price}
-                    )
+                    if product_id:
+                        try:
+                            product = Product.objects.get(pk=product_id)
+                        except Product.DoesNotExist:
+                            product, created = Product.objects.get_or_create(
+                                name=product_name,
+                                defaults={'unit_price': unit_price}
+                            )
+                    else:
+                        product, created = Product.objects.get_or_create(
+                            name=product_name,
+                            defaults={'unit_price': unit_price}
+                        )
                     
                     # If product exists but price is different, update the price
                     if not created and product.unit_price != unit_price:
@@ -427,6 +546,7 @@ def receiving_edit(request, pk):
                             # Update item
                             item.product = product
                             item.quantity = quantity
+                            item.unit = unit
                             item.unit_price = unit_price
                             item.comment = comment
                             item.save()
@@ -438,6 +558,7 @@ def receiving_edit(request, pk):
                                 receiving=receiving,
                                 product=product,
                                 quantity=quantity,
+                                unit=unit,
                                 unit_price=unit_price,
                                 comment=comment
                             )
@@ -457,6 +578,7 @@ def receiving_edit(request, pk):
                             receiving=receiving,
                             product=product,
                             quantity=quantity,
+                            unit=unit,
                             unit_price=unit_price,
                             comment=comment
                         )
@@ -1504,9 +1626,9 @@ def export_project_excel(request, pk):
     
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=row_num, column=col_num, value=header)
-        cell.font = Font(bold=True)
-        cell.fill = PatternFill(start_color="AAAAFF", end_color="AAAAFF", fill_type="solid")
-        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
         # Adjust column width based on header
         ws.column_dimensions[chr(64 + col_num)].width = max(15, len(header) * 1.2)
     
@@ -1537,5 +1659,320 @@ def export_project_excel(request, pk):
     # Save the workbook to the response
     wb.save(response)
     return response
+
+@login_required
+@infrastructure_required
+def export_products_excel(request):
+    """Export products data to Excel"""
+    # Create a new workbook and select the active worksheet
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Товары"
+    
+    # Set column widths
+    ws.column_dimensions['A'].width = 40  # Наименование
+    ws.column_dimensions['B'].width = 20  # Единица измерения
+    ws.column_dimensions['C'].width = 15  # Цена за единицу
+    ws.column_dimensions['D'].width = 15  # Количество на складе
+    ws.column_dimensions['E'].width = 20  # Общая стоимость
+    ws.column_dimensions['F'].width = 30  # Комментарии
+    
+    # Create header row with styling
+    header_font = Font(bold=True, size=12)
+    header_fill = PatternFill(start_color="AAAAFF", end_color="AAAAFF", fill_type="solid")
+    header_alignment = Alignment(horizontal='center', vertical='center')
+    
+    headers = ['Наименование', 'Единица измерения', 'Цена за единицу', 'Количество на складе', 'Общая стоимость', 'Комментарии']
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+    
+    # Get all products with their stock information
+    products = Product.objects.all().prefetch_related('stock')
+    
+    # Create dictionaries for easier access to stock information and totals
+    stock_dict = {}
+    total_value_dict = {}
+    comments_dict = {}
+    
+    for stock in Stock.objects.select_related('product').all():
+        stock_dict[stock.product_id] = stock.quantity
+        total_value_dict[stock.product_id] = stock.quantity * stock.product.unit_price
+    
+    # Get the most recent comments for each product from receiving transactions
+    for product in products:
+        # Get the most recent receiving items with comments for this product
+        recent_items = ReceivingItem.objects.filter(
+            product_id=product.id, 
+            comment__isnull=False
+        ).exclude(
+            comment__exact=''
+        ).order_by('-receiving__date', '-created_at')[:1]
+        
+        if recent_items:
+            comments_dict[product.id] = recent_items[0].comment
+    
+    # Add data rows
+    for row_num, product in enumerate(products, 2):
+        ws.cell(row=row_num, column=1, value=product.name)
+        ws.cell(row=row_num, column=2, value="шт.")  # Default unit - can be extended if needed
+        ws.cell(row=row_num, column=3, value=product.unit_price)
+        
+        quantity = stock_dict.get(product.id, 0)
+        ws.cell(row=row_num, column=4, value=quantity)
+        
+        total_value = total_value_dict.get(product.id, 0)
+        ws.cell(row=row_num, column=5, value=total_value)
+        
+        comment = comments_dict.get(product.id, "")
+        ws.cell(row=row_num, column=6, value=comment)
+    
+    # Calculate and add grand total row
+    grand_total = sum(total_value_dict.values())
+    
+    row_num = len(products) + 2
+    ws.cell(row=row_num, column=1, value="Итого:").font = Font(bold=True)
+    ws.merge_cells(f'A{row_num}:D{row_num}')
+    
+    total_cell = ws.cell(row=row_num, column=5, value=grand_total)
+    total_cell.font = Font(bold=True)
+    
+    # Set response headers for file download
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=products_report.xlsx'
+    
+    # Save the workbook to the response
+    wb.save(response)
+    return response
+
+# Order views
+@login_required
+def order_list(request):
+    """View for listing orders"""
+    orders = Order.objects.filter(created_by=request.user).order_by('-date')
+    
+    context = {
+        'orders': orders,
+    }
+    return render(request, 'infrastruction/order_list.html', context)
+
+@login_required
+def order_add(request):
+    """View for adding a new order"""
+    if request.method == 'POST':
+        form = OrderForm(request.POST)
+        formset = OrderItemFormSet(request.POST, prefix='items')
+        
+        if form.is_valid() and formset.is_valid():
+            order = form.save(commit=False)
+            order.created_by = request.user
+            order.save()
+            
+            formset.instance = order
+            formset.save()
+            
+            # Save products to OrderProduct model for future use
+            for item_form in formset.forms:
+                if item_form.cleaned_data and not item_form.cleaned_data.get('DELETE', False):
+                    product_name = item_form.cleaned_data.get('product')
+                    if product_name:
+                        OrderProduct.objects.get_or_create(name=product_name)
+            
+            # Send notification to Telegram
+            send_order_to_telegram(order)
+            
+            messages.success(request, 'Заказ успешно создан')
+            return redirect('infrastruction:order_list')
+    else:
+        form = OrderForm()
+        formset = OrderItemFormSet(prefix='items')
+    
+    context = {
+        'form': form,
+        'formset': formset,
+    }
+    return render(request, 'infrastruction/order_form.html', context)
+
+@login_required
+def order_edit(request, pk):
+    """View for editing an order"""
+    order = get_object_or_404(Order, pk=pk, created_by=request.user)
+    
+    if request.method == 'POST':
+        form = OrderForm(request.POST, instance=order)
+        formset = OrderItemFormSet(request.POST, instance=order, prefix='items')
+        
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            
+            # Save products to OrderProduct model for future use
+            for item_form in formset.forms:
+                if item_form.cleaned_data and not item_form.cleaned_data.get('DELETE', False):
+                    product_name = item_form.cleaned_data.get('product')
+                    if product_name:
+                        OrderProduct.objects.get_or_create(name=product_name)
+            
+            messages.success(request, 'Заказ успешно обновлен')
+            return redirect('infrastruction:order_list')
+    else:
+        form = OrderForm(instance=order)
+        formset = OrderItemFormSet(instance=order, prefix='items')
+    
+    context = {
+        'form': form,
+        'formset': formset,
+        'order': order,
+    }
+    return render(request, 'infrastruction/order_form.html', context)
+
+@login_required
+def order_detail(request, pk):
+    """View for viewing order details"""
+    order = get_object_or_404(Order, pk=pk, created_by=request.user)
+    
+    context = {
+        'order': order,
+    }
+    return render(request, 'infrastruction/order_detail.html', context)
+
+@login_required
+def order_delete(request, pk):
+    """View for deleting an order"""
+    order = get_object_or_404(Order, pk=pk, created_by=request.user)
+    
+    if request.method == 'POST':
+        order.delete()
+        messages.success(request, 'Заказ успешно удален')
+        return redirect('infrastruction:order_list')
+    
+    context = {
+        'order': order,
+    }
+    return render(request, 'infrastruction/order_confirm_delete.html', context)
+
+@login_required
+@require_POST
+def change_order_status(request):
+    """AJAX view for changing order status"""
+    order_id = request.POST.get('order_id')
+    new_status = request.POST.get('status')
+    
+    try:
+        order = Order.objects.get(pk=order_id, created_by=request.user)
+        order.status = new_status
+        order.save()
+        return JsonResponse({'success': True})
+    except Order.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Order not found'}, status=404)
+
+@login_required
+def get_order_products(request):
+    """AJAX view to get products for order form autocomplete"""
+    if request.method == 'POST':
+        try:
+            # Handle adding a new product
+            data = json.loads(request.body)
+            product_name = data.get('name')
+            
+            if product_name:
+                OrderProduct.objects.get_or_create(name=product_name)
+                return JsonResponse({'success': True})
+            else:
+                return JsonResponse({'success': False, 'error': 'Product name is required'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    # GET request - return all products or filter by query
+    query = request.GET.get('q', '')
+    
+    if query:
+        # First, get products from OrderProduct model
+        order_products = list(OrderProduct.objects.filter(
+            name__icontains=query
+        ).values_list('name', flat=True).distinct()[:10])
+        
+        # If we need more results, also look at previous order items
+        if len(order_products) < 10:
+            previous_products = OrderItem.objects.filter(
+                product__icontains=query
+            ).values_list('product', flat=True).distinct()[:10 - len(order_products)]
+            
+            # Add these to the result list if not already present
+            for product in previous_products:
+                if product not in order_products:
+                    order_products.append(product)
+    else:
+        # Get all products (limited to 50 to avoid performance issues)
+        order_products = list(OrderProduct.objects.values_list('name', flat=True).distinct()[:50])
+        
+        # Add common products from previous orders if we have fewer than 50 products
+        if len(order_products) < 50:
+            previous_products = OrderItem.objects.values_list('product', flat=True).distinct()[:50 - len(order_products)]
+            
+            # Add these to the result list if not already present
+            for product in previous_products:
+                if product not in order_products:
+                    order_products.append(product)
+    
+    return JsonResponse({'products': order_products})
+
+# Telegram integration
+def send_order_to_telegram(order):
+    """Send order notification to Telegram groups"""
+    telegram_groups = TelegramGroup.objects.filter(is_active=True)
+    
+    if not telegram_groups:
+        return
+    
+    # Format the message
+    items_text = "\n".join([
+        f"- {item.product}: {item.quantity} {item.get_unit_display()}"
+        for item in order.items.all()
+    ])
+    
+    message = f"""🆕 *НОВЫЙ ЗАКАЗ* 🆕
+*Номер заказа:* {order.order_number}
+*Дата:* {order.date.strftime('%d.%m.%Y')}
+*Создал:* {order.created_by.get_full_name() or order.created_by.username}
+
+*Содержимое заказа:*
+{items_text}
+
+*Примечания:* {order.notes or 'Нет примечаний'}
+"""
+    
+    # Send to each group
+    for group in telegram_groups:
+        try:
+            send_telegram_message(group.chat_id, message)
+        except Exception as e:
+            # Log error, but continue with other groups
+            print(f"Error sending to Telegram group {group.name}: {e}")
+
+def send_telegram_message(chat_id, message):
+    """Send message to Telegram chat using bot API"""
+    # Get bot token from settings
+    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
+    
+    if not bot_token:
+        # Log error and return
+        print("Telegram bot token not configured")
+        return
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        'chat_id': chat_id,
+        'text': message,
+        'parse_mode': 'Markdown'
+    }
+    
+    response = requests.post(url, json=payload)
+    return response.json()
 
 # ... rest of the views ... 
