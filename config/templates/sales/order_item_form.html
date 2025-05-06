@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Главная</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sales:order_list' %}">Заказы</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sales:order_detail' pk=order.pk %}">Заказ № {{ order.order_number }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">{{ title }}</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="orderItemForm">
+                        {% csrf_token %}
+                        
+                        {% if form.errors %}
+                            <div class="alert alert-danger">
+                                <strong>Пожалуйста, исправьте следующие ошибки:</strong>
+                                {{ form.non_field_errors }}
+                                {% for field in form %}
+                                    {% if field.errors %}
+                                        <div>{{ field.label }}: {{ field.errors }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.product.id_for_label }}">{{ form.product.label }}</label>
+                                    {{ form.product }}
+                                    {% if form.product.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.product.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.quantity.id_for_label }}">{{ form.quantity.label }}</label>
+                                    {{ form.quantity }}
+                                    {% if form.quantity.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.quantity.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.unit_price.id_for_label }}">{{ form.unit_price.label }}</label>
+                                    {{ form.unit_price }}
+                                    {% if form.unit_price.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.unit_price.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.discount_percent.id_for_label }}">{{ form.discount_percent.label }}</label>
+                                    {{ form.discount_percent }}
+                                    {% if form.discount_percent.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.discount_percent.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label for="{{ form.note.id_for_label }}">{{ form.note.label }}</label>
+                            {{ form.note }}
+                            {% if form.note.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.note.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">
+                                {% if form.instance.pk %}
+                                    Сохранить изменения
+                                {% else %}
+                                    Добавить позицию
+                                {% endif %}
+                            </button>
+                            <a href="{% url 'sales:order_detail' pk=order.pk %}" class="btn btn-secondary">Отмена</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Инициализация Select2 для более удобного выбора
+        $('#{{ form.product.id_for_label }}').select2({
+            placeholder: "Выберите продукт",
+            allowClear: true
+        });
+        
+        // Автоматическое получение последней цены товара
+        $('#{{ form.product.id_for_label }}').change(function() {
+            var productId = $(this).val();
+            if (productId) {
+                $.ajax({
+                    url: '{% url "sales:get_product_price" %}',
+                    data: {
+                        'product_id': productId
+                    },
+                    dataType: 'json',
+                    success: function(data) {
+                        if (data.price) {
+                            $('#{{ form.unit_price.id_for_label }}').val(data.price);
+                        }
+                    }
+                });
+            }
+        });
+        
+        // Обновление итоговой цены при изменении количества, цены или скидки
+        function updateTotalPrice() {
+            var quantity = parseFloat($('#{{ form.quantity.id_for_label }}').val()) || 0;
+            var price = parseFloat($('#{{ form.unit_price.id_for_label }}').val()) || 0;
+            var discount = parseFloat($('#{{ form.discount_percent.id_for_label }}').val()) || 0;
+            
+            var total = quantity * price * (1 - discount / 100);
+            $('#total_price').text(total.toFixed(2));
+        }
+        
+        $('#{{ form.quantity.id_for_label }}, #{{ form.unit_price.id_for_label }}, #{{ form.discount_percent.id_for_label }}').change(updateTotalPrice);
+        $('#{{ form.quantity.id_for_label }}, #{{ form.unit_price.id_for_label }}, #{{ form.discount_percent.id_for_label }}').keyup(updateTotalPrice);
+        
+        // Инициализация при загрузке страницы
+        updateTotalPrice();
+    });
+</script>
+{% endblock %} 

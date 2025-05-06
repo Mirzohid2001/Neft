@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title|default:"Операции эстокады" }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Современные стили для карточек */
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .card-header {
+        background: linear-gradient(45deg, #2b354f, #3a4b6d);
+        color: white;
+        border-bottom: none;
+        padding: 1rem 1.5rem;
+    }
+    
+    .filter-section {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e9ecef;
+    }
+    
+    /* Стили для бейджей и статусов */
+    .status-badge {
+        padding: 0.5em 1em;
+        border-radius: 20px;
+        font-weight: 500;
+        font-size: 12px;
+        display: inline-block;
+    }
+    
+    .status-created {
+        background-color: rgba(108, 117, 125, 0.2);
+        color: #6c757d;
+    }
+    
+    .status-in-progress {
+        background-color: rgba(23, 162, 184, 0.2);
+        color: #17a2b8;
+    }
+    
+    .status-completed {
+        background-color: rgba(40, 167, 69, 0.2);
+        color: #28a745;
+    }
+    
+    .status-cancelled {
+        background-color: rgba(220, 53, 69, 0.2);
+        color: #dc3545;
+    }
+    
+    .type-badge {
+        padding: 0.5em 1em;
+        border-radius: 20px;
+        font-weight: 500;
+        font-size: 12px;
+        display: inline-block;
+    }
+    
+    .type-receive {
+        background-color: rgba(13, 110, 253, 0.2);
+        color: #0d6efd;
+    }
+    
+    .type-sale {
+        background-color: rgba(40, 167, 69, 0.2);
+        color: #28a745;
+    }
+    
+    .type-transfer {
+        background-color: rgba(23, 162, 184, 0.2);
+        color: #17a2b8;
+    }
+    
+    .type-production {
+        background-color: rgba(255, 193, 7, 0.2);
+        color: #ffc107;
+    }
+    
+    /* Стили для таблицы */
+    .data-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .data-table thead th {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        padding: 1rem;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+    }
+    
+    .data-table tbody tr {
+        transition: all 0.2s ease;
+    }
+    
+    .data-table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .data-table td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    /* Стили для кнопок */
+    .action-button {
+        border-radius: 50px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        font-size: 13px;
+    }
+    
+    .action-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Стили для пагинации */
+    .pagination {
+        margin-top: 2rem;
+    }
+    
+    .pagination .page-item .page-link {
+        border-radius: 50%;
+        margin: 0 3px;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #3a4b6d;
+        border: none;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: #3a4b6d;
+        color: white;
+    }
+    
+    .pagination .page-item .page-link:hover {
+        background-color: #e9ecef;
+        transform: scale(1.1);
+    }
+    
+    /* Стили для форм */
+    .form-control {
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        border: 1px solid #ced4da;
+        font-size: 14px;
+    }
+    
+    .form-control:focus {
+        box-shadow: 0 0 0 0.25rem rgba(58, 75, 109, 0.25);
+        border-color: #3a4b6d;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        font-size: 14px;
+    }
+    
+    /* Стили для хедера */
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    
+    .page-header h1 {
+        font-weight: 700;
+        position: relative;
+        display: inline-block;
+        margin-bottom: 1rem;
+    }
+    
+    .page-header h1::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 0;
+        width: 50px;
+        height: 3px;
+        background: linear-gradient(90deg, #3a4b6d, #1cc88a);
+    }
+    
+    .page-description {
+        color: #6c757d;
+        max-width: 600px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1 class="h3 text-gray-800">{{ title|default:"Операции эстокады" }}</h1>
+        <p class="page-description">Список операций, требующих обработки эстокадой. Здесь вы можете ввести фактические данные и завершить операцию.</p>
+    </div>
+    
+    <!-- Фильтры -->
+    <div class="filter-section">
+        <form method="get" class="row g-3">
+            <div class="col-lg-3 col-md-6 mb-3">
+                {% if not movement_type %}
+                <label for="movement_type" class="form-label">Тип операции</label>
+                <select name="movement_type" id="movement_type" class="form-control">
+                    <option value="">Все типы</option>
+                    <option value="receive" {% if request.GET.movement_type == 'receive' %}selected{% endif %}>Приемка</option>
+                    <option value="sale" {% if request.GET.movement_type == 'sale' %}selected{% endif %}>Продажа</option>
+                    <option value="transfer" {% if request.GET.movement_type == 'transfer' %}selected{% endif %}>Перемещение</option>
+                    <option value="production" {% if request.GET.movement_type == 'production' %}selected{% endif %}>Производство</option>
+                </select>
+                {% endif %}
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <label for="status" class="form-label">Статус</label>
+                <select name="status" id="status" class="form-control">
+                    <option value="">Все статусы</option>
+                    <option value="created" {% if request.GET.status == 'created' %}selected{% endif %}>Создан</option>
+                    <option value="in_progress" {% if request.GET.status == 'in_progress' %}selected{% endif %}>В процессе</option>
+                    <option value="completed" {% if request.GET.status == 'completed' %}selected{% endif %}>Завершен</option>
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <label for="date_from" class="form-label">Дата от</label>
+                <input type="date" name="date_from" id="date_from" class="form-control" value="{{ request.GET.date_from }}">
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <label for="date_to" class="form-label">Дата до</label>
+                <input type="date" name="date_to" id="date_to" class="form-control" value="{{ request.GET.date_to }}">
+            </div>
+            <div class="col-12 d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary action-button me-2">
+                    <i class="fas fa-filter me-1"></i> Применить фильтры
+                </button>
+                <a href="{% url 'estokada:movement_list' %}" class="btn btn-outline-secondary action-button">
+                    <i class="fas fa-undo me-1"></i> Сбросить
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Таблица операций -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold">Список операций</h6>
+            <span class="badge bg-primary rounded-pill">Всего: {{ movements|length }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>№ Документа</th>
+                            <th>Тип операции</th>
+                            <th>Продукт</th>
+                            <th>Транспорт</th>
+                            <th>Клиент/Поставщик</th>
+                            <th>Док. вес</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movement in movements %}
+                        <tr>
+                            <td>{{ movement.created_at|date:"d.m.Y" }}</td>
+                            <td>{{ movement.document_number|default:"-" }}</td>
+                            <td>
+                                {% if movement.movement_type == 'receive' %}
+                                    <span class="type-badge type-receive">Приемка</span>
+                                {% elif movement.movement_type == 'sale' %}
+                                    <span class="type-badge type-sale">Продажа</span>
+                                {% elif movement.movement_type == 'transfer' %}
+                                    <span class="type-badge type-transfer">Перемещение</span>
+                                {% elif movement.movement_type == 'production' %}
+                                    <span class="type-badge type-production">Производство</span>
+                                {% else %}
+                                    <span class="type-badge">{{ movement.movement_type }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ movement.product.name|default:"-" }}</td>
+                            <td>{{ movement.transport_type|default:"-" }}</td>
+                            <td>{{ movement.client.title|default:"-" }}</td>
+                            <td>
+                                <strong>{{ movement.document_weight|floatformat:2 }}</strong>
+                            </td>
+                            <td>
+                                {% if movement.status == 'created' %}
+                                    <span class="status-badge status-created">Создан</span>
+                                {% elif movement.status == 'in_progress' %}
+                                    <span class="status-badge status-in-progress">В обработке</span>
+                                {% elif movement.status == 'completed' %}
+                                    <span class="status-badge status-completed">Завершен</span>
+                                {% else %}
+                                    <span class="status-badge">{{ movement.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex">
+                                    <a href="{% url 'estokada:movement_detail' movement.pk %}" class="btn btn-sm btn-outline-primary action-button me-2">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if movement.status != 'completed' %}
+                                    <a href="{% url 'estokada:movement_detail' movement.pk %}" class="btn btn-sm btn-primary action-button">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <div class="py-4">
+                                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                                    <h5 class="mb-1">Ничего не найдено</h5>
+                                    <p class="text-muted mb-3">Попробуйте изменить параметры фильтрации</p>
+                                    <a href="{% url 'estokada:movement_list' %}" class="btn btn-primary action-button">
+                                        <i class="fas fa-redo me-1"></i> Сбросить фильтры
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <div class="p-4">
+                <nav aria-label="Навигация по страницам">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Первая">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Предыдущая">
+                                <span aria-hidden="true">&lsaquo;</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Следующая">
+                                <span aria-hidden="true">&rsaquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Последняя">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Анимация при загрузке таблицы
+        const tableRows = document.querySelectorAll('.data-table tbody tr');
+        tableRows.forEach((row, index) => {
+            setTimeout(() => {
+                row.style.opacity = '1';
+            }, 50 * index);
+        });
+        
+        // Автоматическое обновление выбранных дат в фильтре
+        const dateFrom = document.getElementById('date_from');
+        const dateTo = document.getElementById('date_to');
+        
+        if (!dateFrom.value) {
+            const today = new Date();
+            const lastMonth = new Date();
+            lastMonth.setMonth(today.getMonth() - 1);
+            
+            const formatDate = (date) => {
+                return date.toISOString().split('T')[0];
+            };
+            
+            if (!dateFrom.value) {
+                dateFrom.value = formatDate(lastMonth);
+            }
+            
+            if (!dateTo.value) {
+                dateTo.value = formatDate(today);
+            }
+        }
+    });
+</script>
+{% endblock %} 

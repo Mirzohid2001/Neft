@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Заказы от отдела продаж{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Основные стили карточек */
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 0.15rem 1.2rem rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .card-header {
+        background: linear-gradient(45deg, #ff7043, #ff9800);
+        color: white;
+        border-bottom: none;
+        padding: 1.2rem 1.5rem;
+    }
+    
+    /* Стили статистики */
+    .stats-card {
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, rgba(255, 112, 67, 0.8), rgba(255, 152, 0, 0.7));
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 80%);
+        z-index: 0;
+    }
+    
+    .stats-card .card-body {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .stats-card .text-warning {
+        color: #fff !important;
+    }
+    
+    .stats-card .h5 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #fff;
+    }
+    
+    .stats-icon {
+        height: 70px;
+        width: 70px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+    }
+    
+    /* Стили таблицы */
+    .orders-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+    
+    .orders-table thead th {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        padding: 1rem;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+    }
+    
+    .orders-table tbody tr {
+        transition: all 0.2s ease;
+        border-bottom: 1px solid #f1f1f1;
+    }
+    
+    .orders-table tbody tr:hover {
+        background-color: rgba(255, 152, 0, 0.05);
+        transform: translateY(-3px);
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.05);
+    }
+    
+    .orders-table td, .orders-table th {
+        padding: 1rem;
+        vertical-align: middle;
+    }
+    
+    /* Стили кнопок */
+    .btn-process {
+        border-radius: 30px;
+        padding: 0.5rem 1.2rem;
+        background: linear-gradient(45deg, #ff7043, #ff9800);
+        border: none;
+        color: white;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        font-size: 0.85rem;
+    }
+    
+    .btn-process:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(255, 112, 67, 0.3);
+        background: linear-gradient(45deg, #ff5722, #ff7043);
+    }
+    
+    /* Стили бейджей */
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 30px;
+        font-weight: 500;
+        font-size: 0.75rem;
+        display: inline-block;
+        background-color: rgba(255, 193, 7, 0.2);
+        color: #ff9800;
+    }
+    
+    /* Стили для пустой таблицы */
+    .empty-state {
+        padding: 3rem 0;
+        text-align: center;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        color: #e9ecef;
+        margin-bottom: 1.5rem;
+    }
+    
+    .empty-state h5 {
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .empty-state p {
+        color: #adb5bd;
+        max-width: 400px;
+        margin: 0 auto 1.5rem;
+    }
+    
+    /* Стили для заголовка */
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    
+    .page-header h1 {
+        font-weight: 700;
+        position: relative;
+        display: inline-block;
+        margin-bottom: 1rem;
+    }
+    
+    .page-header h1::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 0;
+        width: 50px;
+        height: 3px;
+        background: linear-gradient(90deg, #ff7043, #ff9800);
+    }
+    
+    .order-number {
+        font-weight: 600;
+        color: #ff7043;
+    }
+    
+    .client-name {
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1 class="h3 text-gray-800">Заказы от отдела продаж</h1>
+        <p class="text-muted">Список заказов, ожидающих обработки эстокадой</p>
+    </div>
+    
+    <!-- Статистика -->
+    <div class="row mb-4">
+        <div class="col-xl-4 col-md-6">
+            <div class="card stats-card h-100">
+                <div class="card-body py-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Ожидает обработки</div>
+                            <div class="h5 mb-0 font-weight-bold">{{ orders|length }}</div>
+                        </div>
+                        <div class="stats-icon">
+                            <i class="fas fa-clipboard-list fa-2x text-white"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Таблица заказов -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-white">Список заказов</h6>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-white text-dark rounded-pill me-2">Всего: {{ orders|length }}</span>
+                <a href="{% url 'estokada:dashboard' %}" class="btn btn-sm btn-light rounded-pill">
+                    <i class="fas fa-arrow-left me-1"></i> Назад
+                </a>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="orders-table" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Дата создания</th>
+                            <th>№ заказа</th>
+                            <th>Клиент</th>
+                            <th>Продукт</th>
+                            <th>Количество</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td>{{ order.created_at|date:"d.m.Y" }}</td>
+                            <td class="order-number">{{ order.order_number }}</td>
+                            <td class="client-name">{{ order.client.name }}</td>
+                            <td>{{ order.product.name }}</td>
+                            <td><strong>{{ order.quantity|floatformat:2 }}</strong></td>
+                            <td>
+                                <span class="status-badge">Ожидает обработки</span>
+                            </td>
+                            <td>
+                                <a href="{% url 'estokada:process_sales_order' order.pk %}" class="btn btn-process">
+                                    <i class="fas fa-truck-loading me-1"></i>Обработать
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7">
+                                <div class="empty-state">
+                                    <i class="fas fa-inbox"></i>
+                                    <h5>Нет заказов для обработки</h5>
+                                    <p>В настоящее время нет заказов, ожидающих обработки эстокадой</p>
+                                    <a href="{% url 'estokada:dashboard' %}" class="btn btn-process">
+                                        <i class="fas fa-home me-1"></i> Вернуться на главную
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Настройка DataTables для лучшего пользовательского опыта
+        $('#dataTable').DataTable({
+            "order": [[0, "desc"]],
+            "language": {
+                "search": "Поиск:",
+                "paginate": {
+                    "previous": "Назад",
+                    "next": "Вперед"
+                },
+                "info": "Показано _START_ до _END_ из _TOTAL_ записей",
+                "infoEmpty": "Показано 0 до 0 из 0 записей",
+                "infoFiltered": "(отфильтровано из _MAX_ записей)",
+                "lengthMenu": "Показать _MENU_ записей",
+                "zeroRecords": "Записи не найдены"
+            },
+            "dom": '<"d-flex justify-content-between align-items-center mb-3"<"d-flex align-items-center"l><"d-flex"f>>tp',
+            "drawCallback": function() {
+                // Анимация строк после отрисовки таблицы
+                let rows = document.querySelectorAll('#dataTable tbody tr');
+                rows.forEach((row, index) => {
+                    row.style.opacity = 0;
+                    setTimeout(() => {
+                        row.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        row.style.opacity = 1;
+                    }, 50 * index);
+                });
+            }
+        });
+    });
+</script>
+{% endblock %} 

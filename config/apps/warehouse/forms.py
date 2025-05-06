@@ -1,6 +1,6 @@
 from django import forms
 from django.utils import timezone
-from .models import Movement, Product, Wagon, Batch, Reservoir, ReservoirMovement,LocalClient, LocalMovement,Placement,Client, WagonType, Warehouse, InventoryAudit, InventoryAuditItem, ProductMinLevel, PurchasePlan, PurchasePlanItem, Supplier, SupplierRating, ProductSupplier, OrderPoint, PurchaseNotification, Transport
+from .models import Movement, Product, Wagon, Batch, Reservoir, ReservoirMovement,LocalClient, LocalMovement,Placement,Client, WagonType, Warehouse, InventoryAudit, InventoryAuditItem, ProductMinLevel, PurchasePlan, PurchasePlanItem, Supplier, SupplierRating, ProductSupplier, OrderPoint, PurchaseNotification, Transport, EstokadaOperation
 import json
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -10,244 +10,81 @@ class MovementForm(forms.ModelForm):
     movement_type = forms.ChoiceField(choices=Movement.MOVEMENT_TYPES, required=True)
     date = forms.DateField(initial=timezone.now, required=True)
     product = forms.ModelChoiceField(queryset=Product.objects.all(), required=True)
-    source_product = forms.ModelChoiceField(queryset=Product.objects.all(), required=False)
     document_number = forms.CharField(max_length=100, required=False)
-    client_type = forms.ChoiceField(
-        choices=[('local', 'Местный'), ('international', 'Международный')],
-        required=False
-    )
-    client = forms.ModelChoiceField(queryset=Client.objects.all(), required=False)
-    source_reservoir = forms.ModelChoiceField(queryset=None, required=False)
-    source_wagon = forms.ModelChoiceField(queryset=None, required=False)
-    target_reservoir = forms.ModelChoiceField(queryset=None, required=False)
-    target_wagon = forms.ModelChoiceField(queryset=None, required=False)
-    source_quantity = forms.FloatField(required=False)
-    target_quantity = forms.FloatField(required=False)
-    material_quantity = forms.FloatField(required=False)
-    expected_quantity = forms.FloatField(required=False)
+    
+    # Общие поля
+    source_warehouse = forms.ModelChoiceField(queryset=Warehouse.objects.all(), required=False)
+    target_warehouse = forms.ModelChoiceField(queryset=Warehouse.objects.all(), required=False)
+    quantity = forms.FloatField(required=True)
     note = forms.CharField(widget=forms.Textarea, required=False)
-    transports_json = forms.CharField(widget=forms.HiddenInput, required=False)
 
     class Meta:
         model = Movement
         fields = [
-            'movement_type', 'date', 'product', 'source_product', 'document_number', 'client_type', 'client',
-            'source_reservoir', 'source_wagon', 'target_reservoir', 'target_wagon',
-            'expected_quantity', 'note'
+            'movement_type', 'date', 'product', 'document_number',
+            'source_warehouse', 'target_warehouse', 'quantity', 'note', 'status'
         ]
 
     def __init__(self, *args, **kwargs):
+        # Сохраняем параметр user для использования при сохранении
         self.user = kwargs.pop('user', None)
-        self.department = kwargs.pop('department', None)
         super().__init__(*args, **kwargs)
         
-        # Получаем все резервуары и вагоны для использования в шаблоне
-        self.reservoirs = Reservoir.objects.all()
-        self.wagons = Wagon.objects.all()
-        self.wagon_types = WagonType.objects.all()
-        
-        # Установим источники данных для полей выбора
-        self.fields['source_reservoir'].queryset = self.reservoirs
-        self.fields['target_reservoir'].queryset = self.reservoirs
-        self.fields['source_wagon'].queryset = self.wagons
-        self.fields['target_wagon'].queryset = self.wagons
-        
-        # Скрываем поля в зависимости от роли пользователя
-        if self.user and self.department == 'sales':
-            # Для отдела продаж фокусируемся на транспортных операциях
-            # Устанавливаем только клиентов, которые относятся к отделу продаж
-            try:
-                self.fields['client'].queryset = Client.objects.filter(
-                    Q(client_type='local') | Q(client_type='international')
-                )
-            except:
-                # Оставляем всех клиентов, если поля client_type нет
-                pass
-        elif self.user and self.department == 'factory':
-            # Для производства скрываем поля, связанные с клиентами и вагонами
-            pass
-        
-        # Если это существующая операция (редактирование)
+        # Инициализируем поля со значениями по умолчанию
         if self.instance and self.instance.pk:
-            # Заполняем JSON с транспортными средствами из существующих данных
-            transports_data = []
-            for transport in Transport.objects.filter(movement=self.instance):
-                transport_data = {
-                    'transport_number': transport.transport_number,
-                    'mass': transport.quantity,
-                    'doc_mass': transport.doc_ton * 1000 if transport.doc_ton else 0,
-                    'diff': (transport.quantity - (transport.doc_ton * 1000)) if transport.doc_ton else transport.quantity
-                }
-                transports_data.append(transport_data)
-            
-            if transports_data:
-                self.fields['transports_json'].initial = json.dumps(transports_data)
-            
-            # Установим тип клиента на основе существующего клиента
-            client = self.instance.client
-            if client:
-                # Логика определения типа клиента (местный/международный)
-                try:
-                    client_type = getattr(client, 'client_type', None)
-                    if client_type:
-                        self.fields['client_type'].initial = client_type
-                except:
-                    pass
-                
-            # Установим поля для источника/назначения
-            if self.instance.source_reservoir:
-                self.fields['source_reservoir'].initial = self.instance.source_reservoir.id
-            if self.instance.source_wagon:
-                self.fields['source_wagon'].initial = self.instance.source_wagon.id
-            if self.instance.target_reservoir:
-                self.fields['target_reservoir'].initial = self.instance.target_reservoir.id
-            if self.instance.target_wagon:
-                self.fields['target_wagon'].initial = self.instance.target_wagon.id
+            if self.instance.source_warehouse:
+                self.fields['source_warehouse'].initial = self.instance.source_warehouse.id
+            if self.instance.target_warehouse:
+                self.fields['target_warehouse'].initial = self.instance.target_warehouse.id
 
     def clean(self):
         cleaned_data = super().clean()
         movement_type = cleaned_data.get('movement_type')
         product = cleaned_data.get('product')
-        transports_json = cleaned_data.get('transports_json', '[]')
+        quantity = cleaned_data.get('quantity')
         
         if not movement_type:
             self.add_error('movement_type', 'Тип операции обязателен')
             
         if not product:
             self.add_error('product', 'Продукт обязателен')
-        
-        # Проверка клиента для приемки и продажи
-        if movement_type in ['in', 'out']:
-            client_type = cleaned_data.get('client_type')
-            client = cleaned_data.get('client')
             
-            if not client_type:
-                self.add_error('client_type', 'Тип клиента обязателен для приемки/продажи')
-                
-            if not client:
-                self.add_error('client', 'Клиент обязателен для приемки/продажи')
+        if not quantity or quantity <= 0:
+            self.add_error('quantity', 'Количество должно быть положительным числом')
         
-        # Проверка транспортных данных для приемки и продажи
-        if movement_type in ['in', 'out']:
-            try:
-                transports_data = json.loads(transports_json)
-                
-                if not transports_data:
-                    self.add_error(None, 'Необходимо добавить хотя бы один транспорт')
-                    
-                for i, transport_data in enumerate(transports_data):
-                    transport_type = transport_data.get('transport_type')
-                    transport_number = transport_data.get('transport_number')
-                    mass = transport_data.get('mass')
-                    doc_mass = transport_data.get('doc_mass')
-                    
-                    if not transport_type:
-                        self.add_error(None, f'Транспорт #{i+1}: Тип транспорта обязателен')
-                        
-                    if not transport_number:
-                        self.add_error(None, f'Транспорт #{i+1}: Номер транспорта обязателен')
-                        
-                    if not mass or float(mass) <= 0:
-                        self.add_error(None, f'Транспорт #{i+1}: Фактический вес должен быть больше 0')
-                        
-                    if not doc_mass or float(doc_mass) <= 0:
-                        self.add_error(None, f'Транспорт #{i+1}: Вес по документу должен быть больше 0')
-                    
-                    # Проверка для вагонов
-                    if transport_type == 'wagon':
-                        wagon_type = transport_data.get('wagon_type')
-                        if not wagon_type:
-                            self.add_error(None, f'Транспорт #{i+1}: Тип вагона обязателен для вагонов')
+        # Проверяем наличие необходимых полей в зависимости от типа операции
+        if movement_type == 'in' and not cleaned_data.get('target_warehouse'):
+            self.add_error('target_warehouse', 'Для приемки необходимо указать целевой склад')
             
-            except json.JSONDecodeError:
-                self.add_error(None, 'Ошибка в данных о транспорте. Неверный JSON-формат.')
-        
-        # Проверка для производства
-        if movement_type == 'production':
-            source_product = cleaned_data.get('source_product')
-            material_quantity = cleaned_data.get('material_quantity')
-            source_quantity = cleaned_data.get('source_quantity')
-            source_reservoir = cleaned_data.get('source_reservoir')
-            target_reservoir = cleaned_data.get('target_reservoir')
+        if movement_type == 'out' and not cleaned_data.get('source_warehouse'):
+            self.add_error('source_warehouse', 'Для продажи необходимо указать исходный склад')
             
-            if not source_product:
-                self.add_error('source_product', 'Продукт источника обязателен для производства')
-                
-            if not material_quantity or material_quantity <= 0:
-                self.add_error('material_quantity', 'Вес продукта должен быть больше 0')
-                
-            if not source_quantity or source_quantity <= 0:
-                self.add_error('source_quantity', 'Вес источника должен быть больше 0')
-                
-            if not source_reservoir:
-                self.add_error('source_reservoir', 'Источник обязателен для производства')
-                
-            if not target_reservoir:
-                self.add_error('target_reservoir', 'Назначение обязательно для производства')
-        
-        # Проверка для перемещения
         if movement_type == 'transfer':
-            source_quantity = cleaned_data.get('source_quantity')
-            target_quantity = cleaned_data.get('target_quantity')
-            
-            # Должен быть указан или source_reservoir или source_wagon
-            source_reservoir = cleaned_data.get('source_reservoir')
-            source_wagon = cleaned_data.get('source_wagon')
-            
-            # Должен быть указан или target_reservoir или target_wagon
-            target_reservoir = cleaned_data.get('target_reservoir')
-            target_wagon = cleaned_data.get('target_wagon')
-            
-            if not (source_reservoir or source_wagon):
-                self.add_error(None, 'Для перемещения нужно указать источник (резервуар или вагон)')
+            if not cleaned_data.get('source_warehouse'):
+                self.add_error('source_warehouse', 'Для перемещения необходимо указать исходный склад')
+            if not cleaned_data.get('target_warehouse'):
+                self.add_error('target_warehouse', 'Для перемещения необходимо указать целевой склад')
                 
-            if not (target_reservoir or target_wagon):
-                self.add_error(None, 'Для перемещения нужно указать назначение (резервуар или вагон)')
-                
-            if not source_quantity or source_quantity <= 0:
-                self.add_error('source_quantity', 'Количество источника должно быть больше 0')
-                
-            if not target_quantity or target_quantity <= 0:
-                self.add_error('target_quantity', 'Количество назначения должно быть больше 0')
+        # Проверяем наличие продукта, если это расход или перемещение
+        if movement_type in ['out', 'transfer'] and product:
+            available = product.net_quantity()
+            if quantity > available:
+                self.add_error('quantity', f'Недостаточно продукта на складе. Доступно: {available}')
         
         return cleaned_data
 
     def save(self, commit=True):
         instance = super().save(commit=False)
         
-        movement_type = self.cleaned_data.get('movement_type')
-        transports_json = self.cleaned_data.get('transports_json', '[]')
-        expected_quantity = self.cleaned_data.get('expected_quantity') or 0
-        
-        # Сохраняем информацию о транспортных средствах
-        instance.transports_json = transports_json
-        
-        # Устанавливаем количество в тоннах (все поля ввода в кг, но храним в тоннах)
-        if movement_type == 'in' or movement_type == 'out':
-            # Для приёмки и продажи берем значение из total-mass в кг и конвертируем в тонны
-            instance.quantity = expected_quantity  # уже в тоннах
-        elif movement_type == 'transfer':
-            # Для перемещения берем значение из source_quantity в кг и конвертируем в тонны
-            source_quantity = self.cleaned_data.get('source_quantity') or 0
-            instance.quantity = source_quantity / 1000  # конвертируем из кг в тонны
-        elif movement_type == 'production':
-            # Для производства берем значение из material_quantity в кг и конвертируем в тонны
-            material_quantity = self.cleaned_data.get('material_quantity') or 0
-            source_quantity = self.cleaned_data.get('source_quantity') or 0
-            instance.quantity = material_quantity / 1000  # конвертируем из кг в тонны
-            instance.source_quantity = source_quantity / 1000  # источник в тоннах
-            instance.source_product = self.cleaned_data.get('source_product')
-        
-        # Сохраняем источник и назначение
-        instance.source_reservoir = self.cleaned_data.get('source_reservoir')
-        instance.source_wagon = self.cleaned_data.get('source_wagon')
-        instance.target_reservoir = self.cleaned_data.get('target_reservoir')
-        instance.target_wagon = self.cleaned_data.get('target_wagon')
+        # Устанавливаем пользователя, создавшего запись
+        if self.user:
+            instance.created_by = self.user
         
         if commit:
             instance.save()
         
         return instance
+
 
 class ProductForm(forms.ModelForm):
     class Meta:
@@ -688,3 +525,121 @@ class PurchaseNotificationForm(forms.ModelForm):
             'status': forms.Select(attrs={'class': 'form-select'}),
             'note': forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
         }
+
+class EstokadaOperationForm(forms.ModelForm):
+    class Meta:
+        model = EstokadaOperation
+        fields = [
+            'actual_quantity', 
+            'actual_density', 
+            'actual_temperature', 
+            'status', 
+            'notes'
+        ]
+        widgets = {
+            'actual_quantity': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.001',
+                'min': '0'
+            }),
+            'actual_density': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.001',
+                'min': '0'
+            }),
+            'actual_temperature': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.1'
+            }),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-control', 
+                'rows': 3,
+                'placeholder': 'Введите примечания к операции'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ограничиваем выбор статусов в зависимости от текущего статуса
+        instance = kwargs.get('instance')
+        if instance:
+            if instance.status == 'pending':
+                self.fields['status'].choices = [
+                    ('pending', 'Ожидает обработки'),
+                    ('measuring', 'Измерение')
+                ]
+            elif instance.status == 'measuring':
+                self.fields['status'].choices = [
+                    ('measuring', 'Измерение'),
+                    ('processing', 'Обработка данных')
+                ]
+            elif instance.status == 'processing':
+                self.fields['status'].choices = [
+                    ('processing', 'Обработка данных'),
+                    ('completed', 'Завершен'),
+                    ('cancelled', 'Отменен')
+                ]
+            elif instance.status in ['completed', 'cancelled']:
+                self.fields['status'].widget.attrs['disabled'] = 'disabled'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        actual_quantity = cleaned_data.get('actual_quantity')
+        actual_density = cleaned_data.get('actual_density')
+        actual_temperature = cleaned_data.get('actual_temperature')
+        status = cleaned_data.get('status')
+
+        if actual_quantity is not None and actual_quantity < 0:
+            self.add_error('actual_quantity', 'Фактическое количество не может быть отрицательным')
+
+        if actual_density is not None and actual_density <= 0:
+            self.add_error('actual_density', 'Плотность должна быть положительным числом')
+
+        if actual_temperature is not None:
+            if actual_temperature < -50 or actual_temperature > 100:
+                self.add_error('actual_temperature', 'Температура должна быть в диапазоне от -50 до 100 градусов')
+
+        # Проверка заполнения обязательных полей при смене статуса
+        if status in ['processing', 'completed']:
+            if not actual_quantity:
+                self.add_error('actual_quantity', 'Необходимо указать фактическое количество')
+            if not actual_density:
+                self.add_error('actual_density', 'Необходимо указать плотность')
+            if actual_temperature is None:
+                self.add_error('actual_temperature', 'Необходимо указать температуру')
+
+        return cleaned_data
+
+class TransportForm(forms.ModelForm):
+    class Meta:
+        model = Transport
+        fields = ['transport_type', 'transport_number', 'wagon', 'wagon_type',
+                 'density', 'temperature', 'volume', 'quantity', 'doc_quantity',
+                 'warehouse', 'notes']
+        widgets = {
+            'transport_type': forms.Select(attrs={'class': 'form-select'}),
+            'transport_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'wagon': forms.Select(attrs={'class': 'form-select'}),
+            'wagon_type': forms.Select(attrs={'class': 'form-select'}),
+            'density': forms.NumberInput(attrs={'class': 'form-control'}),
+            'temperature': forms.NumberInput(attrs={'class': 'form-control'}),
+            'volume': forms.NumberInput(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'doc_quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'warehouse': forms.Select(attrs={'class': 'form-select'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['wagon'].required = False
+        self.fields['wagon_type'].required = False
+        
+        # Динамически обновляем поля в зависимости от типа транспорта
+        if self.instance.transport_type == 'truck':
+            del self.fields['wagon']
+            del self.fields['wagon_type']
+        elif self.instance.transport_type == 'wagon':
+            self.fields['wagon'].required = True
+            self.fields['wagon_type'].required = True

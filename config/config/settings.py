@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     'apps.quality_control',
     'apps.analytics',
     'apps.dashboard',
+    'apps.estokada',
+    'apps.sales',
     'django_filters',
 ]
 

@@ -1,0 +1,377 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Операция #{{ operation.id }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Главная</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sales:operation_list' %}">Операции</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Операция #{{ operation.id }}</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            {% if operation.movement_type == 'in' %}
+                Операция приемки
+            {% elif operation.movement_type == 'out' %}
+                Операция продажи
+            {% elif operation.movement_type == 'transfer' %}
+                Операция перемещения
+            {% elif operation.movement_type == 'production' %}
+                Операция производства
+            {% else %}
+                Операция #{{ operation.id }}
+            {% endif %}
+        </h1>
+        <div>
+            {% if not operation.estokada_processed %}
+                <a href="{% url 'sales:estokada_process' pk=operation.id %}" class="btn btn-warning btn-sm shadow-sm">
+                    <i class="fas fa-truck-loading fa-sm text-white-50"></i> Обработать эстокадой
+                </a>
+                <a href="{% url 'sales:operation_update' pk=operation.id %}" class="btn btn-primary btn-sm shadow-sm">
+                    <i class="fas fa-edit fa-sm text-white-50"></i> Редактировать
+                </a>
+                <a href="{% url 'sales:operation_delete' pk=operation.id %}" class="btn btn-danger btn-sm shadow-sm">
+                    <i class="fas fa-trash fa-sm text-white-50"></i> Удалить
+                </a>
+            {% endif %}
+            <a href="{% url 'sales:operation_list' %}" class="btn btn-secondary btn-sm shadow-sm">
+                <i class="fas fa-arrow-left fa-sm text-white-50"></i> К списку
+            </a>
+        </div>
+    </div>
+
+    <!-- Статус операции -->
+    <div class="row mb-4">
+        <div class="col-xl-12 col-md-12">
+            <div class="card border-left-{% if operation.estokada_processed %}success{% else %}warning{% endif %} shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-{% if operation.estokada_processed %}success{% else %}warning{% endif %} text-uppercase mb-1">
+                                Статус операции
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% if operation.estokada_processed %}
+                                    Обработано эстокадой
+                                {% else %}
+                                    Ожидает обработки эстокадой
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas {% if operation.estokada_processed %}fa-check-circle{% else %}fa-clock{% endif %} fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Основная информация -->
+        <div class="col-xl-6 col-md-12 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Основная информация</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">ID операции:</div>
+                        <div class="col-md-8">{{ operation.id }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Тип операции:</div>
+                        <div class="col-md-8">
+                            {% if operation.movement_type == 'in' %}
+                                <span class="badge badge-success">Приемка</span>
+                            {% elif operation.movement_type == 'out' %}
+                                <span class="badge badge-danger">Продажа</span>
+                            {% elif operation.movement_type == 'transfer' %}
+                                <span class="badge badge-info">Перемещение</span>
+                            {% elif operation.movement_type == 'production' %}
+                                <span class="badge badge-warning">Производство</span>
+                            {% else %}
+                                <span class="badge badge-secondary">{{ operation.movement_type }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Дата:</div>
+                        <div class="col-md-8">{{ operation.date|date:"d.m.Y" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Номер документа:</div>
+                        <div class="col-md-8">{{ operation.document_number|default:"-" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Продукт:</div>
+                        <div class="col-md-8">{{ operation.product.title }}</div>
+                    </div>
+                    {% if operation.client %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Клиент/Поставщик:</div>
+                        <div class="col-md-8">{{ operation.client.title }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if operation.movement_type == 'out' and operation.sales_details %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Номер счета:</div>
+                        <div class="col-md-8">{{ operation.sales_details.invoice_number|default:"-" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Номер контракта:</div>
+                        <div class="col-md-8">{{ operation.sales_details.contract_number|default:"-" }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+                
+            <!-- Детали продукта и весов -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Детали веса</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Плановый вес:</div>
+                        <div class="col-md-8">{{ operation.quantity }} тонн</div>
+                    </div>
+                    {% if operation.estokada_processed %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Фактический вес:</div>
+                        <div class="col-md-8">{{ operation.actual_weight }} тонн</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Разница:</div>
+                        <div class="col-md-8">
+                            <span class="{% if operation.difference < 0 %}text-danger{% elif operation.difference > 0 %}text-success{% endif %}">
+                                {{ operation.difference }} тонн ({{ operation.difference_percent|floatformat:2 }}%)
+                            </span>
+                        </div>
+                    </div>
+                    {% if operation.density %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Плотность:</div>
+                        <div class="col-md-8">{{ operation.density }} кг/м³</div>
+                    </div>
+                    {% endif %}
+                    {% if operation.temperature %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Температура:</div>
+                        <div class="col-md-8">{{ operation.temperature }}°C</div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    
+                    {% if operation.movement_type == 'out' and operation.sales_details.price_per_unit %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Цена за единицу:</div>
+                        <div class="col-md-8">{{ operation.sales_details.price_per_unit }} {{ operation.sales_details.currency }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Общая сумма:</div>
+                        <div class="col-md-8">{{ operation.sales_details.total_price }} {{ operation.sales_details.currency }}</div>
+                    </div>
+                    {% if operation.estokada_processed %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Расчетная прибыль:</div>
+                        <div class="col-md-8">
+                            <span class="{% if operation.sales_details.estimated_profit < 0 %}text-danger{% elif operation.sales_details.estimated_profit > 0 %}text-success{% endif %}">
+                                {{ operation.sales_details.estimated_profit }} {{ operation.sales_details.currency }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Информация о транспорте и локациях -->
+        <div class="col-xl-6 col-md-12 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Информация о транспорте</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Тип транспорта:</div>
+                        <div class="col-md-8">
+                            {% if operation.transport_type == 'auto' %}
+                                Автомобильный
+                            {% elif operation.transport_type == 'rail' %}
+                                Железнодорожный
+                            {% elif operation.transport_type == 'sea' %}
+                                Морской
+                            {% elif operation.transport_type == 'pipeline' %}
+                                Трубопроводный
+                            {% else %}
+                                {{ operation.transport_type|default:"-" }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Номер транспорта:</div>
+                        <div class="col-md-8">{{ operation.transport_number|default:"-" }}</div>
+                    </div>
+                    {% if operation.transport_type == 'rail' and operation.wagon_type %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Тип вагона:</div>
+                        <div class="col-md-8">{{ operation.get_wagon_type_display|default:"-" }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        {% if operation.movement_type == 'in' %}
+                            Информация о назначении
+                        {% elif operation.movement_type == 'out' %}
+                            Информация об источнике
+                        {% elif operation.movement_type == 'transfer' or operation.movement_type == 'production' %}
+                            Информация об источнике и назначении
+                        {% endif %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if operation.movement_type == 'out' or operation.movement_type == 'transfer' or operation.movement_type == 'production' %}
+                    <h6 class="font-weight-bold mb-3">Источник:</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Резервуар:</div>
+                        <div class="col-md-8">{{ operation.source_reservoir.name|default:"-" }}</div>
+                    </div>
+                    {% if operation.source_wagon %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Вагон:</div>
+                        <div class="col-md-8">{{ operation.source_wagon }}</div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    
+                    {% if operation.movement_type == 'in' or operation.movement_type == 'transfer' or operation.movement_type == 'production' %}
+                    <h6 class="font-weight-bold mb-3 {% if operation.movement_type == 'out' or operation.movement_type == 'transfer' or operation.movement_type == 'production' %}mt-4{% endif %}">Назначение:</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Резервуар:</div>
+                        <div class="col-md-8">{{ operation.target_reservoir.name|default:"-" }}</div>
+                    </div>
+                    {% if operation.target_wagon %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Вагон:</div>
+                        <div class="col-md-8">{{ operation.target_wagon }}</div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if operation.estokada_processed %}
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Комментарии эстокады</h6>
+                </div>
+                <div class="card-body">
+                    {% if operation.estokada_notes %}
+                        {{ operation.estokada_notes|linebreaks }}
+                    {% else %}
+                        <p class="text-muted">Комментарии отсутствуют</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    {% if operation.movement_type == 'production' %}
+    <!-- Дополнительная информация для производства -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Информация о производстве</h6>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3 font-weight-bold">Произведенный продукт:</div>
+                <div class="col-md-9">{{ operation.produced_product.title }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3 font-weight-bold">Ожидаемый выход:</div>
+                <div class="col-md-9">{{ operation.expected_weight }} тонн</div>
+            </div>
+            
+            {% if operation.raw_materials.exists %}
+            <div class="mt-4">
+                <h6 class="font-weight-bold">Использованные материалы:</h6>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Продукт</th>
+                            <th>Количество (т)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for material in operation.raw_materials.all %}
+                        <tr>
+                            <td>{{ material.product.title }}</td>
+                            <td>{{ material.quantity }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- История операции -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">История операции</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Дата/время</th>
+                            <th>Событие</th>
+                            <th>Пользователь</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{ operation.created_at }}</td>
+                            <td>Операция создана</td>
+                            <td>{{ operation.created_by.get_full_name|default:operation.created_by.username|default:"Система" }}</td>
+                        </tr>
+                        {% if operation.updated_at and operation.updated_at != operation.created_at %}
+                        <tr>
+                            <td>{{ operation.updated_at }}</td>
+                            <td>Операция обновлена</td>
+                            <td>{{ operation.updated_by.get_full_name|default:operation.updated_by.username|default:"Система" }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if operation.estokada_processed %}
+                        <tr>
+                            <td>{{ operation.estokada_processed_at }}</td>
+                            <td>Операция обработана эстокадой</td>
+                            <td>{{ operation.estokada_user.get_full_name|default:operation.estokada_user.username|default:"Система" }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

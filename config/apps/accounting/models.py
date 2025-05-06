@@ -333,7 +333,7 @@ class Payment(models.Model):
     payment_method = models.CharField(max_length=10, choices=PAYMENT_METHODS, verbose_name='Способ оплаты')
     reference = models.CharField(max_length=100, blank=True, null=True, verbose_name='Номер платежа')
     notes = models.TextField(blank=True, null=True, verbose_name='Примечания')
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_payments', verbose_name='Создано')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='accounting_created_payments', verbose_name='Создано')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     
     class Meta:

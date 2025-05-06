@@ -1,0 +1,638 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Производство товара{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #6366f1;
+        --primary-dark: #4338ca;
+        --secondary: #10b981;
+        --secondary-dark: #059669;
+        --info: #06b6d4;
+        --info-dark: #0e7490;
+        --warning: #f59e0b;
+        --warning-dark: #d97706;
+        --danger: #ef4444;
+        --danger-dark: #dc2626;
+        --dark: #1e293b;
+        --light: #f8fafc;
+    }
+
+    .production-form {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .form-section {
+        margin-bottom: 20px;
+        border-radius: 10px;
+        padding: 15px;
+        background-color: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .form-section h3 {
+        margin-bottom: 15px;
+        color: var(--dark);
+        font-weight: 600;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 8px 12px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        border-color: var(--primary);
+    }
+
+    .btn-production {
+        background: linear-gradient(to right, var(--primary-dark), var(--primary));
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-production:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Анимации */
+    .fade-in {
+        animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Стрелка процесса производства */
+    .production-arrow {
+        position: relative;
+        height: 2px;
+        background-color: var(--primary);
+        margin: 40px 20px;
+    }
+    
+    .production-arrow:before {
+        content: "";
+        position: absolute;
+        right: -10px;
+        top: -9px;
+        border-top: 10px solid transparent;
+        border-bottom: 10px solid transparent;
+        border-left: 15px solid var(--primary);
+    }
+    
+    .ingredient-item {
+        background-color: rgba(255, 255, 255, 0.5);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+    }
+    
+    .ingredient-item:hover {
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    }
+    
+    .badge-custom {
+        background-color: var(--primary);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 animate__animated animate__fadeIn">
+    <h1 class="mb-4 text-center text-gradient">Производство товара</h1>
+    
+    <div class="production-form">
+        <form method="post" id="productionForm">
+            {% csrf_token %}
+            
+            <!-- Основная информация -->
+            <div class="form-section">
+                <h3><i class="bi bi-info-circle"></i> Основная информация</h3>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="id_transaction_type">Тип транзакции:</label>
+                        <input type="text" id="id_transaction_type" class="form-control" value="Производство" readonly>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.document_number.id_for_label }}">Номер документа:</label>
+                        {{ form.document_number }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.date.id_for_label }}">Дата:</label>
+                        {{ form.date }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Ингредиенты для производства -->
+            <div class="form-section">
+                <h3><i class="bi bi-boxes"></i> Ингредиенты</h3>
+                <p class="text-muted mb-3">Выберите продукты, которые будут использованы для производства</p>
+                
+                <div id="ingredients-container">
+                    <!-- Template для ингредиента -->
+                    <div class="ingredient-item d-none" id="ingredient-template">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="badge-custom ingredient-number">Ингредиент #1</span>
+                            <button type="button" class="btn-close remove-ingredient"></button>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label>Продукт:</label>
+                                <select name="ingredient_product[]" class="form-control ingredient-product">
+                                    <option value="">Выберите продукт</option>
+                                    {% for product in products %}
+                                    <option value="{{ product.id }}" data-inventory="{{ product.inventory.quantity }}">
+                                        {{ product.name }} ({{ product.inventory.quantity }} тонн)
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="mt-2">
+                                    <p>Доступное количество: <span class="available-quantity">0</span> тонн</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label>Количество (тонн):</label>
+                                <input type="number" name="ingredient_quantity[]" class="form-control ingredient-quantity" step="0.01" value="0">
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label>Источник:</label>
+                                <select name="ingredient_source_type[]" class="form-control ingredient-source-type">
+                                    <option value="reservoir">Резервуар</option>
+                                    <option value="wagon">Вагон</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 reservoir-selection">
+                                <label>Выберите резервуар:</label>
+                                <select name="ingredient_reservoir[]" class="form-control ingredient-reservoir">
+                                    <option value="">Выберите резервуар</option>
+                                    {% for reservoir in reservoirs %}
+                                    <option value="{{ reservoir.id }}" data-product="{{ reservoir.product_id }}" data-quantity="{{ reservoir.current_quantity }}">
+                                        {{ reservoir.name }} ({{ reservoir.current_quantity }}/{{ reservoir.capacity }} тонн)
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="mt-2">
+                                    <p>Доступное количество: <span class="available-reservoir-quantity">0</span> тонн</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6 wagon-selection" style="display:none;">
+                                <label>Выберите вагон:</label>
+                                <select name="ingredient_wagon[]" class="form-control ingredient-wagon">
+                                    <option value="">Выберите вагон</option>
+                                    {% for wagon in wagons %}
+                                    <option value="{{ wagon.id }}" data-product="{{ wagon.product_id }}" data-quantity="{{ wagon.current_quantity }}">
+                                        {{ wagon.wagon_number }} ({{ wagon.current_quantity }}/{{ wagon.capacity }} тонн)
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="mt-2">
+                                    <p>Доступное количество: <span class="available-wagon-quantity">0</span> тонн</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-center mt-3">
+                    <button type="button" id="add-ingredient" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle"></i> Добавить ингредиент
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Визуализация процесса производства -->
+            <div class="d-flex justify-content-center align-items-center">
+                <div class="text-center">
+                    <i class="bi bi-boxes fs-1 text-warning"></i>
+                    <p>Ингредиенты</p>
+                </div>
+                <div class="production-arrow"></div>
+                <div class="text-center">
+                    <i class="bi bi-box-seam fs-1 text-primary"></i>
+                    <p>Готовый продукт</p>
+                </div>
+            </div>
+            
+            <!-- Информация о произведенном продукте -->
+            <div class="form-section">
+                <h3><i class="bi bi-box-seam"></i> Готовый продукт</h3>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="{{ form.product.id_for_label }}">Продукт:</label>
+                        {{ form.product }}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.quantity.id_for_label }}">Количество (тонн):</label>
+                        <input type="number" name="quantity" id="id_quantity" class="form-control" step="0.01" required>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label>Поместить в:</label>
+                        <select name="placement_type" id="placement_type" class="form-control">
+                            <option value="reservoir">Резервуар</option>
+                            <option value="wagon">Вагон</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6" id="placement-reservoir">
+                        <label for="placement_reservoir_id">Выберите резервуар:</label>
+                        <select name="placement_reservoir_id" id="placement_reservoir_id" class="form-control">
+                            <option value="">Выберите резервуар</option>
+                            {% for reservoir in reservoirs %}
+                            <option value="{{ reservoir.id }}" data-capacity="{{ reservoir.capacity }}" data-current="{{ reservoir.current_quantity }}">
+                                {{ reservoir.name }} ({{ reservoir.current_quantity }}/{{ reservoir.capacity }} тонн)
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="mt-2">
+                            <p>Доступное пространство: <span id="available-space-reservoir">0</span> тонн</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6" id="placement-wagon" style="display:none;">
+                        <label for="placement_wagon_id">Выберите вагон:</label>
+                        <select name="placement_wagon_id" id="placement_wagon_id" class="form-control">
+                            <option value="">Выберите вагон</option>
+                            {% for wagon in wagons %}
+                            <option value="{{ wagon.id }}" data-capacity="{{ wagon.capacity }}" data-current="{{ wagon.current_quantity }}">
+                                {{ wagon.wagon_number }} ({{ wagon.current_quantity }}/{{ wagon.capacity }} тонн)
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="mt-2">
+                            <p>Доступное пространство: <span id="available-space-wagon">0</span> тонн</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Дополнительная информация -->
+            <div class="form-section">
+                <h3><i class="bi bi-card-text"></i> Дополнительная информация</h3>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.note.id_for_label }}">Комментарий:</label>
+                        {{ form.note }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Кнопки действий -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{% url 'warehouse:movement_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад
+                </a>
+                <button type="submit" class="btn btn-production">
+                    <i class="bi bi-check-circle"></i> Произвести
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // References to important elements
+    const ingredientTemplate = document.getElementById('ingredient-template');
+    const ingredientsContainer = document.getElementById('ingredients-container');
+    const addIngredientBtn = document.getElementById('add-ingredient');
+    const placementType = document.getElementById('placement_type');
+    const placementReservoir = document.getElementById('placement-reservoir');
+    const placementWagon = document.getElementById('placement-wagon');
+    const placementReservoirId = document.getElementById('placement_reservoir_id');
+    const placementWagonId = document.getElementById('placement_wagon_id');
+    const availableSpaceReservoir = document.getElementById('available-space-reservoir');
+    const availableSpaceWagon = document.getElementById('available-space-wagon');
+    const quantityInput = document.getElementById('id_quantity');
+    
+    // Show correct placement selection based on dropdown
+    placementType.addEventListener('change', function() {
+        if (this.value === 'reservoir') {
+            placementReservoir.style.display = 'block';
+            placementWagon.style.display = 'none';
+        } else if (this.value === 'wagon') {
+            placementReservoir.style.display = 'none';
+            placementWagon.style.display = 'block';
+        }
+        validatePlacement();
+    });
+    
+    // Update placement space display
+    placementReservoirId.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const capacity = parseFloat(selectedOption.getAttribute('data-capacity') || '0');
+        const current = parseFloat(selectedOption.getAttribute('data-current') || '0');
+        const space = capacity - current;
+        availableSpaceReservoir.textContent = space.toFixed(2);
+        validatePlacement();
+    });
+    
+    placementWagonId.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const capacity = parseFloat(selectedOption.getAttribute('data-capacity') || '0');
+        const current = parseFloat(selectedOption.getAttribute('data-current') || '0');
+        const space = capacity - current;
+        availableSpaceWagon.textContent = space.toFixed(2);
+        validatePlacement();
+    });
+    
+    // Validate placement on quantity change
+    quantityInput.addEventListener('input', validatePlacement);
+    
+    function validatePlacement() {
+        const quantity = parseFloat(quantityInput.value) || 0;
+        
+        let availableSpace = 0;
+        if (placementType.value === 'reservoir' && placementReservoirId.value) {
+            availableSpace = parseFloat(availableSpaceReservoir.textContent);
+        } else if (placementType.value === 'wagon' && placementWagonId.value) {
+            availableSpace = parseFloat(availableSpaceWagon.textContent);
+        }
+        
+        // Проверяем, не превышает ли количество доступное пространство
+        if (quantity > availableSpace) {
+            quantityInput.setCustomValidity(`Количество превышает доступное пространство (${availableSpace.toFixed(2)} тонн)`);
+        } else {
+            quantityInput.setCustomValidity('');
+        }
+    }
+    
+    // Function to add a new ingredient
+    function addIngredient() {
+        // Clone the template
+        const newIngredient = ingredientTemplate.cloneNode(true);
+        newIngredient.classList.remove('d-none');
+        newIngredient.id = 'ingredient-' + Date.now();
+        
+        // Update ingredient number
+        const ingredientCount = document.querySelectorAll('.ingredient-item:not(.d-none)').length + 1;
+        newIngredient.querySelector('.ingredient-number').textContent = `Ингредиент #${ingredientCount}`;
+        
+        // Add event listeners to the new ingredient
+        const removeBtn = newIngredient.querySelector('.remove-ingredient');
+        removeBtn.addEventListener('click', function() {
+            newIngredient.remove();
+            updateIngredientNumbers();
+        });
+        
+        const sourceTypeSelect = newIngredient.querySelector('.ingredient-source-type');
+        const reservoirSelection = newIngredient.querySelector('.reservoir-selection');
+        const wagonSelection = newIngredient.querySelector('.wagon-selection');
+        
+        sourceTypeSelect.addEventListener('change', function() {
+            if (this.value === 'reservoir') {
+                reservoirSelection.style.display = 'block';
+                wagonSelection.style.display = 'none';
+            } else if (this.value === 'wagon') {
+                reservoirSelection.style.display = 'none';
+                wagonSelection.style.display = 'block';
+            }
+        });
+        
+        const productSelect = newIngredient.querySelector('.ingredient-product');
+        const availableQuantity = newIngredient.querySelector('.available-quantity');
+        
+        productSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const inventory = selectedOption.getAttribute('data-inventory') || '0';
+            availableQuantity.textContent = inventory;
+            validateIngredient(newIngredient);
+            
+            // Фильтруем резервуары и вагоны, чтобы показывать только те, которые содержат выбранный продукт
+            const productId = this.value;
+            
+            const reservoirSelect = newIngredient.querySelector('.ingredient-reservoir');
+            Array.from(reservoirSelect.options).forEach(option => {
+                const optionProductId = option.getAttribute('data-product');
+                if (option.value && optionProductId !== productId) {
+                    option.style.display = 'none';
+                } else {
+                    option.style.display = 'block';
+                }
+            });
+            
+            const wagonSelect = newIngredient.querySelector('.ingredient-wagon');
+            Array.from(wagonSelect.options).forEach(option => {
+                const optionProductId = option.getAttribute('data-product');
+                if (option.value && optionProductId !== productId) {
+                    option.style.display = 'none';
+                } else {
+                    option.style.display = 'block';
+                }
+            });
+        });
+        
+        const quantityInput = newIngredient.querySelector('.ingredient-quantity');
+        quantityInput.addEventListener('input', function() {
+            validateIngredient(newIngredient);
+        });
+        
+        const reservoirSelect = newIngredient.querySelector('.ingredient-reservoir');
+        const availableReservoirQuantity = newIngredient.querySelector('.available-reservoir-quantity');
+        
+        reservoirSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const quantity = selectedOption.getAttribute('data-quantity') || '0';
+            availableReservoirQuantity.textContent = quantity;
+            validateIngredient(newIngredient);
+        });
+        
+        const wagonSelect = newIngredient.querySelector('.ingredient-wagon');
+        const availableWagonQuantity = newIngredient.querySelector('.available-wagon-quantity');
+        
+        wagonSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const quantity = selectedOption.getAttribute('data-quantity') || '0';
+            availableWagonQuantity.textContent = quantity;
+            validateIngredient(newIngredient);
+        });
+        
+        // Add the new ingredient to the container
+        ingredientsContainer.appendChild(newIngredient);
+    }
+    
+    // Update ingredient numbers after removal
+    function updateIngredientNumbers() {
+        const ingredients = document.querySelectorAll('.ingredient-item:not(.d-none)');
+        ingredients.forEach((ingredient, index) => {
+            ingredient.querySelector('.ingredient-number').textContent = `Ингредиент #${index + 1}`;
+        });
+    }
+    
+    // Validate ingredient quantity
+    function validateIngredient(ingredientItem) {
+        const quantity = parseFloat(ingredientItem.querySelector('.ingredient-quantity').value) || 0;
+        const sourceType = ingredientItem.querySelector('.ingredient-source-type').value;
+        
+        let availableQty = 0;
+        if (sourceType === 'reservoir') {
+            availableQty = parseFloat(ingredientItem.querySelector('.available-reservoir-quantity').textContent);
+        } else if (sourceType === 'wagon') {
+            availableQty = parseFloat(ingredientItem.querySelector('.available-wagon-quantity').textContent);
+        }
+        
+        const quantityInput = ingredientItem.querySelector('.ingredient-quantity');
+        
+        // Проверяем, не превышает ли количество доступное в источнике
+        if (quantity > availableQty) {
+            quantityInput.setCustomValidity(`Количество превышает доступное (${availableQty.toFixed(2)} тонн)`);
+        } else {
+            quantityInput.setCustomValidity('');
+        }
+    }
+    
+    // Add ingredient button click handler
+    addIngredientBtn.addEventListener('click', addIngredient);
+    
+    // Form submission
+    document.getElementById('productionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Check if we have at least one ingredient
+        const ingredients = document.querySelectorAll('.ingredient-item:not(.d-none)');
+        if (ingredients.length === 0) {
+            alert('Добавьте хотя бы один ингредиент');
+            return;
+        }
+        
+        // Check if product is selected
+        if (!document.getElementById('id_product').value) {
+            alert('Выберите конечный продукт');
+            return;
+        }
+        
+        // Check if placement is selected
+        let placementId = '';
+        if (placementType.value === 'reservoir') {
+            placementId = placementReservoirId.value;
+            if (!placementId) {
+                alert('Выберите резервуар для размещения готового продукта');
+                return;
+            }
+        } else if (placementType.value === 'wagon') {
+            placementId = placementWagonId.value;
+            if (!placementId) {
+                alert('Выберите вагон для размещения готового продукта');
+                return;
+            }
+        }
+        
+        // Validate quantity
+        const quantity = parseFloat(quantityInput.value) || 0;
+        if (quantity <= 0) {
+            alert('Количество должно быть больше 0');
+            return;
+        }
+        
+        // Validate ingredients
+        const ingredientsData = [];
+        let isValid = true;
+        
+        ingredients.forEach((ingredient, index) => {
+            const productId = ingredient.querySelector('.ingredient-product').value;
+            if (!productId) {
+                alert(`Выберите продукт для ингредиента #${index + 1}`);
+                isValid = false;
+                return;
+            }
+            
+            const quantity = parseFloat(ingredient.querySelector('.ingredient-quantity').value) || 0;
+            if (quantity <= 0) {
+                alert(`Укажите количество больше 0 для ингредиента #${index + 1}`);
+                isValid = false;
+                return;
+            }
+            
+            const sourceType = ingredient.querySelector('.ingredient-source-type').value;
+            let sourceId = '';
+            
+            if (sourceType === 'reservoir') {
+                sourceId = ingredient.querySelector('.ingredient-reservoir').value;
+                if (!sourceId) {
+                    alert(`Выберите резервуар для ингредиента #${index + 1}`);
+                    isValid = false;
+                    return;
+                }
+            } else if (sourceType === 'wagon') {
+                sourceId = ingredient.querySelector('.ingredient-wagon').value;
+                if (!sourceId) {
+                    alert(`Выберите вагон для ингредиента #${index + 1}`);
+                    isValid = false;
+                    return;
+                }
+            }
+            
+            ingredientsData.push({
+                product_id: productId,
+                quantity: quantity,
+                source_type: sourceType,
+                source_id: sourceId
+            });
+        });
+        
+        if (!isValid) {
+            return;
+        }
+        
+        // Add hidden inputs with placement information
+        const placementTypeInput = document.createElement('input');
+        placementTypeInput.type = 'hidden';
+        placementTypeInput.name = 'placement_type';
+        placementTypeInput.value = placementType.value;
+        this.appendChild(placementTypeInput);
+        
+        const placementIdInput = document.createElement('input');
+        placementIdInput.type = 'hidden';
+        placementIdInput.name = 'placement_id';
+        placementIdInput.value = placementId;
+        this.appendChild(placementIdInput);
+        
+        // Add hidden input with ingredients data
+        const ingredientsInput = document.createElement('input');
+        ingredientsInput.type = 'hidden';
+        ingredientsInput.name = 'ingredients_json';
+        ingredientsInput.value = JSON.stringify(ingredientsData);
+        this.appendChild(ingredientsInput);
+        
+        // Submit the form
+        this.submit();
+    });
+    
+    // Add first ingredient by default
+    addIngredient();
+});
+</script>
+{% endblock %} 

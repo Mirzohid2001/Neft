@@ -18,13 +18,14 @@ from .models import (
     Product, Wagon, Movement, Inventory, Batch, 
     Reservoir, ReservoirMovement, Warehouse, LocalClient, LocalMovement, Placement, Client, Transport, WagonType, 
     AnalyticsReport, AnalyticsData, InventoryAudit, InventoryAuditItem, ProductMinLevel, StockForecast, PurchasePlan, PurchasePlanItem,
-    Supplier, SupplierRating, ProductSupplier, OrderPoint, PurchaseNotification
+    Supplier, SupplierRating, ProductSupplier, OrderPoint, PurchaseNotification, EstokadaOperation
 )
 from .forms import (
     MovementForm, ProductForm, WagonForm, BatchForm, ReservoirForm, ReservoirMovementForm, 
     WarehouseForm, LocalClientForm, LocalMovementForm, PlacementForm, ClientForm, WagonTypeForm,
     InventoryAuditForm, InventoryAuditItemForm, ProductMinLevelForm, PurchasePlanForm, PurchasePlanItemFormSet, GenerateForecastForm,
-    SupplierForm, SupplierRatingForm, ProductSupplierForm, OrderPointForm, PurchaseNotificationForm
+    SupplierForm, SupplierRatingForm, ProductSupplierForm, OrderPointForm, PurchaseNotificationForm, EstokadaOperationForm,
+    TransportForm
 )
 from .filters import (
     MovementFilter, ProductFilter, WagonFilter, 
@@ -945,733 +946,873 @@ def export_reservoirs_excel(request):
     return response
 
 # Представления для Estokada (заводских сотрудников)
-@estokada_required
-def estokada_dashboard(request):
-    """
-    Панель управления для сотрудников эстокады с 4 основными кнопками:
-    1. Приёмка
-    2. Продажа
-    3. Производство
-    4. Перемещение
-    """
-    context = {}
-    return render(request, 'warehouse/estokada/dashboard.html', context)
+# @estokada_required
+# def estokada_dashboard(request):
+#     """
+#     Панель управления для сотрудников эстокады с 4 основными кнопками:
+#     1. Приёмка
+#     2. Продажа
+#     3. Производство
+#     4. Перемещение
+#     """
+#     context = {}
+#     return render(request, 'warehouse/estokada/dashboard.html', context)
 
-@estokada_required
-def estokada_reception_list(request):
-    """Страница с ожидающими приемками на текущий день"""
-    today = timezone.now().date()
+# @estokada_required
+# def estokada_reception_list(request):
+#     """Страница с ожидающими приемками на текущий день"""
+#     today = timezone.now().date()
     
-    # Получаем все операции приемки на сегодня в статусе 'created'
-    receptions = Movement.objects.filter(
-        movement_type='in', 
-        date=today,
-        status='created'
-    ).order_by('-created_at')
+#     # Получаем все операции приемки на сегодня в статусе 'created'
+#     receptions = Movement.objects.filter(
+#         movement_type='in', 
+#         date=today,
+#         status='created'
+#     ).order_by('-created_at')
     
-    context = {
-        'receptions': receptions
-    }
+#     context = {
+#         'receptions': receptions
+#     }
     
-    return render(request, 'warehouse/estokada/reception_list.html', context)
+#     return render(request, 'warehouse/estokada/reception_list.html', context)
 
-@estokada_required
-def estokada_reception_process(request, pk):
-    """Страница обработки конкретной приемки"""
-    movement = get_object_or_404(Movement, pk=pk, movement_type='in')
+# @estokada_required
+# def estokada_reception_process(request, pk):
+#     """Страница обработки конкретной приемки"""
+#     movement = get_object_or_404(Movement, pk=pk, movement_type='in')
     
-    if request.method == 'POST':
-        # Заполняем форму только избранными полями, которые может заполнять сотрудник эстокады
-        form = MovementForm(
-            request.POST, 
-            request.FILES, 
-            instance=movement, 
-            user=request.user
-        )
+#     if request.method == 'POST':
+#         # Заполняем форму только избранными полями, которые может заполнять сотрудник эстокады
+#         form = MovementForm(
+#             request.POST, 
+#             request.FILES, 
+#             instance=movement, 
+#             user=request.user
+#         )
         
-        # Частичная валидация только тех полей, которые относятся к физическим параметрам
-        if form.is_valid():
-            # Обновляем только определенные поля
-            movement.density = form.cleaned_data['density']
-            movement.temperature = form.cleaned_data['temperature']
-            movement.liter = form.cleaned_data['liter']
-            movement.quantity = form.cleaned_data['quantity']
-            movement.transport_photo = form.cleaned_data.get('transport_photo')
-            movement.note = form.cleaned_data.get('note', movement.note)
-            movement.status = 'processed'  # Изменяем статус на "обработано"
+#         # Частичная валидация только тех полей, которые относятся к физическим параметрам
+#         if form.is_valid():
+#             # Обновляем только определенные поля
+#             movement.density = form.cleaned_data['density']
+#             movement.temperature = form.cleaned_data['temperature']
+#             movement.liter = form.cleaned_data['liter']
+#             movement.quantity = form.cleaned_data['quantity']
+#             movement.transport_photo = form.cleaned_data.get('transport_photo')
+#             movement.note = form.cleaned_data.get('note', movement.note)
+#             movement.status = 'processed'  # Изменяем статус на "обработано"
             
-            movement.save()
+#             movement.save()
             
-            messages.success(request, f"Приёмка #{movement.id} успешно обработана")
-            return redirect('warehouse:estokada_reception_list')
-    else:
-        form = MovementForm(instance=movement)
+#             messages.success(request, f"Приёмка #{movement.id} успешно обработана")
+#             return redirect('warehouse:estokada_reception_list')
+#     else:
+#         form = MovementForm(instance=movement)
     
-    context = {
-        'movement': movement,
-        'form': form,
-        'is_readonly': True  # Некоторые поля будут только для чтения
-    }
+#     context = {
+#         'movement': movement,
+#         'form': form,
+#         'is_readonly': True  # Некоторые поля будут только для чтения
+#     }
     
-    return render(request, 'warehouse/estokada/reception_process.html', context)
+#     return render(request, 'warehouse/estokada/reception_process.html', context)
 
-@estokada_required
-def estokada_sales_list(request):
-    """Страница с ожидающими продажами на текущий день"""
-    today = timezone.now().date()
+# @estokada_required
+# def estokada_sales_list(request):
+#     """Страница с ожидающими продажами на текущий день"""
+#     today = timezone.now().date()
     
-    # Получаем все операции продажи на сегодня в статусе 'created'
-    sales = Movement.objects.filter(
-        movement_type='out', 
-        date=today,
-        status='created'
-    ).order_by('-created_at')
+#     # Получаем все операции продажи на сегодня в статусе 'created'
+#     sales = Movement.objects.filter(
+#         movement_type='out', 
+#         date=today,
+#         status='created'
+#     ).order_by('-created_at')
     
-    context = {
-        'sales': sales
-    }
+#     context = {
+#         'sales': sales
+#     }
     
-    return render(request, 'warehouse/estokada/sales_list.html', context)
+#     return render(request, 'warehouse/estokada/sales_list.html', context)
 
-@estokada_required
-def estokada_sales_process(request, pk):
-    """Страница обработки конкретной продажи с поддержкой множественных транспортов"""
-    movement = get_object_or_404(Movement, pk=pk, movement_type='out')
+# @estokada_required
+# def estokada_sales_process(request, pk):
+#     """Страница обработки конкретной продажи с поддержкой множественных транспортов"""
+#     movement = get_object_or_404(Movement, pk=pk, movement_type='out')
     
-    if request.method == 'POST':
-        form = MovementForm(
-            request.POST, 
-            request.FILES, 
-            instance=movement, 
-            user=request.user
-        )
+#     if request.method == 'POST':
+#         form = MovementForm(
+#             request.POST, 
+#             request.FILES, 
+#             instance=movement, 
+#             user=request.user
+#         )
         
-        if form.is_valid():
-            # Получаем данные о транспорте из JSON
-            transports_json = request.POST.get('transports_json', '[]')
+#         if form.is_valid():
+#             # Получаем данные о транспорте из JSON
+#             transports_json = request.POST.get('transports_json', '[]')
             
-            try:
-                transports_data = json.loads(transports_json)
+#             try:
+#                 transports_data = json.loads(transports_json)
                 
-                # Проверяем, что есть хотя бы один транспорт с количеством
-                if not transports_data:
-                    form.add_error(None, 'Необходимо добавить хотя бы один транспорт с данными.')
-                    context = {
-                        'movement': movement,
-                        'form': form,
-                        'available_quantity': get_available_quantity(movement),
-                        'is_readonly': True
-                    }
-                    return render(request, 'warehouse/estokada/sales_process.html', context)
+#                 # Проверяем, что есть хотя бы один транспорт с количеством
+#                 if not transports_data:
+#                     form.add_error(None, 'Необходимо добавить хотя бы один транспорт с данными.')
+#                     context = {
+#                         'movement': movement,
+#                         'form': form,
+#                         'available_quantity': get_available_quantity(movement),
+#                         'is_readonly': True
+#                     }
+#                     return render(request, 'warehouse/estokada/sales_process.html', context)
                 
-                # Рассчитываем общие значения из всех транспортов
-                total_quantity = 0
-                total_liter = 0
-                avg_density = 0
-                avg_temperature = 0
-                valid_transports = 0
+#                 # Рассчитываем общие значения из всех транспортов
+#                 total_quantity = 0
+#                 total_liter = 0
+#                 avg_density = 0
+#                 avg_temperature = 0
+#                 valid_transports = 0
                 
-                for transport_data in transports_data:
-                    quantity = float(transport_data.get('quantity', 0))
-                    total_quantity += quantity
+#                 for transport_data in transports_data:
+#                     quantity = float(transport_data.get('quantity', 0))
+#                     total_quantity += quantity
                     
-                    if 'liter' in transport_data and transport_data['liter']:
-                        total_liter += float(transport_data['liter'])
+#                     if 'liter' in transport_data and transport_data['liter']:
+#                         total_liter += float(transport_data['liter'])
                     
-                    if 'density' in transport_data and transport_data['density'] and quantity > 0:
-                        avg_density += float(transport_data['density'])
-                        valid_transports += 1
+#                     if 'density' in transport_data and transport_data['density'] and quantity > 0:
+#                         avg_density += float(transport_data['density'])
+#                         valid_transports += 1
                     
-                    if 'temperature' in transport_data and transport_data['temperature'] and quantity > 0:
-                        avg_temperature += float(transport_data['temperature'])
+#                     if 'temperature' in transport_data and transport_data['temperature'] and quantity > 0:
+#                         avg_temperature += float(transport_data['temperature'])
                 
-                # Вычисляем средние значения
-                if valid_transports > 0:
-                    avg_density = avg_density / valid_transports
-                    avg_temperature = avg_temperature / valid_transports
-                else:
-                    avg_density = 0
-                    avg_temperature = 20
+#                 # Вычисляем средние значения
+#                 if valid_transports > 0:
+#                     avg_density = avg_density / valid_transports
+#                     avg_temperature = avg_temperature / valid_transports
+#                 else:
+#                     avg_density = 0
+#                     avg_temperature = 20
                 
-                # Обновляем основные поля движения
-                movement.density = avg_density
-                movement.temperature = avg_temperature
-                movement.liter = total_liter
-                movement.quantity = total_quantity
-                movement.note = form.cleaned_data.get('note', movement.note)
-                movement.status = 'processed'
+#                 # Обновляем основные поля движения
+#                 movement.density = avg_density
+#                 movement.temperature = avg_temperature
+#                 movement.liter = total_liter
+#                 movement.quantity = total_quantity
+#                 movement.note = form.cleaned_data.get('note', movement.note)
+#                 movement.status = 'processed'
                 
-                # Сохраняем обновленное движение
-                movement.save()
+#                 # Сохраняем обновленное движение
+#                 movement.save()
                 
-                # Удаляем старые записи транспорта, если они есть
-                Transport.objects.filter(movement=movement).delete()
+#                 # Удаляем старые записи транспорта, если они есть
+#                 Transport.objects.filter(movement=movement).delete()
                 
-                # Создаем новые записи для каждого транспорта
-                for transport_data in transports_data:
-                    Transport.objects.create(
-                        movement=movement,
-                        transport_number=transport_data.get('transport_number', ''),
-                        density=float(transport_data.get('density', 0)) if transport_data.get('density') else None,
-                        temperature=float(transport_data.get('temperature', 20)),
-                        liter=float(transport_data.get('liter', 0)) if transport_data.get('liter') else None,
-                        quantity=float(transport_data.get('quantity', 0))
-                    )
+#                 # Создаем новые записи для каждого транспорта
+#                 for transport_data in transports_data:
+#                     Transport.objects.create(
+#                         movement=movement,
+#                         transport_number=transport_data.get('transport_number', ''),
+#                         density=float(transport_data.get('density', 0)) if transport_data.get('density') else None,
+#                         temperature=float(transport_data.get('temperature', 20)),
+#                         liter=float(transport_data.get('liter', 0)) if transport_data.get('liter') else None,
+#                         quantity=float(transport_data.get('quantity', 0))
+#                     )
                 
-                messages.success(request, f"Продажа #{movement.id} успешно обработана")
-                return redirect('warehouse:estokada_sales_list')
+#                 messages.success(request, f"Продажа #{movement.id} успешно обработана")
+#                 return redirect('warehouse:estokada_sales_list')
                 
-            except json.JSONDecodeError:
-                form.add_error(None, 'Ошибка в данных о транспорте. Проверьте заполнение формы.')
-                context = {
-                    'movement': movement,
-                    'form': form,
-                    'available_quantity': get_available_quantity(movement),
-                    'is_readonly': True
-                }
-                return render(request, 'warehouse/estokada/sales_process.html', context)
-        else:
-            # Если форма невалидна
-            context = {
-                'movement': movement,
-                'form': form,
-                'available_quantity': get_available_quantity(movement),
-                'is_readonly': True
-            }
-            return render(request, 'warehouse/estokada/sales_process.html', context)
-    else:
-        form = MovementForm(instance=movement)
+#             except json.JSONDecodeError:
+#                 form.add_error(None, 'Ошибка в данных о транспорте. Проверьте заполнение формы.')
+#                 context = {
+#                     'movement': movement,
+#                     'form': form,
+#                     'available_quantity': get_available_quantity(movement),
+#                     'is_readonly': True
+#                 }
+#                 return render(request, 'warehouse/estokada/sales_process.html', context)
+#         else:
+#             # Если форма невалидна
+#             context = {
+#                 'movement': movement,
+#                 'form': form,
+#                 'available_quantity': get_available_quantity(movement),
+#                 'is_readonly': True
+#             }
+#             return render(request, 'warehouse/estokada/sales_process.html', context)
+#     else:
+#         form = MovementForm(instance=movement)
     
-    # Получаем доступное количество в источнике
-    available_quantity = get_available_quantity(movement)
+#     # Получаем доступное количество в источнике
+#     available_quantity = get_available_quantity(movement)
     
-    context = {
-        'movement': movement,
-        'form': form,
-        'available_quantity': available_quantity,
-        'is_readonly': True  # Некоторые поля будут только для чтения
-    }
+#     context = {
+#         'movement': movement,
+#         'form': form,
+#         'available_quantity': available_quantity,
+#         'is_readonly': True  # Некоторые поля будут только для чтения
+#     }
     
-    return render(request, 'warehouse/estokada/sales_process.html', context)
+#     return render(request, 'warehouse/estokada/sales_process.html', context)
 
-def get_available_quantity(movement):
-    """Вспомогательная функция для получения доступного количества продукта"""
-    available_quantity = 0
-    if movement.source_reservoir:
-        available_quantity = movement.source_reservoir.current_quantity
-    elif movement.source_wagon:
-        available_quantity = movement.source_wagon.current_quantity
-    elif movement.source_warehouse:
-        # Проверяем наличие продукта на складе
-        inventories = Inventory.objects.filter(
-            warehouse=movement.source_warehouse,
-            product=movement.product
-        )
-        if inventories.exists():
-            available_quantity = inventories.first().quantity
+# def get_available_quantity(movement):
+#     """Вспомогательная функция для получения доступного количества продукта"""
+#     available_quantity = 0
+#     if movement.source_reservoir:
+#         available_quantity = movement.source_reservoir.current_quantity
+#     elif movement.source_wagon:
+#         available_quantity = movement.source_wagon.current_quantity
+#     elif movement.source_warehouse:
+#         # Проверяем наличие продукта на складе
+#         inventories = Inventory.objects.filter(
+#             warehouse=movement.source_warehouse,
+#             product=movement.product
+#         )
+#         if inventories.exists():
+#             available_quantity = inventories.first().quantity
     
-    return available_quantity
+#     return available_quantity
 
-@estokada_required
-def estokada_production_list(request):
-    """Страница с ожидающими производственными операциями на текущий день"""
-    today = timezone.now().date()
+# @estokada_required
+# def estokada_production_list(request):
+#     """Страница с ожидающими производственными операциями на текущий день"""
+#     today = timezone.now().date()
     
-    # Получаем все производственные операции на сегодня в статусе 'created'
-    productions = Movement.objects.filter(
-        movement_type='production', 
-        date=today,
-        status='created'
-    ).order_by('-created_at')
+#     # Получаем все производственные операции на сегодня в статусе 'created'
+#     productions = Movement.objects.filter(
+#         movement_type='production', 
+#         date=today,
+#         status='created'
+#     ).order_by('-created_at')
     
-    context = {
-        'productions': productions
-    }
+#     context = {
+#         'productions': productions
+#     }
     
-    return render(request, 'warehouse/estokada/production_list.html', context)
+#     return render(request, 'warehouse/estokada/production_list.html', context)
 
-@estokada_required
-def estokada_production_process(request, pk):
-    """Страница обработки конкретного производственного процесса"""
-    movement = get_object_or_404(Movement, pk=pk, movement_type='production')
+# @estokada_required
+# def estokada_production_process(request, pk):
+#     """Страница обработки конкретного производственного процесса"""
+#     movement = get_object_or_404(Movement, pk=pk, movement_type='production')
     
-    if request.method == 'POST':
-        form = MovementForm(
-            request.POST, 
-            request.FILES, 
-            instance=movement, 
-            user=request.user
-        )
+#     if request.method == 'POST':
+#         form = MovementForm(
+#             request.POST, 
+#             request.FILES, 
+#             instance=movement, 
+#             user=request.user
+#         )
         
-        if form.is_valid():
-            # Обновляем только определенные поля
-            movement.density = form.cleaned_data['density']
-            movement.temperature = form.cleaned_data['temperature']
-            movement.liter = form.cleaned_data['liter']
-            movement.quantity = form.cleaned_data['quantity']
-            movement.production_loss = form.cleaned_data.get('production_loss', 0)
+#         if form.is_valid():
+#             # Обновляем только определенные поля
+#             movement.density = form.cleaned_data['density']
+#             movement.temperature = form.cleaned_data['temperature']
+#             movement.liter = form.cleaned_data['liter']
+#             movement.quantity = form.cleaned_data['quantity']
+#             movement.production_loss = form.cleaned_data.get('production_loss', 0)
             
-            # Если потери превышают норму, требуется причина
-            expected_loss = movement.expected_quantity * 0.02  # 2% от ожидаемого количества
-            if movement.production_loss > expected_loss:
-                production_loss_reason = form.cleaned_data.get('production_loss_reason')
-                if not production_loss_reason:
-                    form.add_error('production_loss_reason', 'Требуется указать причину превышения допустимых потерь')
-                    context = {
-                        'movement': movement,
-                        'form': form,
-                        'is_readonly': True
-                    }
-                    return render(request, 'warehouse/estokada/production_process.html', context)
+#             # Если потери превышают норму, требуется причина
+#             expected_loss = movement.expected_quantity * 0.02  # 2% от ожидаемого количества
+#             if movement.production_loss > expected_loss:
+#                 production_loss_reason = form.cleaned_data.get('production_loss_reason')
+#                 if not production_loss_reason:
+#                     form.add_error('production_loss_reason', 'Требуется указать причину превышения допустимых потерь')
+#                     context = {
+#                         'movement': movement,
+#                         'form': form,
+#                         'is_readonly': True
+#                     }
+#                     return render(request, 'warehouse/estokada/production_process.html', context)
                 
-                movement.production_loss_reason = production_loss_reason
+#                 movement.production_loss_reason = production_loss_reason
             
-            movement.status = 'processed'  # Изменяем статус на "обработано"
-            movement.save()
+#             movement.status = 'processed'  # Изменяем статус на "обработано"
+#             movement.save()
             
-            messages.success(request, f"Производственный процесс #{movement.id} успешно обработан")
-            return redirect('warehouse:estokada_production_list')
-    else:
-        form = MovementForm(instance=movement)
+#             messages.success(request, f"Производственный процесс #{movement.id} успешно обработан")
+#             return redirect('warehouse:estokada_production_list')
+#     else:
+#         form = MovementForm(instance=movement)
     
-    context = {
-        'movement': movement,
-        'form': form,
-        'is_readonly': True  # Некоторые поля будут только для чтения
-    }
+#     context = {
+#         'movement': movement,
+#         'form': form,
+#         'is_readonly': True  # Некоторые поля будут только для чтения
+#     }
     
-    return render(request, 'warehouse/estokada/production_process.html', context)
+#     return render(request, 'warehouse/estokada/production_process.html', context)
 
-@estokada_required
-def estokada_transfer_list(request):
-    """Страница с ожидающими перемещениями на текущий день"""
-    today = timezone.now().date()
+# @estokada_required
+# def estokada_transfer_list(request):
+#     """Страница с ожидающими перемещениями на текущий день"""
+#     today = timezone.now().date()
     
-    # Получаем все перемещения на сегодня в статусе 'created'
-    transfers = Movement.objects.filter(
-        movement_type='transfer', 
-        date=today,
-        status='created'
-    ).order_by('-created_at')
+#     # Получаем все перемещения на сегодня в статусе 'created'
+#     transfers = Movement.objects.filter(
+#         movement_type='transfer', 
+#         date=today,
+#         status='created'
+#     ).order_by('-created_at')
     
-    context = {
-        'transfers': transfers
-    }
+#     context = {
+#         'transfers': transfers
+#     }
     
-    return render(request, 'warehouse/estokada/transfer_list.html', context)
+#     return render(request, 'warehouse/estokada/transfer_list.html', context)
 
-@estokada_required
-def estokada_transfer_process(request, pk):
-    """Страница обработки конкретного перемещения"""
-    movement = get_object_or_404(Movement, pk=pk, movement_type='transfer')
+# @estokada_required
+# def estokada_transfer_process(request, pk):
+#     """Страница обработки конкретного перемещения"""
+#     movement = get_object_or_404(Movement, pk=pk, movement_type='transfer')
     
-    if request.method == 'POST':
-        form = MovementForm(
-            request.POST, 
-            request.FILES, 
-            instance=movement, 
-            user=request.user
-        )
+#     if request.method == 'POST':
+#         form = MovementForm(
+#             request.POST, 
+#             request.FILES, 
+#             instance=movement, 
+#             user=request.user
+#         )
         
-        if form.is_valid():
-            # Обновляем только определенные поля
-            movement.density = form.cleaned_data['density']
-            movement.temperature = form.cleaned_data['temperature']
-            movement.liter = form.cleaned_data['liter']
-            movement.quantity = form.cleaned_data['quantity']
-            movement.note = form.cleaned_data.get('note', movement.note)
-            movement.status = 'processed'  # Изменяем статус на "обработано"
+#         if form.is_valid():
+#             # Обновляем только определенные поля
+#             movement.density = form.cleaned_data['density']
+#             movement.temperature = form.cleaned_data['temperature']
+#             movement.liter = form.cleaned_data['liter']
+#             movement.quantity = form.cleaned_data['quantity']
+#             movement.note = form.cleaned_data.get('note', movement.note)
+#             movement.status = 'processed'  # Изменяем статус на "обработано"
             
-            movement.save()
+#             movement.save()
             
-            messages.success(request, f"Перемещение #{movement.id} успешно обработано")
-            return redirect('warehouse:estokada_transfer_list')
-    else:
-        form = MovementForm(instance=movement)
+#             messages.success(request, f"Перемещение #{movement.id} успешно обработано")
+#             return redirect('warehouse:estokada_transfer_list')
+#     else:
+#         form = MovementForm(instance=movement)
     
-    # Проверка доступного количества в источнике
-    available_quantity = 0
-    if movement.source_reservoir:
-        available_quantity = movement.source_reservoir.current_quantity
-    elif movement.source_wagon:
-        available_quantity = movement.source_wagon.current_quantity
+#     # Проверка доступного количества в источнике
+#     available_quantity = 0
+#     if movement.source_reservoir:
+#         available_quantity = movement.source_reservoir.current_quantity
+#     elif movement.source_wagon:
+#         available_quantity = movement.source_wagon.current_quantity
     
-    context = {
-        'movement': movement,
-        'form': form,
-        'available_quantity': available_quantity,
-        'is_readonly': True  # Некоторые поля будут только для чтения
-    }
+#     context = {
+#         'movement': movement,
+#         'form': form,
+#         'available_quantity': available_quantity,
+#         'is_readonly': True  # Некоторые поля будут только для чтения
+#     }
     
-    return render(request, 'warehouse/estokada/transfer_process.html', context)
+#     return render(request, 'warehouse/estokada/transfer_process.html', context)
 
 # Представления для SalesDepartment (офисных сотрудников)
-@sales_required
-def sales_department_dashboard(request):
-    """Панель управления для сотрудников отдела продаж"""
-    # Получаем статистику по количеству операций разных типов
-    today = timezone.now().date()
-    month_start = today.replace(day=1)
+# @sales_required
+# def sales_department_dashboard(request):
+#     """Панель управления для сотрудников отдела продаж"""
+#     # Получаем статистику по количеству операций разных типов
+#     today = timezone.now().date()
+#     month_start = today.replace(day=1)
     
-    # Статистика за текущий день
-    today_receptions = Movement.objects.filter(movement_type='in', date=today).count()
-    today_sales = Movement.objects.filter(movement_type='out', date=today).count()
-    today_productions = Movement.objects.filter(movement_type='production', date=today).count()
-    today_transfers = Movement.objects.filter(movement_type='transfer', date=today).count()
+#     # Статистика за текущий день
+#     today_receptions = Movement.objects.filter(movement_type='in', date=today).count()
+#     today_sales = Movement.objects.filter(movement_type='out', date=today).count()
+#     today_productions = Movement.objects.filter(movement_type='production', date=today).count()
+#     today_transfers = Movement.objects.filter(movement_type='transfer', date=today).count()
     
-    # Статистика за текущий месяц
-    month_receptions = Movement.objects.filter(movement_type='in', date__gte=month_start).count()
-    month_sales = Movement.objects.filter(movement_type='out', date__gte=month_start).count()
-    month_productions = Movement.objects.filter(movement_type='production', date__gte=month_start).count()
-    month_transfers = Movement.objects.filter(movement_type='transfer', date__gte=month_start).count()
+#     # Статистика за текущий месяц
+#     month_receptions = Movement.objects.filter(movement_type='in', date__gte=month_start).count()
+#     month_sales = Movement.objects.filter(movement_type='out', date__gte=month_start).count()
+#     month_productions = Movement.objects.filter(movement_type='production', date__gte=month_start).count()
+#     month_transfers = Movement.objects.filter(movement_type='transfer', date__gte=month_start).count()
     
-    # Последние операции
-    recent_movements = Movement.objects.all().order_by('-created_at')[:10]
+#     # Последние операции
+#     recent_movements = Movement.objects.all().order_by('-created_at')[:10]
     
-    context = {
-        'today_receptions': today_receptions,
-        'today_sales': today_sales,
-        'today_productions': today_productions,
-        'today_transfers': today_transfers,
-        'month_receptions': month_receptions,
-        'month_sales': month_sales,
-        'month_productions': month_productions,
-        'month_transfers': month_transfers,
-        'recent_movements': recent_movements,
-    }
+#     context = {
+#         'today_receptions': today_receptions,
+#         'today_sales': today_sales,
+#         'today_productions': today_productions,
+#         'today_transfers': today_transfers,
+#         'month_receptions': month_receptions,
+#         'month_sales': month_sales,
+#         'month_productions': month_productions,
+#         'month_transfers': month_transfers,
+#         'recent_movements': recent_movements,
+#     }
     
-    return render(request, 'warehouse/sales/dashboard.html', context)
+#     return render(request, 'warehouse/sales/dashboard.html', context)
 
-@sales_required
-def sales_movement_create(request):
-    """Создание новой операции движения с поддержкой множественных транспортов и источников сырья"""
-    if request.method == 'POST':
-        form = MovementForm(request.POST, request.FILES, user=request.user, department='sales')
+# @sales_required
+# def sales_movement_create(request):
+#     """Создание новой операции движения с поддержкой множественных транспортов и источников сырья"""
+#     if request.method == 'POST':
+#         form = MovementForm(request.POST, request.FILES, user=request.user, department='sales')
         
-        if form.is_valid():
-            movement = form.save(commit=False)
+#         if form.is_valid():
+#             movement = form.save(commit=False)
             
-            # Общая обработка для всех типов операций
-            transports_json = request.POST.get('transports_json', '[]')
+#             # Общая обработка для всех типов операций
+#             transports_json = request.POST.get('transports_json', '[]')
             
-            try:
-                # Парсим данные о транспортах из JSON
-                transports_data = json.loads(transports_json)
+#             try:
+#                 # Парсим данные о транспортах из JSON
+#                 transports_data = json.loads(transports_json)
                 
-                # Для приемки и продажи: вычисляем общее количество и средние значения
-                if movement.movement_type in ['in', 'out']:
-                    if not transports_data:
-                        form.add_error(None, 'Необходимо добавить хотя бы один транспорт с данными.')
-                        context = {
-                            'form': form,
-                            'title': 'Создание новой операции'
-                        }
-                        return render(request, 'warehouse/sales/movement_form.html', context)
+#                 # Для приемки и продажи: вычисляем общее количество и средние значения
+#                 if movement.movement_type in ['in', 'out']:
+#                     if not transports_data:
+#                         form.add_error(None, 'Необходимо добавить хотя бы один транспорт с данными.')
+#                         context = {
+#                             'form': form,
+#                             'title': 'Создание новой операции'
+#                         }
+#                         return render(request, 'warehouse/sales/movement_form.html', context)
                     
-                    # Рассчитываем общие значения из всех транспортов
-                    total_quantity = 0
-                    total_doc_mass = 0
+#                     # Рассчитываем общие значения из всех транспортов
+#                     total_quantity = 0
+#                     total_doc_mass = 0
                     
-                    for transport_data in transports_data:
-                        mass = float(transport_data.get('mass', 0) or 0)
-                        doc_mass = float(transport_data.get('doc_mass', 0) or 0)
+#                     for transport_data in transports_data:
+#                         mass = float(transport_data.get('mass', 0) or 0)
+#                         doc_mass = float(transport_data.get('doc_mass', 0) or 0)
                         
-                        total_quantity += mass
-                        total_doc_mass += doc_mass
+#                         total_quantity += mass
+#                         total_doc_mass += doc_mass
                     
-                    # Переводим кг в тонны для сохранения в БД
-                    movement.quantity = total_quantity / 1000  # кг в тонны
-                    movement.expected_quantity = total_quantity / 1000  # для отслеживания ожидаемого количества
-                    movement.doc_ton = total_doc_mass / 1000  # документальный вес в тоннах
+#                     # Переводим кг в тонны для сохранения в БД
+#                     movement.quantity = total_quantity / 1000  # кг в тонны
+#                     movement.expected_quantity = total_quantity / 1000  # для отслеживания ожидаемого количества
+#                     movement.doc_ton = total_doc_mass / 1000  # документальный вес в тоннах
                     
-                    # Разница между фактическим и документальным весом
-                    movement.difference = movement.quantity - movement.doc_ton
+#                     # Разница между фактическим и документальным весом
+#                     movement.difference = movement.quantity - movement.doc_ton
                 
-                # Для производства: обработка данных источника и продукта
-                elif movement.movement_type == 'production':
-                    source_quantity = float(request.POST.get('source_quantity', 0) or 0)
-                    material_quantity = float(request.POST.get('material_quantity', 0) or 0)
+#                 # Для производства: обработка данных источника и продукта
+#                 elif movement.movement_type == 'production':
+#                     source_quantity = float(request.POST.get('source_quantity', 0) or 0)
+#                     material_quantity = float(request.POST.get('material_quantity', 0) or 0)
                     
-                    # Сохраняем вес продукта (кг в тонны)
-                    movement.quantity = material_quantity / 1000
-                    movement.expected_quantity = material_quantity / 1000
+#                     # Сохраняем вес продукта (кг в тонны)
+#                     movement.quantity = material_quantity / 1000
+#                     movement.expected_quantity = material_quantity / 1000
                     
-                    # Сохраняем вес источника (кг в тонны)
-                    movement.source_quantity = source_quantity / 1000
+#                     # Сохраняем вес источника (кг в тонны)
+#                     movement.source_quantity = source_quantity / 1000
                 
-                # Сохраняем движение для получения ID
-                movement.save()
+#                 # Сохраняем движение для получения ID
+#                 movement.save()
                 
-                # Обработка транспортных данных и создание записей (для in/out)
-                if movement.movement_type in ['in', 'out']:
-                    for transport_data in transports_data:
-                        transport_type = transport_data.get('transport_type', '')
-                        transport_number = transport_data.get('transport_number', '')
-                        mass_kg = float(transport_data.get('mass', 0) or 0)
-                        doc_mass_kg = float(transport_data.get('doc_mass', 0) or 0)
+#                 # Обработка транспортных данных и создание записей (для in/out)
+#                 if movement.movement_type in ['in', 'out']:
+#                     for transport_data in transports_data:
+#                         transport_type = transport_data.get('transport_type', '')
+#                         transport_number = transport_data.get('transport_number', '')
+#                         mass_kg = float(transport_data.get('mass', 0) or 0)
+#                         doc_mass_kg = float(transport_data.get('doc_mass', 0) or 0)
                         
-                        # Создаем запись транспорта
-                        transport = Transport.objects.create(
-                            movement=movement,
-                            transport_number=transport_number,
-                            quantity=mass_kg,  # В кг
-                            doc_ton=doc_mass_kg / 1000  # Преобразуем кг в тонны
-                        )
+#                         # Создаем запись транспорта
+#                         transport = Transport.objects.create(
+#                             movement=movement,
+#                             transport_number=transport_number,
+#                             quantity=mass_kg,  # В кг
+#                             doc_ton=doc_mass_kg / 1000  # Преобразуем кг в тонны
+#                         )
                         
-                        # Сохраняем дополнительные данные для вагонов
-                        if transport_type == 'wagon' and 'wagon_type' in transport_data:
-                            wagon_type_id = transport_data.get('wagon_type')
-                            if wagon_type_id:
-                                try:
-                                    # Здесь можно добавить связь с типом вагона, если нужно
-                                    pass
-                                except Exception as e:
-                                    print(f"Ошибка при обработке типа вагона: {e}")
+#                         # Сохраняем дополнительные данные для вагонов
+#                         if transport_type == 'wagon' and 'wagon_type' in transport_data:
+#                             wagon_type_id = transport_data.get('wagon_type')
+#                             if wagon_type_id:
+#                                 try:
+#                                     # Здесь можно добавить связь с типом вагона, если нужно
+#                                     pass
+#                                 except Exception as e:
+#                                     print(f"Ошибка при обработке типа вагона: {e}")
                 
-            except json.JSONDecodeError:
-                form.add_error(None, 'Ошибка в данных о транспорте. Проверьте заполнение формы.')
-                context = {
-                    'form': form,
-                    'title': 'Создание новой операции'
-                }
-                return render(request, 'warehouse/sales/movement_form.html', context)
+#             except json.JSONDecodeError:
+#                 form.add_error(None, 'Ошибка в данных о транспорте. Проверьте заполнение формы.')
+#                 context = {
+#                     'form': form,
+#                     'title': 'Создание новой операции'
+#                 }
+#                 return render(request, 'warehouse/sales/movement_form.html', context)
             
-            # Перенаправление на соответствующую страницу в зависимости от типа движения
-            if movement.movement_type == 'in':
-                return redirect('warehouse:sales_reception_list')
-            elif movement.movement_type == 'out':
-                return redirect('warehouse:sales_sales_list')
-            elif movement.movement_type == 'production':
-                return redirect('warehouse:sales_production_list')
-            elif movement.movement_type == 'transfer':
-                return redirect('warehouse:sales_transfer_list')
+#             # Перенаправление на соответствующую страницу в зависимости от типа движения
+#             if movement.movement_type == 'in':
+#                 return redirect('warehouse:sales_reception_list')
+#             elif movement.movement_type == 'out':
+#                 return redirect('warehouse:sales_sales_list')
+#             elif movement.movement_type == 'production':
+#                 return redirect('warehouse:sales_production_list')
+#             elif movement.movement_type == 'transfer':
+#                 return redirect('warehouse:sales_transfer_list')
             
-            return redirect('warehouse:sales_department_dashboard')
-    else:
-        form = MovementForm(user=request.user, department='sales')
+#             return redirect('warehouse:sales_department_dashboard')
+#     else:
+#         form = MovementForm(user=request.user, department='sales')
     
-    context = {
-        'form': form,
-        'title': 'Создание новой операции'
-    }
+#     context = {
+#         'form': form,
+#         'title': 'Создание новой операции'
+#     }
     
-    return render(request, 'warehouse/sales/movement_form.html', context)
+#     return render(request, 'warehouse/sales/movement_form.html', context)
 
-@sales_required
-def sales_reception_list(request):
-    """Список операций приемки для отдела продаж"""
-    receptions = Movement.objects.filter(movement_type='in').order_by('-date', '-created_at')
+# @sales_required
+# def sales_reception_list(request):
+#     """Список операций приемки для отдела продаж"""
+#     receptions = Movement.objects.filter(movement_type='in').order_by('-date', '-created_at')
     
-    context = {
-        'receptions': receptions,
-        'title': 'Список приемок'
-    }
+#     context = {
+#         'receptions': receptions,
+#         'title': 'Список приемок'
+#     }
     
-    return render(request, 'warehouse/sales/reception_list.html', context)
+#     return render(request, 'warehouse/sales/reception_list.html', context)
 
-@sales_required
-def sales_sales_list(request):
-    """Список операций продажи для отдела продаж"""
-    sales = Movement.objects.filter(movement_type='out').order_by('-date', '-created_at')
+# @sales_required
+# def sales_sales_list(request):
+#     """Список операций продажи для отдела продаж"""
+#     sales = Movement.objects.filter(movement_type='out').order_by('-date', '-created_at')
     
-    context = {
-        'sales': sales,
-        'title': 'Список продаж'
-    }
+#     context = {
+#         'sales': sales,
+#         'title': 'Список продаж'
+#     }
     
-    return render(request, 'warehouse/sales/sales_list.html', context)
+#     return render(request, 'warehouse/sales/sales_list.html', context)
 
-@sales_required
-def sales_production_list(request):
-    """Список производственных операций для отдела продаж"""
-    productions = Movement.objects.filter(movement_type='production').order_by('-date', '-created_at')
+# @sales_required
+# def sales_production_list(request):
+#     """Список производственных операций для отдела продаж"""
+#     productions = Movement.objects.filter(movement_type='production').order_by('-date', '-created_at')
     
-    context = {
-        'productions': productions,
-        'title': 'Список производственных операций'
-    }
+#     context = {
+#         'productions': productions,
+#         'title': 'Список производственных операций'
+#     }
     
-    return render(request, 'warehouse/sales/production_list.html', context)
+#     return render(request, 'warehouse/sales/production_list.html', context)
 
-@sales_required
-def sales_transfer_list(request):
-    """Список операций перемещения для отдела продаж"""
-    transfers = Movement.objects.filter(movement_type='transfer').order_by('-date', '-created_at')
+# @sales_required
+# def sales_transfer_list(request):
+#     """Список операций перемещения для отдела продаж"""
+#     transfers = Movement.objects.filter(movement_type='transfer').order_by('-date', '-created_at')
     
-    context = {
-        'transfers': transfers,
-        'title': 'Список перемещений'
-    }
+#     context = {
+#         'transfers': transfers,
+#         'title': 'Список перемещений'
+#     }
     
-    return render(request, 'warehouse/sales/transfer_list.html', context)
+#     return render(request, 'warehouse/sales/transfer_list.html', context)
 
-@sales_required
-def sales_movement_detail(request, pk):
-    """Детальная информация о движении"""
-    movement = get_object_or_404(Movement, pk=pk)
+# @sales_required
+# def sales_movement_detail(request, pk):
+#     """Детальная информация о движении"""
+#     movement = get_object_or_404(Movement, pk=pk)
     
-    context = {
-        'movement': movement,
-        'title': f'Детали {movement.get_movement_type_display()} #{movement.id}'
-    }
+#     context = {
+#         'movement': movement,
+#         'title': f'Детали {movement.get_movement_type_display()} #{movement.id}'
+#     }
     
-    return render(request, 'warehouse/sales/movement_detail.html', context)
+#     return render(request, 'warehouse/sales/movement_detail.html', context)
 
-@sales_required
-def sales_movement_edit(request, pk):
-    """Редактирование операции движения"""
-    movement = get_object_or_404(Movement, pk=pk)
+# @sales_required
+# def sales_movement_edit(request, pk):
+#     """Редактирование операции движения"""
+#     movement = get_object_or_404(Movement, pk=pk)
     
-    # Проверка статуса - нельзя редактировать подтвержденные или отмененные операции
-    if movement.status in ['confirmed', 'cancelled']:
-        messages.error(request, "Невозможно редактировать подтвержденную или отмененную операцию")
-        return redirect('warehouse:sales_movement_detail', pk=movement.id)
+#     # Проверка статуса - нельзя редактировать подтвержденные или отмененные операции
+#     if movement.status in ['confirmed', 'cancelled']:
+#         messages.error(request, "Невозможно редактировать подтвержденную или отмененную операцию")
+#         return redirect('warehouse:sales_movement_detail', pk=movement.id)
     
-    if request.method == 'POST':
-        form = MovementForm(request.POST, request.FILES, instance=movement, user=request.user, department='sales')
+#     if request.method == 'POST':
+#         form = MovementForm(request.POST, request.FILES, instance=movement, user=request.user, department='sales')
         
-        if form.is_valid():
-            updated_movement = form.save(commit=False)
+#         if form.is_valid():
+#             updated_movement = form.save(commit=False)
             
-            # Обработка транспортных данных
-            try:
-                transports_json = request.POST.get('transports_json', '[]')
-                transports_data = json.loads(transports_json)
+#             # Обработка транспортных данных
+#             try:
+#                 transports_json = request.POST.get('transports_json', '[]')
+#                 transports_data = json.loads(transports_json)
                 
-                if movement.movement_type in ['in', 'out'] and not transports_data:
-                    form.add_error(None, 'Необходимо добавить хотя бы один транспорт')
-                    context = {
-                        'form': form,
-                        'movement': movement,
-                        'title': f'Редактирование {movement.get_movement_type_display()}'
-                    }
-                    return render(request, 'warehouse/sales/movement_form.html', context)
+#                 if movement.movement_type in ['in', 'out'] and not transports_data:
+#                     form.add_error(None, 'Необходимо добавить хотя бы один транспорт')
+#                     context = {
+#                         'form': form,
+#                         'movement': movement,
+#                         'title': f'Редактирование {movement.get_movement_type_display()}'
+#                     }
+#                     return render(request, 'warehouse/sales/movement_form.html', context)
                 
-                # Для приемки и продажи пересчитываем общие значения
-                if movement.movement_type in ['in', 'out']:
-                    total_quantity = 0
-                    total_doc_mass = 0
+#                 # Для приемки и продажи пересчитываем общие значения
+#                 if movement.movement_type in ['in', 'out']:
+#                     total_quantity = 0
+#                     total_doc_mass = 0
                     
-                    for transport_data in transports_data:
-                        mass = float(transport_data.get('mass', 0) or 0)
-                        doc_mass = float(transport_data.get('doc_mass', 0) or 0)
+#                     for transport_data in transports_data:
+#                         mass = float(transport_data.get('mass', 0) or 0)
+#                         doc_mass = float(transport_data.get('doc_mass', 0) or 0)
                         
-                        total_quantity += mass
-                        total_doc_mass += doc_mass
+#                         total_quantity += mass
+#                         total_doc_mass += doc_mass
                     
-                    # Обновляем поля движения (кг в тонны)
-                    updated_movement.quantity = total_quantity / 1000
-                    updated_movement.expected_quantity = total_quantity / 1000
-                    updated_movement.doc_ton = total_doc_mass / 1000
-                    updated_movement.difference = updated_movement.quantity - updated_movement.doc_ton
+#                     # Обновляем поля движения (кг в тонны)
+#                     updated_movement.quantity = total_quantity / 1000
+#                     updated_movement.expected_quantity = total_quantity / 1000
+#                     updated_movement.doc_ton = total_doc_mass / 1000
+#                     updated_movement.difference = updated_movement.quantity - updated_movement.doc_ton
                 
-                # Сохраняем обновленные данные движения
-                updated_movement.save()
+#                 # Сохраняем обновленные данные движения
+#                 updated_movement.save()
                 
-                # Удаляем существующие записи транспорта
-                Transport.objects.filter(movement=movement).delete()
+#                 # Удаляем существующие записи транспорта
+#                 Transport.objects.filter(movement=movement).delete()
                 
-                # Создаем новые записи транспорта
-                for transport_data in transports_data:
-                    transport_type = transport_data.get('transport_type', '')
-                    transport_number = transport_data.get('transport_number', '')
-                    mass_kg = float(transport_data.get('mass', 0) or 0)
-                    doc_mass_kg = float(transport_data.get('doc_mass', 0) or 0)
+#                 # Создаем новые записи транспорта
+#                 for transport_data in transports_data:
+#                     transport_type = transport_data.get('transport_type', '')
+#                     transport_number = transport_data.get('transport_number', '')
+#                     mass_kg = float(transport_data.get('mass', 0) or 0)
+#                     doc_mass_kg = float(transport_data.get('doc_mass', 0) or 0)
                     
-                    Transport.objects.create(
-                        movement=movement,
-                        transport_number=transport_number,
-                        quantity=mass_kg,  # В кг
-                        doc_ton=doc_mass_kg / 1000  # Преобразуем кг в тонны
-                    )
+#                     Transport.objects.create(
+#                         movement=movement,
+#                         transport_number=transport_number,
+#                         quantity=mass_kg,  # В кг
+#                         doc_ton=doc_mass_kg / 1000  # Преобразуем кг в тонны
+#                     )
                     
-                messages.success(request, f"{movement.get_movement_type_display()} #{movement.id} успешно обновлена")
-                return redirect('warehouse:sales_movement_detail', pk=movement.id)
+#                 messages.success(request, f"{movement.get_movement_type_display()} #{movement.id} успешно обновлена")
+#                 return redirect('warehouse:sales_movement_detail', pk=movement.id)
                 
-            except json.JSONDecodeError:
-                form.add_error(None, 'Ошибка в данных о транспорте')
-                context = {
-                    'form': form,
-                    'movement': movement,
-                    'title': f'Редактирование {movement.get_movement_type_display()}'
-                }
-                return render(request, 'warehouse/sales/movement_form.html', context)
+#             except json.JSONDecodeError:
+#                 form.add_error(None, 'Ошибка в данных о транспорте')
+#                 context = {
+#                     'form': form,
+#                     'movement': movement,
+#                     'title': f'Редактирование {movement.get_movement_type_display()}'
+#                 }
+#                 return render(request, 'warehouse/sales/movement_form.html', context)
+#         else:
+#             # Если форма невалидна
+#             context = {
+#                 'form': form,
+#                 'movement': movement,
+#                 'title': f'Редактирование {movement.get_movement_type_display()}'
+#             }
+#             return render(request, 'warehouse/sales/movement_form.html', context)
+#     else:
+#         form = MovementForm(instance=movement, user=request.user, department='sales')
+    
+#     context = {
+#         'form': form,
+#         'movement': movement,
+#         'title': f'Редактирование {movement.get_movement_type_display()}'
+#     }
+    
+#     return render(request, 'warehouse/sales/movement_form.html', context)
+
+# @sales_required
+# def sales_movement_confirm(request, pk):
+#     """Подтверждение операции после обработки специалистом эстокады"""
+#     movement = get_object_or_404(Movement, pk=pk)
+    
+#     # Подтверждать можно только обработанные операции
+#     if movement.status != 'processed':
+#         messages.error(request, f"Операция #{movement.id} не может быть подтверждена, так как не обработана")
+#         return redirect('warehouse:sales_movement_detail', pk=movement.pk)
+    
+#     if request.method == 'POST':
+#         # Обновление статуса операции на 'completed'
+#         movement.status = 'completed'
+#         movement.confirmed_by = request.user
+#         movement.save()
+        
+#         messages.success(request, f"{movement.get_movement_type_display()} #{movement.id} успешно подтверждена и завершена")
+#         return redirect('warehouse:sales_movement_detail', pk=movement.pk)
+    
+#     context = {
+#         'movement': movement,
+#         'title': f'Подтверждение {movement.get_movement_type_display()} #{movement.id}'
+#     }
+    
+#     return render(request, 'warehouse/sales/movement_confirm.html', context)
+
+# @sales_required
+# def sales_movement_cancel(request, pk):
+#     """Отмена операции"""
+#     movement = get_object_or_404(Movement, pk=pk)
+    
+#     # Нельзя отменить завершенную операцию
+#     if movement.status == 'completed':
+#         messages.error(request, f"Операция #{movement.id} уже завершена и не может быть отменена")
+#         return redirect('warehouse:sales_movement_detail', pk=movement.pk)
+    
+#     if request.method == 'POST':
+#         cancel_reason = request.POST.get('cancel_reason')
+        
+#         if not cancel_reason:
+#             messages.error(request, "Необходимо указать причину отмены")
+#             return redirect('warehouse:sales_movement_cancel', pk=movement.pk)
+        
+#         # Обновление статуса операции на 'cancelled'
+#         movement.status = 'cancelled'
+#         movement.note = f"{movement.note or ''}\n\nПричина отмены: {cancel_reason}"
+#         movement.save()
+        
+#         messages.success(request, f"{movement.get_movement_type_display()} #{movement.id} отменена")
+#         return redirect('warehouse:sales_movement_detail', pk=movement.pk)
+    
+#     context = {
+#         'movement': movement,
+#         'title': f'Отмена {movement.get_movement_type_display()} #{movement.id}'
+#     }
+    
+#     return render(request, 'warehouse/sales/movement_cancel.html', context)
+
+class StatisticsView(LoginRequiredMixin, TemplateView):
+    """Представление для отображения статистики"""
+    template_name = 'warehouse/statistics.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Получаем параметры из запроса
+        period = self.request.GET.get('period', 'day')
+        movement_type = self.request.GET.get('movement_type', '')
+        selected_product = self.request.GET.get('product', '')
+        
+        # Определяем период
+        today = timezone.now().date()
+        if period == 'day':
+            start_date = today
+        elif period == 'week':
+            start_date = today - timedelta(days=7)
+        elif period == 'month':
+            start_date = today - timedelta(days=30)
+        elif period == 'year':
+            start_date = today - timedelta(days=365)
         else:
-            # Если форма невалидна
-            context = {
-                'form': form,
-                'movement': movement,
-                'title': f'Редактирование {movement.get_movement_type_display()}'
+            start_date = today
+        
+        # Базовый запрос
+        movements = Movement.objects.filter(date__gte=start_date, date__lte=today)
+        
+        # Применяем фильтры
+        if movement_type:
+            movements = movements.filter(movement_type=movement_type)
+        if selected_product:
+            movements = movements.filter(product_id=selected_product)
+        
+        # Статистика по всем типам операций
+        operations_stats = {
+            'reception': movements.filter(movement_type='in').count(),
+            'sale': movements.filter(movement_type='out').count(),
+            'transfer': movements.filter(movement_type='transfer').count(),
+            'production': movements.filter(movement_type='production').count()
+        }
+        
+        # Объемы по типам операций
+        volume_stats = {
+            'reception': movements.filter(movement_type='in').aggregate(total=Sum('quantity'))['total'] or 0,
+            'sale': movements.filter(movement_type='out').aggregate(total=Sum('quantity'))['total'] or 0,
+            'transfer': movements.filter(movement_type='transfer').aggregate(total=Sum('quantity'))['total'] or 0,
+            'production': movements.filter(movement_type='production').aggregate(total=Sum('quantity'))['total'] or 0
+        }
+        
+        # Статистика по транспорту
+        transport_data = Transport.objects.filter(movement__in=movements)
+        transport_stats = {
+            'truck': transport_data.filter(transport_type='truck').count(),
+            'wagon': transport_data.filter(transport_type='wagon').count(),
+            'truck_volume': transport_data.filter(transport_type='truck').aggregate(
+                total=Sum('quantity'))['total'] or 0,
+            'wagon_volume': transport_data.filter(transport_type='wagon').aggregate(
+                total=Sum('quantity'))['total'] or 0
+        }
+        
+        # Динамика по дням
+        date_range = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)]
+        date_range.reverse()  # От старых к новым
+        
+        daily_data = []
+        for date_str in date_range:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            day_movements = movements.filter(date=date_obj)
+            
+            day_data = {
+                'date': date_str,
+                'reception': day_movements.filter(movement_type='in').aggregate(total=Sum('quantity'))['total'] or 0,
+                'sale': day_movements.filter(movement_type='out').aggregate(total=Sum('quantity'))['total'] or 0,
+                'transfer': day_movements.filter(movement_type='transfer').aggregate(total=Sum('quantity'))['total'] or 0,
+                'production': day_movements.filter(movement_type='production').aggregate(total=Sum('quantity'))['total'] or 0
             }
-            return render(request, 'warehouse/sales/movement_form.html', context)
-    else:
-        form = MovementForm(instance=movement, user=request.user, department='sales')
-    
-    context = {
-        'form': form,
-        'movement': movement,
-        'title': f'Редактирование {movement.get_movement_type_display()}'
-    }
-    
-    return render(request, 'warehouse/sales/movement_form.html', context)
-
-@sales_required
-def sales_movement_confirm(request, pk):
-    """Подтверждение операции после обработки специалистом эстокады"""
-    movement = get_object_or_404(Movement, pk=pk)
-    
-    # Подтверждать можно только обработанные операции
-    if movement.status != 'processed':
-        messages.error(request, f"Операция #{movement.id} не может быть подтверждена, так как не обработана")
-        return redirect('warehouse:sales_movement_detail', pk=movement.pk)
-    
-    if request.method == 'POST':
-        # Обновление статуса операции на 'completed'
-        movement.status = 'completed'
-        movement.confirmed_by = request.user
-        movement.save()
+            daily_data.append(day_data)
         
-        messages.success(request, f"{movement.get_movement_type_display()} #{movement.id} успешно подтверждена и завершена")
-        return redirect('warehouse:sales_movement_detail', pk=movement.pk)
-    
-    context = {
-        'movement': movement,
-        'title': f'Подтверждение {movement.get_movement_type_display()} #{movement.id}'
-    }
-    
-    return render(request, 'warehouse/sales/movement_confirm.html', context)
-
-@sales_required
-def sales_movement_cancel(request, pk):
-    """Отмена операции"""
-    movement = get_object_or_404(Movement, pk=pk)
-    
-    # Нельзя отменить завершенную операцию
-    if movement.status == 'completed':
-        messages.error(request, f"Операция #{movement.id} уже завершена и не может быть отменена")
-        return redirect('warehouse:sales_movement_detail', pk=movement.pk)
-    
-    if request.method == 'POST':
-        cancel_reason = request.POST.get('cancel_reason')
+        # Топ продуктов
+        products = Product.objects.all()
+        product_stats = []
         
-        if not cancel_reason:
-            messages.error(request, "Необходимо указать причину отмены")
-            return redirect('warehouse:sales_movement_cancel', pk=movement.pk)
+        for product in products:
+            product_movements = movements.filter(product=product)
+            total_in = product_movements.filter(movement_type='in').aggregate(total=Sum('quantity'))['total'] or 0
+            total_out = product_movements.filter(movement_type='out').aggregate(total=Sum('quantity'))['total'] or 0
+            
+            stats = {
+                'id': product.id,
+                'name': product.name,
+                'quantity': total_in - total_out,
+                'operations_count': product_movements.count(),
+                'last_movement': product_movements.order_by('-date').first()
+            }
+            
+            product_stats.append(stats)
         
-        # Обновление статуса операции на 'cancelled'
-        movement.status = 'cancelled'
-        movement.note = f"{movement.note or ''}\n\nПричина отмены: {cancel_reason}"
-        movement.save()
+        # Сортируем по количеству операций и берем топ 10
+        product_stats.sort(key=lambda x: x['operations_count'], reverse=True)
+        top_products = product_stats[:10]
         
-        messages.success(request, f"{movement.get_movement_type_display()} #{movement.id} отменена")
-        return redirect('warehouse:sales_movement_detail', pk=movement.pk)
-    
-    context = {
-        'movement': movement,
-        'title': f'Отмена {movement.get_movement_type_display()} #{movement.id}'
-    }
-    
-    return render(request, 'warehouse/sales/movement_cancel.html', context)
+        # Подсчёт общих показателей
+        total_operations = movements.count()
+        total_quantity = movements.aggregate(total=Sum('quantity'))['total'] or 0
+        
+        # Считаем прибыль/убыток (разница между продажами и приемкой)
+        total_in = movements.filter(movement_type='in').aggregate(total=Sum('quantity'))['total'] or 0
+        total_out = movements.filter(movement_type='out').aggregate(total=Sum('quantity'))['total'] or 0
+        profit_loss = total_in - total_out
+        
+        # Средняя разница между документальным и фактическим весом
+        transports = Transport.objects.filter(movement__in=movements)
+        difference_sum = transports.aggregate(total=Sum('difference'))['total'] or 0
+        transports_count = transports.count()
+        average_difference = difference_sum / transports_count if transports_count > 0 else 0
+        
+        context.update({
+            'period': period,
+            'movement_type': movement_type,
+            'selected_product': selected_product,
+            'products': Product.objects.all(),
+            'total_operations': total_operations,
+            'total_quantity': total_quantity,
+            'profit_loss': profit_loss,
+            'average_difference': average_difference,
+            'operations_stats': operations_stats,
+            'volume_stats': volume_stats,
+            'transport_stats': transport_stats,
+            'daily_data': daily_data,
+            'top_products': top_products,
+            'chart_dates': [day['date'] for day in daily_data],
+            'chart_reception': [day['reception'] for day in daily_data],
+            'chart_sale': [day['sale'] for day in daily_data],
+            'chart_transfer': [day['transfer'] for day in daily_data],
+            'chart_production': [day['production'] for day in daily_data],
+        })
+        
+        return context
 
 class AnalyticsDashboardView(LoginRequiredMixin, TemplateView):
     template_name = 'warehouse/analytics/dashboard.html'
@@ -3491,3 +3632,757 @@ class ProductSupplierDeleteView(LoginRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Связь продукта с поставщиком успешно удалена.')
         return super().delete(request, *args, **kwargs)
+
+class EstokadaListView(LoginRequiredMixin, ListView):
+    model = EstokadaOperation
+    template_name = 'warehouse/estokada_list.html'
+    context_object_name = 'operations'
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Фильтры
+        status = self.request.GET.get('status')
+        date_from = self.request.GET.get('date_from')
+        date_to = self.request.GET.get('date_to')
+        result = self.request.GET.get('result')
+        
+        if status:
+            queryset = queryset.filter(status=status)
+        if date_from:
+            queryset = queryset.filter(created_at__date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(created_at__date__lte=date_to)
+        if result:
+            queryset = queryset.filter(result=result)
+        
+        return queryset.select_related('movement', 'movement__product', 'processed_by')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Статистика
+        total_operations = EstokadaOperation.objects.count()
+        in_progress = EstokadaOperation.objects.filter(status__in=['pending', 'measuring', 'processing']).count()
+        completed = EstokadaOperation.objects.filter(status='completed').count()
+        cancelled = EstokadaOperation.objects.filter(status='cancelled').count()
+        
+        context.update({
+            'statistics': {
+                'total': total_operations,
+                'in_progress': in_progress,
+                'completed': completed,
+                'cancelled': cancelled
+            },
+            'status_choices': EstokadaOperation.STATUS_CHOICES,
+            'result_choices': EstokadaOperation.OPERATION_RESULT,
+            'selected_status': self.request.GET.get('status', ''),
+            'selected_result': self.request.GET.get('result', ''),
+            'date_from': self.request.GET.get('date_from', ''),
+            'date_to': self.request.GET.get('date_to', '')
+        })
+        
+        return context
+
+class EstokadaDetailView(LoginRequiredMixin, DetailView):
+    model = EstokadaOperation
+    template_name = 'warehouse/estokada_detail.html'
+    context_object_name = 'operation'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        operation = self.get_object()
+        
+        # Получаем связанные данные
+        context.update({
+            'movement': operation.movement,
+            'product': operation.movement.product,
+        })
+        
+        return context
+
+
+class EstokadaProcessView(LoginRequiredMixin, UpdateView):
+    model = EstokadaOperation
+    form_class = EstokadaOperationForm
+    template_name = 'warehouse/estokada_process.html'
+    context_object_name = 'operation'
+
+    def get_success_url(self):
+        return reverse_lazy('warehouse:estokada_detail', kwargs={'pk': self.object.pk})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        operation = self.get_object()
+        
+        context.update({
+            'movement': operation.movement,
+            'product': operation.movement.product,
+        })
+        
+        return context
+
+    def form_valid(self, form):
+        operation = form.save(commit=False)
+        
+        # Если статус изменился на completed или cancelled
+        if operation.status in ['completed', 'cancelled']:
+            operation.processed_by = self.request.user
+            operation.processed_at = timezone.now()
+        
+        # Расчет разницы
+        if operation.actual_quantity:
+            operation.difference_quantity = operation.actual_quantity - operation.movement.quantity
+            if operation.movement.quantity != 0:
+                operation.difference_percentage = (operation.difference_quantity / operation.movement.quantity) * 100
+            
+            # Определение результата
+            if abs(operation.difference_percentage) <= 0.1:
+                operation.result = 'match'
+            else:
+                operation.result = 'positive_diff' if operation.difference_quantity > 0 else 'negative_diff'
+        
+        operation.save()
+        return super().form_valid(form)
+
+class TransportCreateView(LoginRequiredMixin, CreateView):
+    model = Transport
+    template_name = 'warehouse/transport_form.html'
+    fields = ['transport_type', 'transport_number', 'wagon', 'wagon_type', 
+              'density', 'temperature', 'volume', 'quantity', 'doc_quantity', 
+              'warehouse', 'notes']
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['movement'] = get_object_or_404(Movement, pk=self.kwargs['movement_pk'])
+        return context
+    
+    def form_valid(self, form):
+        transport = form.save(commit=False)
+        transport.movement = get_object_or_404(Movement, pk=self.kwargs['movement_pk'])
+        transport.save()
+        return super().form_valid(form)
+    
+    def get_success_url(self):
+        return reverse_lazy('warehouse:movement_detail', 
+                          kwargs={'pk': self.kwargs['movement_pk']})
+
+class ReceptionCreateView(LoginRequiredMixin, CreateView):
+    """Представление для создания операции приемки товара"""
+    model = Movement
+    template_name = 'warehouse/reception_form.html'
+    form_class = MovementForm
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Добавляем в контекст список резервуаров и вагонов
+        context['reservoirs'] = Reservoir.objects.all()
+        context['wagons'] = Wagon.objects.all()
+        context['wagon_types'] = WagonType.objects.all()
+        return context
+    
+    def form_valid(self, form):
+        # Устанавливаем тип движения как "in" (приемка)
+        form.instance.movement_type = 'in'
+        
+        # Сохраняем движение, но не коммитим пока в базу
+        movement = form.save(commit=False)
+        
+        # Устанавливаем куда положить товар (резервуар или вагон)
+        placement_type = self.request.POST.get('placement_type')
+        if placement_type == 'reservoir':
+            reservoir_id = self.request.POST.get('reservoir')
+            if reservoir_id:
+                movement.reservoir_id = reservoir_id
+        elif placement_type == 'wagon':
+            wagon_id = self.request.POST.get('wagon')
+            if wagon_id:
+                movement.wagon_id = wagon_id
+        
+        # Обрабатываем данные о транспорте
+        try:
+            # Получаем JSON с данными о транспорте
+            transports_json = self.request.POST.get('transports_json')
+            if transports_json:
+                transports_data = json.loads(transports_json)
+                
+                # Проверяем, что есть хотя бы один транспорт
+                if not transports_data:
+                    form.add_error(None, 'Необходимо добавить хотя бы один транспорт')
+                    return self.form_invalid(form)
+                
+                # Рассчитываем общее количество из всех транспортов
+                total_quantity = 0
+                total_doc_ton = 0
+                
+                for transport_data in transports_data:
+                    quantity = float(transport_data.get('quantity', 0))
+                    doc_ton = float(transport_data.get('doc_ton', 0) or 0)
+                    
+                    if quantity <= 0:
+                        form.add_error(None, 'Количество должно быть больше 0')
+                        return self.form_invalid(form)
+                    
+                    total_quantity += quantity
+                    total_doc_ton += doc_ton
+                
+                # Переводим кг в тонны
+                movement.quantity = total_quantity / 1000
+                movement.doc_ton = total_doc_ton / 1000
+                
+                # Сохраняем движение, чтобы получить ID
+                movement.save()
+                
+                # Создаем записи транспорта
+                for transport_data in transports_data:
+                    transport_type = transport_data.get('transport_type')
+                    transport_number = transport_data.get('transport_number')
+                    quantity_kg = float(transport_data.get('quantity', 0))
+                    doc_ton_kg = float(transport_data.get('doc_ton', 0) or 0)
+                    
+                    transport = Transport(
+                        movement=movement,
+                        transport_type=transport_type,
+                        transport_number=transport_number,
+                        quantity=quantity_kg,  # В кг
+                        doc_ton=doc_ton_kg / 1000  # В тоннах
+                    )
+                    
+                    # Добавляем специфические данные в зависимости от типа транспорта
+                    if transport_type == 'truck':
+                        transport.density = transport_data.get('density')
+                        transport.temperature = transport_data.get('temperature')
+                        transport.liter = transport_data.get('liter')
+                    elif transport_type == 'wagon':
+                        if 'wagon_type' in transport_data and transport_data['wagon_type']:
+                            transport.wagon_type_id = transport_data['wagon_type']
+                        transport.capacity = transport_data.get('capacity')
+                        transport.tare_weight = transport_data.get('tare_weight')
+                    
+                    transport.save()
+                
+                # Обновляем запасы в резервуаре или вагоне
+                if movement.reservoir:
+                    reservoir = movement.reservoir
+                    reservoir.current_quantity += movement.quantity
+                    reservoir.save()
+                elif movement.wagon:
+                    wagon = movement.wagon
+                    wagon.current_quantity += movement.quantity
+                    wagon.save()
+                
+                # Обновляем инвентарь продукта
+                inventory, created = Inventory.objects.get_or_create(
+                    product=movement.product,
+                    defaults={'quantity': 0}
+                )
+                inventory.quantity += movement.quantity
+                inventory.save()
+                
+                # Обновляем счетчики продукта
+                product = movement.product
+                product.in_qty = (product.in_qty or 0) + movement.quantity
+                product.save(update_fields=['in_qty'])
+                
+                messages.success(self.request, 'Операция приемки успешно создана')
+                return redirect('warehouse:movement_list')
+            else:
+                form.add_error(None, 'Необходимо добавить данные о транспорте')
+                return self.form_invalid(form)
+        except json.JSONDecodeError:
+            form.add_error(None, 'Ошибка в данных о транспорте')
+            return self.form_invalid(form)
+        except Exception as e:
+            form.add_error(None, f'Произошла ошибка: {str(e)}')
+            return self.form_invalid(form)
+
+
+class SaleCreateView(LoginRequiredMixin, CreateView):
+    """Представление для создания операции продажи товара"""
+    model = Movement
+    template_name = 'warehouse/sale_form.html'
+    form_class = MovementForm
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Добавляем в контекст список резервуаров и вагонов
+        context['reservoirs'] = Reservoir.objects.all()
+        context['wagons'] = Wagon.objects.all()
+        context['wagon_types'] = WagonType.objects.all()
+        return context
+    
+    def form_valid(self, form):
+        # Устанавливаем тип движения как "out" (продажа)
+        form.instance.movement_type = 'out'
+        
+        # Сохраняем движение, но не коммитим пока в базу
+        movement = form.save(commit=False)
+        
+        # Получаем источник товара (резервуар или вагон)
+        source_type = self.request.POST.get('source_type')
+        source_id = self.request.POST.get('source_id')
+        
+        # Проверяем доступное количество
+        available_quantity = 0
+        
+        if source_type == 'reservoir' and source_id:
+            try:
+                reservoir = Reservoir.objects.get(pk=source_id)
+                available_quantity = reservoir.current_quantity
+                movement.reservoir_id = source_id
+            except Reservoir.DoesNotExist:
+                form.add_error(None, 'Указанный резервуар не найден')
+                return self.form_invalid(form)
+        elif source_type == 'wagon' and source_id:
+            try:
+                wagon = Wagon.objects.get(pk=source_id)
+                available_quantity = wagon.current_quantity
+                movement.wagon_id = source_id
+            except Wagon.DoesNotExist:
+                form.add_error(None, 'Указанный вагон не найден')
+                return self.form_invalid(form)
+        else:
+            form.add_error(None, 'Необходимо указать источник продукта')
+            return self.form_invalid(form)
+        
+        # Обрабатываем данные о транспорте
+        try:
+            # Получаем JSON с данными о транспорте
+            transports_json = self.request.POST.get('transports_json')
+            if transports_json:
+                transports_data = json.loads(transports_json)
+                
+                # Проверяем, что есть хотя бы один транспорт
+                if not transports_data:
+                    form.add_error(None, 'Необходимо добавить хотя бы один транспорт')
+                    return self.form_invalid(form)
+                
+                # Рассчитываем общее количество из всех транспортов
+                total_quantity = 0
+                total_doc_ton = 0
+                
+                for transport_data in transports_data:
+                    quantity = float(transport_data.get('quantity', 0))
+                    doc_ton = float(transport_data.get('doc_ton', 0) or 0)
+                    
+                    if quantity <= 0:
+                        form.add_error(None, 'Количество должно быть больше 0')
+                        return self.form_invalid(form)
+                    
+                    total_quantity += quantity
+                    total_doc_ton += doc_ton
+                
+                # Переводим кг в тонны
+                total_quantity_tons = total_quantity / 1000
+                
+                # Проверяем, не превышает ли общее количество доступное количество
+                if total_quantity_tons > available_quantity:
+                    form.add_error(None, f'Общее количество ({total_quantity_tons:.2f} тонн) превышает доступное количество ({available_quantity:.2f} тонн)')
+                    return self.form_invalid(form)
+                
+                # Устанавливаем количество и документальный вес
+                movement.quantity = total_quantity_tons
+                movement.doc_ton = total_doc_ton / 1000
+                
+                # Сохраняем движение, чтобы получить ID
+                movement.save()
+                
+                # Создаем записи транспорта
+                for transport_data in transports_data:
+                    transport_type = transport_data.get('transport_type')
+                    transport_number = transport_data.get('transport_number')
+                    quantity_kg = float(transport_data.get('quantity', 0))
+                    doc_ton_kg = float(transport_data.get('doc_ton', 0) or 0)
+                    
+                    transport = Transport(
+                        movement=movement,
+                        transport_type=transport_type,
+                        transport_number=transport_number,
+                        quantity=quantity_kg,  # В кг
+                        doc_ton=doc_ton_kg / 1000  # В тоннах
+                    )
+                    
+                    # Добавляем специфические данные в зависимости от типа транспорта
+                    if transport_type == 'truck':
+                        transport.density = transport_data.get('density')
+                        transport.temperature = transport_data.get('temperature')
+                        transport.liter = transport_data.get('liter')
+                    elif transport_type == 'wagon':
+                        if 'wagon_type' in transport_data and transport_data['wagon_type']:
+                            transport.wagon_type_id = transport_data['wagon_type']
+                        transport.capacity = transport_data.get('capacity')
+                        transport.tare_weight = transport_data.get('tare_weight')
+                    
+                    transport.save()
+                
+                # Обновляем запасы в резервуаре или вагоне
+                if source_type == 'reservoir':
+                    reservoir.current_quantity -= movement.quantity
+                    reservoir.save()
+                elif source_type == 'wagon':
+                    wagon.current_quantity -= movement.quantity
+                    wagon.save()
+                
+                # Обновляем инвентарь продукта
+                inventory, created = Inventory.objects.get_or_create(
+                    product=movement.product,
+                    defaults={'quantity': 0}
+                )
+                inventory.quantity -= movement.quantity
+                inventory.save()
+                
+        except json.JSONDecodeError:
+            form.add_error(None, 'Ошибка в данных о транспорте')
+            return self.form_invalid(form)
+        except Exception as e:
+            form.add_error(None, f'Произошла ошибка: {str(e)}')
+            return self.form_invalid(form)
+
+class TransferCreateView(LoginRequiredMixin, CreateView):
+    """Представление для операции перемещения товара между резервуарами и вагонами"""
+    model = Movement
+    template_name = 'warehouse/transfer_form.html'
+    form_class = MovementForm
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Добавляем в контекст список резервуаров и вагонов
+        context['reservoirs'] = Reservoir.objects.all()
+        context['wagons'] = Wagon.objects.all()
+        return context
+    
+    def form_valid(self, form):
+        # Устанавливаем тип движения как "transfer" (перемещение)
+        form.instance.movement_type = 'transfer'
+        
+        # Получаем данные формы
+        movement = form.save(commit=False)
+        
+        # Получаем источник товара (резервуар или вагон)
+        source_type = self.request.POST.get('source_type')
+        source_id = self.request.POST.get('source_id')
+        
+        # Получаем назначение товара (резервуар или вагон)
+        destination_type = self.request.POST.get('destination_type')
+        destination_id = self.request.POST.get('destination_id')
+        
+        # Получаем количество для перемещения
+        quantity = float(self.request.POST.get('transfer_quantity') or 0)
+        
+        if quantity <= 0:
+            form.add_error(None, 'Количество должно быть больше 0')
+            return self.form_invalid(form)
+        
+        # Устанавливаем количество в движении
+        movement.quantity = quantity
+        
+        # Проверяем доступное количество в источнике
+        source_obj = None
+        available_quantity = 0
+        
+        if source_type == 'reservoir' and source_id:
+            try:
+                source_obj = Reservoir.objects.get(pk=source_id)
+                available_quantity = source_obj.current_quantity
+                movement.source_reservoir_id = source_id
+            except Reservoir.DoesNotExist:
+                form.add_error(None, 'Указанный резервуар-источник не найден')
+                return self.form_invalid(form)
+        elif source_type == 'wagon' and source_id:
+            try:
+                source_obj = Wagon.objects.get(pk=source_id)
+                available_quantity = source_obj.current_quantity
+                movement.source_wagon_id = source_id
+            except Wagon.DoesNotExist:
+                form.add_error(None, 'Указанный вагон-источник не найден')
+                return self.form_invalid(form)
+        else:
+            form.add_error(None, 'Необходимо указать источник продукта')
+            return self.form_invalid(form)
+        
+        # Проверяем, не превышает ли количество доступное в источнике
+        if quantity > available_quantity:
+            form.add_error(None, f'Количество ({quantity:.2f} тонн) превышает доступное в источнике ({available_quantity:.2f} тонн)')
+            return self.form_invalid(form)
+        
+        # Проверяем доступное пространство в назначении
+        destination_obj = None
+        available_space = 0
+        
+        if destination_type == 'reservoir' and destination_id:
+            try:
+                destination_obj = Reservoir.objects.get(pk=destination_id)
+                available_space = destination_obj.capacity - destination_obj.current_quantity
+                movement.destination_reservoir_id = destination_id
+            except Reservoir.DoesNotExist:
+                form.add_error(None, 'Указанный резервуар-назначение не найден')
+                return self.form_invalid(form)
+        elif destination_type == 'wagon' and destination_id:
+            try:
+                destination_obj = Wagon.objects.get(pk=destination_id)
+                available_space = destination_obj.capacity - destination_obj.current_quantity
+                movement.destination_wagon_id = destination_id
+            except Wagon.DoesNotExist:
+                form.add_error(None, 'Указанный вагон-назначение не найден')
+                return self.form_invalid(form)
+        else:
+            form.add_error(None, 'Необходимо указать назначение продукта')
+            return self.form_invalid(form)
+        
+        # Проверяем, не превышает ли количество доступное пространство в назначении
+        if quantity > available_space:
+            form.add_error(None, f'Количество ({quantity:.2f} тонн) превышает доступное пространство в назначении ({available_space:.2f} тонн)')
+            return self.form_invalid(form)
+        
+        # Проверяем, что источник и назначение не одинаковые
+        if source_type == destination_type and source_id == destination_id:
+            form.add_error(None, 'Источник и назначение не могут быть одинаковыми')
+            return self.form_invalid(form)
+        
+        try:
+            # Сохраняем движение
+            movement.save()
+            
+            # Обновляем количество в источнике (уменьшаем)
+            if source_type == 'reservoir':
+                source_obj.current_quantity -= quantity
+                source_obj.save()
+            elif source_type == 'wagon':
+                source_obj.current_quantity -= quantity
+                source_obj.save()
+            
+            # Обновляем количество в назначении (увеличиваем)
+            if destination_type == 'reservoir':
+                destination_obj.current_quantity += quantity
+                destination_obj.save()
+            elif destination_type == 'wagon':
+                destination_obj.current_quantity += quantity
+                destination_obj.save()
+            
+            messages.success(self.request, f'Операция перемещения {quantity:.2f} тонн успешно выполнена')
+            return redirect('warehouse:movement_list')
+        except Exception as e:
+            form.add_error(None, f'Произошла ошибка: {str(e)}')
+            return self.form_invalid(form)
+
+class ProductionCreateView(LoginRequiredMixin, CreateView):
+    """Представление для операции производства товара"""
+    model = Movement
+    template_name = 'warehouse/production_form.html'
+    form_class = MovementForm
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Добавляем в контекст список продуктов, резервуаров и вагонов
+        context['products'] = Product.objects.all()
+        context['reservoirs'] = Reservoir.objects.all()
+        context['wagons'] = Wagon.objects.all()
+        return context
+    
+    def form_valid(self, form):
+        # Устанавливаем тип движения как "production" (производство)
+        form.instance.movement_type = 'production'
+        
+        # Получаем данные формы
+        movement = form.save(commit=False)
+        
+        # Получаем количество произведенного продукта
+        quantity = float(self.request.POST.get('quantity') or 0)
+        
+        if quantity <= 0:
+            form.add_error(None, 'Количество должно быть больше 0')
+            return self.form_invalid(form)
+        
+        # Устанавливаем количество в движении
+        movement.quantity = quantity
+        
+        # Получаем место размещения готового продукта
+        placement_type = self.request.POST.get('placement_type')
+        placement_id = self.request.POST.get('placement_id')
+        
+        placement_obj = None
+        available_space = 0
+        
+        if placement_type == 'reservoir' and placement_id:
+            try:
+                placement_obj = Reservoir.objects.get(pk=placement_id)
+                available_space = placement_obj.capacity - placement_obj.current_quantity
+                movement.reservoir_id = placement_id
+            except Reservoir.DoesNotExist:
+                form.add_error(None, 'Указанный резервуар не найден')
+                return self.form_invalid(form)
+        elif placement_type == 'wagon' and placement_id:
+            try:
+                placement_obj = Wagon.objects.get(pk=placement_id)
+                available_space = placement_obj.capacity - placement_obj.current_quantity
+                movement.wagon_id = placement_id
+            except Wagon.DoesNotExist:
+                form.add_error(None, 'Указанный вагон не найден')
+                return self.form_invalid(form)
+        else:
+            form.add_error(None, 'Необходимо указать место размещения продукта')
+            return self.form_invalid(form)
+        
+        # Проверяем, не превышает ли количество доступное пространство
+        if quantity > available_space:
+            form.add_error(None, f'Количество ({quantity:.2f} тонн) превышает доступное пространство ({available_space:.2f} тонн)')
+            return self.form_invalid(form)
+        
+        # Получаем данные об ингредиентах
+        try:
+            ingredients_json = self.request.POST.get('ingredients_json')
+            if not ingredients_json:
+                form.add_error(None, 'Не указаны ингредиенты для производства')
+                return self.form_invalid(form)
+            
+            ingredients_data = json.loads(ingredients_json)
+            
+            if not ingredients_data:
+                form.add_error(None, 'Необходимо добавить хотя бы один ингредиент')
+                return self.form_invalid(form)
+            
+            # Проверяем ингредиенты
+            for i, ingredient in enumerate(ingredients_data):
+                product_id = ingredient.get('product_id')
+                ingredient_quantity = float(ingredient.get('quantity') or 0)
+                source_type = ingredient.get('source_type')
+                source_id = ingredient.get('source_id')
+                
+                if not product_id:
+                    form.add_error(None, f'Не указан продукт для ингредиента #{i + 1}')
+                    return self.form_invalid(form)
+                
+                if ingredient_quantity <= 0:
+                    form.add_error(None, f'Количество должно быть больше 0 для ингредиента #{i + 1}')
+                    return self.form_invalid(form)
+                
+                # Проверяем доступное количество ингредиента
+                source_obj = None
+                available_quantity = 0
+                
+                if source_type == 'reservoir' and source_id:
+                    try:
+                        source_obj = Reservoir.objects.get(pk=source_id)
+                        if source_obj.product_id != int(product_id):
+                            form.add_error(None, f'Резервуар содержит другой продукт для ингредиента #{i + 1}')
+                            return self.form_invalid(form)
+                        available_quantity = source_obj.current_quantity
+                    except Reservoir.DoesNotExist:
+                        form.add_error(None, f'Указанный резервуар не найден для ингредиента #{i + 1}')
+                        return self.form_invalid(form)
+                elif source_type == 'wagon' and source_id:
+                    try:
+                        source_obj = Wagon.objects.get(pk=source_id)
+                        if source_obj.product_id != int(product_id):
+                            form.add_error(None, f'Вагон содержит другой продукт для ингредиента #{i + 1}')
+                            return self.form_invalid(form)
+                        available_quantity = source_obj.current_quantity
+                    except Wagon.DoesNotExist:
+                        form.add_error(None, f'Указанный вагон не найден для ингредиента #{i + 1}')
+                        return self.form_invalid(form)
+                else:
+                    form.add_error(None, f'Необходимо указать источник продукта для ингредиента #{i + 1}')
+                    return self.form_invalid(form)
+                
+                # Проверяем, не превышает ли количество доступное в источнике
+                if ingredient_quantity > available_quantity:
+                    form.add_error(None, f'Количество ({ingredient_quantity:.2f} тонн) превышает доступное в источнике ({available_quantity:.2f} тонн) для ингредиента #{i + 1}')
+                    return self.form_invalid(form)
+            
+            # Сохраняем движение
+            movement.save()
+            
+            # Обрабатываем ингредиенты и создаем связанные движения
+            for ingredient in ingredients_data:
+                product_id = ingredient.get('product_id')
+                ingredient_quantity = float(ingredient.get('quantity') or 0)
+                source_type = ingredient.get('source_type')
+                source_id = ingredient.get('source_id')
+                
+                # Создаем движение для вычитания ингредиента
+                ingredient_movement = Movement(
+                    movement_type='production_ingredient',
+                    product_id=product_id,
+                    quantity=ingredient_quantity,
+                    date=movement.date,
+                    document_number=f"{movement.document_number}-{product_id}",
+                    parent_movement=movement,
+                    note=f"Ингредиент для производства {movement.document_number}"
+                )
+                
+                # Устанавливаем источник ингредиента
+                if source_type == 'reservoir':
+                    source_obj = Reservoir.objects.get(pk=source_id)
+                    ingredient_movement.reservoir_id = source_id
+                    
+                    # Обновляем количество в резервуаре
+                    source_obj.current_quantity -= ingredient_quantity
+                    source_obj.save()
+                elif source_type == 'wagon':
+                    source_obj = Wagon.objects.get(pk=source_id)
+                    ingredient_movement.wagon_id = source_id
+                    
+                    # Обновляем количество в вагоне
+                    source_obj.current_quantity -= ingredient_quantity
+                    source_obj.save()
+                
+                ingredient_movement.save()
+                
+                # Обновляем инвентарь ингредиента
+                ingredient_inventory, created = Inventory.objects.get_or_create(
+                    product_id=product_id,
+                    defaults={'quantity': 0}
+                )
+                ingredient_inventory.quantity -= ingredient_quantity
+                ingredient_inventory.save()
+            
+            # Обновляем место размещения готового продукта
+            if placement_type == 'reservoir':
+                placement_obj.current_quantity += quantity
+                placement_obj.save()
+            elif placement_type == 'wagon':
+                placement_obj.current_quantity += quantity
+                placement_obj.save()
+            
+            # Обновляем инвентарь готового продукта
+            product_inventory, created = Inventory.objects.get_or_create(
+                product=movement.product,
+                defaults={'quantity': 0}
+            )
+            product_inventory.quantity += quantity
+            product_inventory.save()
+            
+            # Обновляем счетчики продукта
+            product = movement.product
+            product.production_qty = (product.production_qty or 0) + quantity
+            product.save(update_fields=['production_qty'])
+            
+            messages.success(self.request, f'Операция производства {quantity:.2f} тонн продукта успешно выполнена')
+            return redirect('warehouse:movement_list')
+        except json.JSONDecodeError:
+            form.add_error(None, 'Ошибка в данных об ингредиентах')
+            return self.form_invalid(form)
+        except Exception as e:
+            form.add_error(None, f'Произошла ошибка: {str(e)}')
+            return self.form_invalid(form)

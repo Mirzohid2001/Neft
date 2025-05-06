@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Обработка эстокадой - Операция #{{ operation.id }}{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Главная</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sales:operation_list' %}">Операции</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sales:operation_detail' pk=operation.id %}">Операция #{{ operation.id }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Обработка эстокадой</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Обработка операции эстокадой</h1>
+        <a href="{% url 'sales:operation_detail' pk=operation.id %}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left fa-sm text-white-50"></i> Назад к операции
+        </a>
+    </div>
+
+    <!-- Информация об операции -->
+    <div class="row">
+        <div class="col-xl-6 col-md-12 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Детали операции</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">ID операции:</div>
+                        <div class="col-md-8">{{ operation.id }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Тип операции:</div>
+                        <div class="col-md-8">
+                            {% if operation.movement_type == 'in' %}
+                                <span class="badge badge-success">Приемка</span>
+                            {% elif operation.movement_type == 'out' %}
+                                <span class="badge badge-danger">Продажа</span>
+                            {% elif operation.movement_type == 'transfer' %}
+                                <span class="badge badge-info">Перемещение</span>
+                            {% elif operation.movement_type == 'production' %}
+                                <span class="badge badge-warning">Производство</span>
+                            {% else %}
+                                <span class="badge badge-secondary">{{ operation.movement_type }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Дата:</div>
+                        <div class="col-md-8">{{ operation.date|date:"d.m.Y" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Номер документа:</div>
+                        <div class="col-md-8">{{ operation.document_number|default:"-" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Продукт:</div>
+                        <div class="col-md-8">{{ operation.product.title }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Плановый вес:</div>
+                        <div class="col-md-8">{{ operation.quantity }} тонн</div>
+                    </div>
+                    {% if operation.client %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Клиент/Поставщик:</div>
+                        <div class="col-md-8">{{ operation.client.title }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-6 col-md-12 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Информация о транспорте</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Тип транспорта:</div>
+                        <div class="col-md-8">
+                            {% if operation.transport_type == 'auto' %}
+                                Автомобильный
+                            {% elif operation.transport_type == 'rail' %}
+                                Железнодорожный
+                            {% elif operation.transport_type == 'sea' %}
+                                Морской
+                            {% elif operation.transport_type == 'pipeline' %}
+                                Трубопроводный
+                            {% else %}
+                                {{ operation.transport_type|default:"-" }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Номер транспорта:</div>
+                        <div class="col-md-8">{{ operation.transport_number|default:"-" }}</div>
+                    </div>
+                    {% if operation.transport_type == 'rail' and operation.wagon_type %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Тип вагона:</div>
+                        <div class="col-md-8">{{ operation.get_wagon_type_display|default:"-" }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if operation.source_reservoir %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Резервуар источник:</div>
+                        <div class="col-md-8">{{ operation.source_reservoir.name }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if operation.source_wagon %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Вагон источник:</div>
+                        <div class="col-md-8">{{ operation.source_wagon }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if operation.target_reservoir %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Резервуар назначения:</div>
+                        <div class="col-md-8">{{ operation.target_reservoir.name }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if operation.target_wagon %}
+                    <div class="row mb-3">
+                        <div class="col-md-4 font-weight-bold">Вагон назначения:</div>
+                        <div class="col-md-8">{{ operation.target_wagon }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Форма обработки эстокадой -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Обработка эстокадой</h6>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <strong>Пожалуйста, исправьте следующие ошибки:</strong>
+                        {{ form.non_field_errors }}
+                        {% for field in form %}
+                            {% if field.errors %}
+                                <div>{{ field.label }}: {{ field.errors }}</div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="{{ form.actual_weight.id_for_label }}">{{ form.actual_weight.label }}</label>
+                            {{ form.actual_weight }}
+                            <small class="form-text text-muted">
+                                Фактический вес товара, измеренный на эстокаде
+                            </small>
+                            {% if form.actual_weight.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.actual_weight.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="{{ form.density.id_for_label }}">{{ form.density.label }}</label>
+                            {{ form.density }}
+                            <small class="form-text text-muted">
+                                Плотность продукта (кг/м³)
+                            </small>
+                            {% if form.density.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.density.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="{{ form.temperature.id_for_label }}">{{ form.temperature.label }}</label>
+                            {{ form.temperature }}
+                            <small class="form-text text-muted">
+                                Температура продукта (°C)
+                            </small>
+                            {% if form.temperature.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.temperature.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+                            {{ form.notes }}
+                            <small class="form-text text-muted">
+                                Дополнительные комментарии по обработке операции
+                            </small>
+                            {% if form.notes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.notes.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Результат</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="planned_weight">Плановый вес:</label>
+                                    <input type="text" id="planned_weight" class="form-control bg-light" value="{{ operation.quantity }}" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="difference">Разница:</label>
+                                    <input type="text" id="difference" class="form-control bg-light" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="difference_percent">Разница (%):</label>
+                                    <input type="text" id="difference_percent" class="form-control bg-light" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning mb-4">
+                    <i class="fas fa-exclamation-triangle"></i> После обработки операции эстокадой, данные будут зафиксированы и дальнейшее редактирование базовых параметров операции будет недоступно.
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-primary">
+                        Обработать операцию
+                    </button>
+                    <a href="{% url 'sales:operation_detail' pk=operation.id %}" class="btn btn-secondary">Отмена</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Расчет разницы между плановым и фактическим весом
+        function calculateDifference() {
+            var plannedWeight = parseFloat('{{ operation.quantity }}') || 0;
+            var actualWeight = parseFloat($('#{{ form.actual_weight.id_for_label }}').val()) || 0;
+            
+            var difference = actualWeight - plannedWeight;
+            var differencePercent = plannedWeight !== 0 ? (difference / plannedWeight * 100) : 0;
+            
+            $('#difference').val(difference.toFixed(2));
+            $('#difference_percent').val(differencePercent.toFixed(2) + '%');
+            
+            // Меняем цвет в зависимости от разницы
+            if (difference < 0) {
+                $('#difference').removeClass('text-success').addClass('text-danger');
+                $('#difference_percent').removeClass('text-success').addClass('text-danger');
+            } else if (difference > 0) {
+                $('#difference').removeClass('text-danger').addClass('text-success');
+                $('#difference_percent').removeClass('text-danger').addClass('text-success');
+            } else {
+                $('#difference').removeClass('text-danger text-success');
+                $('#difference_percent').removeClass('text-danger text-success');
+            }
+        }
+        
+        $('#{{ form.actual_weight.id_for_label }}').change(calculateDifference);
+        $('#{{ form.actual_weight.id_for_label }}').keyup(calculateDifference);
+        
+        // Вызываем функцию в начале для инициализации значений
+        calculateDifference();
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,509 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Перемещение товара{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #6366f1;
+        --primary-dark: #4338ca;
+        --secondary: #10b981;
+        --secondary-dark: #059669;
+        --info: #06b6d4;
+        --info-dark: #0e7490;
+        --warning: #f59e0b;
+        --warning-dark: #d97706;
+        --danger: #ef4444;
+        --danger-dark: #dc2626;
+        --dark: #1e293b;
+        --light: #f8fafc;
+    }
+
+    .transfer-form {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .form-section {
+        margin-bottom: 20px;
+        border-radius: 10px;
+        padding: 15px;
+        background-color: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .form-section h3 {
+        margin-bottom: 15px;
+        color: var(--dark);
+        font-weight: 600;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 8px 12px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        border-color: var(--primary);
+    }
+
+    .btn-transfer {
+        background: linear-gradient(to right, var(--info), var(--info-dark));
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-transfer:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Анимации */
+    .fade-in {
+        animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Стрелка перемещения */
+    .transfer-arrow {
+        position: relative;
+        height: 2px;
+        background-color: var(--info);
+        margin: 40px 20px;
+    }
+    
+    .transfer-arrow:before {
+        content: "";
+        position: absolute;
+        right: -10px;
+        top: -9px;
+        border-top: 10px solid transparent;
+        border-bottom: 10px solid transparent;
+        border-left: 15px solid var(--info);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 animate__animated animate__fadeIn">
+    <h1 class="mb-4 text-center text-gradient">Перемещение товара</h1>
+    
+    <div class="transfer-form">
+        <form method="post" id="transferForm">
+            {% csrf_token %}
+            <input type="hidden" name="quantity" id="movement-quantity" value="0">
+            
+            <!-- Основная информация -->
+            <div class="form-section">
+                <h3><i class="bi bi-info-circle"></i> Основная информация</h3>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="id_transaction_type">Тип транзакции:</label>
+                        <input type="text" id="id_transaction_type" class="form-control" value="Перемещение" readonly>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.document_number.id_for_label }}">Номер документа:</label>
+                        {{ form.document_number }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.date.id_for_label }}">Дата:</label>
+                        {{ form.date }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.product.id_for_label }}">Продукт:</label>
+                        {{ form.product }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.quantity.id_for_label }}">Количество (тонн):</label>
+                        <input type="number" name="transfer_quantity" id="transfer_quantity" class="form-control" step="0.01" required>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Информация об источнике продукта -->
+            <div class="form-section">
+                <h3><i class="bi bi-box-seam"></i> Источник продукта</h3>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="source_type" id="source_reservoir" value="reservoir" checked>
+                            <label class="form-check-label" for="source_reservoir">
+                                Резервуар
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="source_type" id="source_wagon" value="wagon">
+                            <label class="form-check-label" for="source_wagon">
+                                Вагон
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="source-reservoir-selection" class="mt-3">
+                    <label for="source_reservoir_id">Выберите резервуар-источник:</label>
+                    <select name="source_reservoir_id" id="source_reservoir_id" class="form-control">
+                        <option value="">Выберите резервуар</option>
+                        {% for reservoir in reservoirs %}
+                        <option value="{{ reservoir.id }}" data-quantity="{{ reservoir.current_quantity }}">
+                            {{ reservoir.name }} ({{ reservoir.current_quantity }}/{{ reservoir.capacity }} тонн)
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="mt-2">
+                        <p>Доступное количество: <span id="available-quantity-source">0</span> тонн</p>
+                    </div>
+                </div>
+                
+                <div id="source-wagon-selection" class="mt-3" style="display:none;">
+                    <label for="source_wagon_id">Выберите вагон-источник:</label>
+                    <select name="source_wagon_id" id="source_wagon_id" class="form-control">
+                        <option value="">Выберите вагон</option>
+                        {% for wagon in wagons %}
+                        <option value="{{ wagon.id }}" data-quantity="{{ wagon.current_quantity }}">
+                            {{ wagon.wagon_number }} ({{ wagon.current_quantity }}/{{ wagon.capacity }} тонн)
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="mt-2">
+                        <p>Доступное количество: <span id="available-quantity-source-wagon">0</span> тонн</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Визуализация перемещения -->
+            <div class="d-flex justify-content-center align-items-center">
+                <div class="text-center">
+                    <i class="bi bi-box-seam fs-1 text-primary"></i>
+                    <p class="source-label">Источник</p>
+                </div>
+                <div class="transfer-arrow"></div>
+                <div class="text-center">
+                    <i class="bi bi-box-seam fs-1 text-success"></i>
+                    <p class="destination-label">Назначение</p>
+                </div>
+            </div>
+            
+            <!-- Информация о назначении продукта -->
+            <div class="form-section">
+                <h3><i class="bi bi-box-seam"></i> Назначение продукта</h3>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="destination_type" id="destination_reservoir" value="reservoir" checked>
+                            <label class="form-check-label" for="destination_reservoir">
+                                Резервуар
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="destination_type" id="destination_wagon" value="wagon">
+                            <label class="form-check-label" for="destination_wagon">
+                                Вагон
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="destination-reservoir-selection" class="mt-3">
+                    <label for="destination_reservoir_id">Выберите резервуар-назначение:</label>
+                    <select name="destination_reservoir_id" id="destination_reservoir_id" class="form-control">
+                        <option value="">Выберите резервуар</option>
+                        {% for reservoir in reservoirs %}
+                        <option value="{{ reservoir.id }}" data-capacity="{{ reservoir.capacity }}" data-current="{{ reservoir.current_quantity }}">
+                            {{ reservoir.name }} ({{ reservoir.current_quantity }}/{{ reservoir.capacity }} тонн)
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="mt-2">
+                        <p>Доступное пространство: <span id="available-space-destination">0</span> тонн</p>
+                    </div>
+                </div>
+                
+                <div id="destination-wagon-selection" class="mt-3" style="display:none;">
+                    <label for="destination_wagon_id">Выберите вагон-назначение:</label>
+                    <select name="destination_wagon_id" id="destination_wagon_id" class="form-control">
+                        <option value="">Выберите вагон</option>
+                        {% for wagon in wagons %}
+                        <option value="{{ wagon.id }}" data-capacity="{{ wagon.capacity }}" data-current="{{ wagon.current_quantity }}">
+                            {{ wagon.wagon_number }} ({{ wagon.current_quantity }}/{{ wagon.capacity }} тонн)
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="mt-2">
+                        <p>Доступное пространство: <span id="available-space-destination-wagon">0</span> тонн</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Дополнительная информация -->
+            <div class="form-section">
+                <h3><i class="bi bi-card-text"></i> Дополнительная информация</h3>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.note.id_for_label }}">Комментарий:</label>
+                        {{ form.note }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Кнопки действий -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{% url 'warehouse:movement_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад
+                </a>
+                <button type="submit" class="btn btn-transfer">
+                    <i class="bi bi-check-circle"></i> Сохранить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // References to important elements
+    const sourceReservoir = document.getElementById('source_reservoir');
+    const sourceWagon = document.getElementById('source_wagon');
+    const sourceReservoirSelection = document.getElementById('source-reservoir-selection');
+    const sourceWagonSelection = document.getElementById('source-wagon-selection');
+    const sourceReservoirId = document.getElementById('source_reservoir_id');
+    const sourceWagonId = document.getElementById('source_wagon_id');
+    const availableQuantitySource = document.getElementById('available-quantity-source');
+    const availableQuantitySourceWagon = document.getElementById('available-quantity-source-wagon');
+    
+    const destinationReservoir = document.getElementById('destination_reservoir');
+    const destinationWagon = document.getElementById('destination_wagon');
+    const destinationReservoirSelection = document.getElementById('destination-reservoir-selection');
+    const destinationWagonSelection = document.getElementById('destination-wagon-selection');
+    const destinationReservoirId = document.getElementById('destination_reservoir_id');
+    const destinationWagonId = document.getElementById('destination_wagon_id');
+    const availableSpaceDestination = document.getElementById('available-space-destination');
+    const availableSpaceDestinationWagon = document.getElementById('available-space-destination-wagon');
+    
+    const transferQuantity = document.getElementById('transfer_quantity');
+    
+    // Show correct source selection based on radio buttons
+    sourceReservoir.addEventListener('change', function() {
+        sourceReservoirSelection.style.display = 'block';
+        sourceWagonSelection.style.display = 'none';
+        updateSourceLabels();
+    });
+    
+    sourceWagon.addEventListener('change', function() {
+        sourceReservoirSelection.style.display = 'none';
+        sourceWagonSelection.style.display = 'block';
+        updateSourceLabels();
+    });
+    
+    // Show correct destination selection based on radio buttons
+    destinationReservoir.addEventListener('change', function() {
+        destinationReservoirSelection.style.display = 'block';
+        destinationWagonSelection.style.display = 'none';
+        updateDestinationLabels();
+    });
+    
+    destinationWagon.addEventListener('change', function() {
+        destinationReservoirSelection.style.display = 'none';
+        destinationWagonSelection.style.display = 'block';
+        updateDestinationLabels();
+    });
+    
+    // Update source quantities display
+    sourceReservoirId.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const qty = selectedOption.getAttribute('data-quantity') || '0';
+        availableQuantitySource.textContent = qty;
+        validateQuantity();
+    });
+    
+    sourceWagonId.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const qty = selectedOption.getAttribute('data-quantity') || '0';
+        availableQuantitySourceWagon.textContent = qty;
+        validateQuantity();
+    });
+    
+    // Update destination space display
+    destinationReservoirId.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const capacity = parseFloat(selectedOption.getAttribute('data-capacity') || '0');
+        const current = parseFloat(selectedOption.getAttribute('data-current') || '0');
+        const space = capacity - current;
+        availableSpaceDestination.textContent = space.toFixed(2);
+        validateQuantity();
+    });
+    
+    destinationWagonId.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const capacity = parseFloat(selectedOption.getAttribute('data-capacity') || '0');
+        const current = parseFloat(selectedOption.getAttribute('data-current') || '0');
+        const space = capacity - current;
+        availableSpaceDestinationWagon.textContent = space.toFixed(2);
+        validateQuantity();
+    });
+    
+    // Validate quantity on change
+    transferQuantity.addEventListener('input', validateQuantity);
+    
+    function validateQuantity() {
+        const quantity = parseFloat(transferQuantity.value) || 0;
+        
+        let sourceQuantity = 0;
+        if (sourceReservoir.checked) {
+            sourceQuantity = parseFloat(availableQuantitySource.textContent);
+        } else if (sourceWagon.checked) {
+            sourceQuantity = parseFloat(availableQuantitySourceWagon.textContent);
+        }
+        
+        let destinationSpace = 0;
+        if (destinationReservoir.checked) {
+            destinationSpace = parseFloat(availableSpaceDestination.textContent);
+        } else if (destinationWagon.checked) {
+            destinationSpace = parseFloat(availableSpaceDestinationWagon.textContent);
+        }
+        
+        // Проверяем, не превышает ли количество доступное в источнике
+        if (quantity > sourceQuantity) {
+            transferQuantity.setCustomValidity(`Количество превышает доступное в источнике (${sourceQuantity.toFixed(2)} тонн)`);
+        }
+        // Проверяем, не превышает ли количество доступное пространство в назначении
+        else if (quantity > destinationSpace) {
+            transferQuantity.setCustomValidity(`Количество превышает доступное пространство в назначении (${destinationSpace.toFixed(2)} тонн)`);
+        }
+        else {
+            transferQuantity.setCustomValidity('');
+        }
+    }
+    
+    // Обновить метки источника и назначения
+    function updateSourceLabels() {
+        const sourceLabel = document.querySelector('.source-label');
+        if (sourceReservoir.checked) {
+            sourceLabel.textContent = 'Резервуар-источник';
+        } else if (sourceWagon.checked) {
+            sourceLabel.textContent = 'Вагон-источник';
+        }
+    }
+    
+    function updateDestinationLabels() {
+        const destinationLabel = document.querySelector('.destination-label');
+        if (destinationReservoir.checked) {
+            destinationLabel.textContent = 'Резервуар-назначение';
+        } else if (destinationWagon.checked) {
+            destinationLabel.textContent = 'Вагон-назначение';
+        }
+    }
+    
+    // Инициализация метки
+    updateSourceLabels();
+    updateDestinationLabels();
+    
+    // Form submission
+    document.getElementById('transferForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Validate source and destination are different
+        let sourceId = '', destinationId = '';
+        let sourceType = '', destinationType = '';
+        
+        if (sourceReservoir.checked) {
+            sourceId = sourceReservoirId.value;
+            sourceType = 'reservoir';
+        } else if (sourceWagon.checked) {
+            sourceId = sourceWagonId.value;
+            sourceType = 'wagon';
+        }
+        
+        if (destinationReservoir.checked) {
+            destinationId = destinationReservoirId.value;
+            destinationType = 'reservoir';
+        } else if (destinationWagon.checked) {
+            destinationId = destinationWagonId.value;
+            destinationType = 'wagon';
+        }
+        
+        // Check if source is selected
+        if (!sourceId) {
+            alert('Пожалуйста, выберите источник продукта');
+            return;
+        }
+        
+        // Check if destination is selected
+        if (!destinationId) {
+            alert('Пожалуйста, выберите назначение продукта');
+            return;
+        }
+        
+        // Check if source and destination are the same
+        if (sourceType === destinationType && sourceId === destinationId) {
+            alert('Источник и назначение не могут быть одинаковыми');
+            return;
+        }
+        
+        // Validate quantity
+        const quantity = parseFloat(transferQuantity.value) || 0;
+        if (quantity <= 0) {
+            alert('Количество должно быть больше 0');
+            return;
+        }
+        
+        // Set movement quantity
+        document.getElementById('movement-quantity').value = quantity;
+        
+        // Add hidden inputs with source and destination information
+        const sourceTypeInput = document.createElement('input');
+        sourceTypeInput.type = 'hidden';
+        sourceTypeInput.name = 'source_type';
+        sourceTypeInput.value = sourceType;
+        this.appendChild(sourceTypeInput);
+        
+        const sourceIdInput = document.createElement('input');
+        sourceIdInput.type = 'hidden';
+        sourceIdInput.name = 'source_id';
+        sourceIdInput.value = sourceId;
+        this.appendChild(sourceIdInput);
+        
+        const destinationTypeInput = document.createElement('input');
+        destinationTypeInput.type = 'hidden';
+        destinationTypeInput.name = 'destination_type';
+        destinationTypeInput.value = destinationType;
+        this.appendChild(destinationTypeInput);
+        
+        const destinationIdInput = document.createElement('input');
+        destinationIdInput.type = 'hidden';
+        destinationIdInput.name = 'destination_id';
+        destinationIdInput.value = destinationId;
+        this.appendChild(destinationIdInput);
+        
+        // Submit the form
+        this.submit();
+    });
+});
+</script>
+{% endblock %} 

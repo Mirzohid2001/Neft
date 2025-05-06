@@ -1,0 +1,919 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Панель управления эстокады{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Основные стили компонентов */
+    :root {
+        --primary-color: #4e73df;
+        --secondary-color: #36b9cc;
+        --success-color: #1cc88a;
+        --warning-color: #f6c23e;
+        --info-color: #36b9cc;
+        --danger-color: #e74a3b;
+        --light-color: #f8f9fc;
+        --dark-color: #2b354f;
+        
+        --card-bg: #fff;
+        --card-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.1);
+        --text-primary: #2b354f;
+        --text-secondary: #6c757d;
+        --text-muted: #858796;
+        --border-color: #e3e6f0;
+    }
+    
+    .dark-mode {
+        --primary-color: #375cdb;
+        --secondary-color: #2fafca;
+        --success-color: #17a673;
+        --warning-color: #e9b949;
+        --info-color: #2fafca;
+        --danger-color: #d52d1b;
+        --light-color: #343a40;
+        --dark-color: #1a1c23;
+        
+        --card-bg: #2b3044;
+        --card-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.2);
+        --text-primary: #f8f9fc;
+        --text-secondary: #dfe0e4;
+        --text-muted: #b7b9cc;
+        --border-color: #444a54;
+    }
+    
+    body {
+        transition: background-color 0.3s ease;
+    }
+    
+    .dark-mode body {
+        background-color: #212529;
+        color: var(--text-primary);
+    }
+    
+    .dark-mode .text-gray-800 {
+        color: #f8f9fa !important;
+    }
+    
+    .dark-mode .bg-white {
+        background-color: var(--card-bg) !important;
+    }
+    
+    /* Карточки статистики */
+    .stats-card {
+        border-radius: 15px;
+        border: none;
+        background-color: var(--card-bg);
+        box-shadow: var(--card-shadow);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .dark-mode .stats-card {
+        background-color: var(--card-bg);
+    }
+    
+    .stats-card .icon-box {
+        height: 60px;
+        width: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .stats-card .stats-text {
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        font-size: 14px;
+    }
+    
+    .stats-card .stats-number {
+        font-size: 28px;
+        font-weight: 700;
+    }
+    
+    /* Карточки действий */
+    .action-card {
+        border-radius: 15px;
+        overflow: hidden;
+        transition: transform 0.3s ease;
+        background-color: var(--card-bg);
+        box-shadow: var(--card-shadow);
+    }
+    
+    .action-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .dark-mode .action-card {
+        background-color: var(--card-bg);
+    }
+    
+    .action-card .card-header {
+        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        border-bottom: none;
+    }
+    
+    .dark-mode .action-card .card-header {
+        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+    }
+    
+    .action-button {
+        border-radius: 10px;
+        padding: 12px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .action-button:hover {
+        transform: scale(1.05);
+    }
+    
+    /* Таблица операций */
+    .recent-operations-table {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    
+    .recent-operations-table thead th {
+        background-color: var(--light-color);
+        border-bottom: 2px solid var(--border-color);
+        padding: 15px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .dark-mode .recent-operations-table thead th {
+        background-color: var(--dark-color);
+        color: var(--text-primary);
+    }
+    
+    .recent-operations-table tbody tr {
+        transition: background-color 0.2s ease;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .dark-mode .recent-operations-table tbody tr {
+        border-color: #444a54;
+    }
+    
+    .recent-operations-table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+    
+    .dark-mode .recent-operations-table tbody tr:hover {
+        background-color: rgba(58, 59, 69, 0.3);
+    }
+    
+    /* Статусы и бейджи */
+    .badge-modern {
+        padding: 8px 12px;
+        border-radius: 30px;
+        font-weight: 500;
+        font-size: 12px;
+    }
+    
+    /* Заголовки и разделители */
+    .header-section {
+        margin-bottom: 30px;
+        position: relative;
+    }
+    
+    .header-section h1 {
+        position: relative;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    
+    .header-section h1::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 0;
+        width: 50px;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    }
+    
+    /* Переключатель тем */
+    .theme-toggle {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 1000;
+        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s ease;
+    }
+    
+    .theme-toggle:hover {
+        transform: scale(1.1);
+    }
+    
+    /* Контейнеры графиков */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+        border-radius: 10px;
+        overflow: hidden;
+        background-color: var(--card-bg);
+        box-shadow: var(--card-shadow);
+    }
+    
+    /* Медиа-запросы для адаптивности */
+    @media (max-width: 768px) {
+        .stats-card {
+            margin-bottom: 20px;
+        }
+        
+        .chart-container {
+            height: 250px;
+            margin-bottom: 20px;
+        }
+        
+        .action-button {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Переключатель тем -->
+<div class="theme-toggle" id="themeToggle">
+    <i class="fas fa-moon" id="themeIcon"></i>
+</div>
+
+<div class="container-fluid">
+    <!-- Заголовок страницы -->
+    <div class="header-section d-sm-flex align-items-center justify-content-between">
+        <h1 class="h3 mb-0 text-gray-800">Панель управления эстокады</h1>
+        <div>
+            <span class="d-none d-md-inline">Сегодня:</span> <span class="text-primary font-weight-bold">{{ now|date:"d.m.Y" }}</span>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="row">
+        <!-- Всего операций -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stats-card h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="stats-text text-primary mb-2">ВСЕГО ОПЕРАЦИЙ</div>
+                            <h3 class="stats-number mb-0">{{ total_movements }}</h3>
+                        </div>
+                        <div class="icon-box bg-primary-light">
+                            <i class="fas fa-calculator fa-2x text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ожидают обработки -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stats-card h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="stats-text text-warning mb-2">ОЖИДАЮТ ОБРАБОТКИ</div>
+                            <h3 class="stats-number mb-0" id="activeOperationsCount">{{ pending_operations }}</h3>
+                        </div>
+                        <div class="icon-box bg-warning-light">
+                            <i class="fas fa-clock fa-2x text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Заказы от продаж -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stats-card h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="stats-text text-info mb-2">ЗАКАЗЫ ОТ ПРОДАЖ</div>
+                            <h3 class="stats-number mb-0">{{ sales_orders }}</h3>
+                        </div>
+                        <div class="icon-box bg-info-light">
+                            <i class="fas fa-shopping-cart fa-2x text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Завершено сегодня -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stats-card h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="stats-text text-success mb-2">ЗАВЕРШЕНО СЕГОДНЯ</div>
+                            <h3 class="stats-number mb-0">{{ completed_today }}</h3>
+                        </div>
+                        <div class="icon-box bg-success-light">
+                            <i class="fas fa-check-circle fa-2x text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Графики операций -->
+    <div class="row mb-4">
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Динамика операций</h5>
+                    <div class="dropdown">
+                        <button class="btn btn-light dropdown-toggle" type="button" id="periodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            За неделю
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="periodDropdown">
+                            <li><a class="dropdown-item chart-period" href="#" data-period="week">За неделю</a></li>
+                            <li><a class="dropdown-item chart-period" href="#" data-period="month">За месяц</a></li>
+                            <li><a class="dropdown-item chart-period" href="#" data-period="quarter">За квартал</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container position-relative">
+                        <canvas id="operationsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">Распределение по типам</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container position-relative">
+                        <canvas id="operationTypesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Быстрые действия -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card action-card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-white">Быстрые действия</h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'estokada:receive_list' %}" class="btn btn-primary btn-block action-button">
+                                <i class="fas fa-download mr-2"></i>Новая приемка
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'estokada:production_list' %}" class="btn btn-success btn-block action-button">
+                                <i class="fas fa-industry mr-2"></i>Новое производство
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'estokada:transfer_list' %}" class="btn btn-info btn-block action-button">
+                                <i class="fas fa-exchange-alt mr-2"></i>Новое перемещение
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'estokada:sales_orders' %}" class="btn btn-warning btn-block action-button">
+                                <i class="fas fa-tasks mr-2"></i>Заказы от продаж
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Последние операции -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card action-card mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-white">Последние операции</h6>
+                    <div class="d-flex align-items-center">
+                        <div class="input-group me-3" style="width: 250px;">
+                            <input type="text" class="form-control" placeholder="Поиск операций..." id="operationsSearch">
+                            <button class="btn btn-light" type="button">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                        <a href="{% url 'estokada:movement_list' %}" class="btn btn-sm btn-light rounded-pill">
+                            Все операции <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover recent-operations-table" id="recentOperationsTable">
+                            <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Тип операции</th>
+                                    <th>Продукт</th>
+                                    <th>Количество</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for movement in recent_movements %}
+                                <tr>
+                                    <td>{{ movement.created_at|date:"d.m.Y" }}</td>
+                                    <td>
+                                        {% if movement.movement_type == 'receive' %}
+                                            <span class="badge-modern bg-primary text-white">Приемка</span>
+                                        {% elif movement.movement_type == 'sale' %}
+                                            <span class="badge-modern bg-success text-white">Продажа</span>
+                                        {% elif movement.movement_type == 'transfer' %}
+                                            <span class="badge-modern bg-info text-white">Перемещение</span>
+                                        {% elif movement.movement_type == 'production' %}
+                                            <span class="badge-modern bg-warning text-white">Производство</span>
+                                        {% else %}
+                                            <span class="badge-modern bg-secondary text-white">{{ movement.movement_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ movement.product.name|default:"-" }}</td>
+                                    <td>{{ movement.document_weight|floatformat:2 }}</td>
+                                    <td>
+                                        {% if movement.status == 'completed' %}
+                                            <span class="badge-modern bg-success text-white">Завершен</span>
+                                        {% elif movement.status == 'in_progress' %}
+                                            <span class="badge-modern bg-info text-white">В процессе</span>
+                                        {% elif movement.status == 'created' %}
+                                            <span class="badge-modern bg-secondary text-white">Создан</span>
+                                        {% else %}
+                                            <span class="badge-modern bg-secondary text-white">{{ movement.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'estokada:movement_detail' movement.pk %}" class="btn btn-sm btn-outline-primary rounded-pill">
+                                            <i class="fas fa-eye"></i> Просмотр
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <div class="my-3">
+                                            <i class="fas fa-info-circle fa-2x text-info mb-3"></i>
+                                            <p class="mb-0 text-muted">Нет операций для отображения</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Подключение Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Инициализация графиков и загрузка данных -->
+<script>
+    // Немедленно вызываем функцию инициализации
+    (function() {
+        console.log('Инициализация графиков...');
+        
+        // Объект для хранения графиков
+        const charts = {
+            operations: null,
+            types: null
+        };
+        
+        // Определение основных цветов для графиков
+        const chartColors = {
+            light: {
+                primary: '#4e73df',
+                success: '#1cc88a',
+                info: '#36b9cc',
+                warning: '#f6c23e',
+                textColor: '#5a5c69',
+                gridColor: '#eaecf4'
+            },
+            dark: {
+                primary: '#375cdb',
+                success: '#17a673',
+                info: '#2fafca',
+                warning: '#e9b949',
+                textColor: '#dfe0e4',
+                gridColor: '#444a54'
+            }
+        };
+        
+        // Преобразование HEX в RGBA
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        
+        // Получение текущих цветов в зависимости от темы
+        function getColors() {
+            const isDarkMode = document.documentElement.classList.contains('dark-mode');
+            const theme = isDarkMode ? 'dark' : 'light';
+            return chartColors[theme];
+        }
+        
+        // Инициализация графика операций
+        function initOperationsChart() {
+            console.log('Инициализация графика операций...');
+            const canvas = document.getElementById('operationsChart');
+            if (!canvas) {
+                console.error('Элемент operationsChart не найден');
+                return null;
+            }
+            
+            const colors = getColors();
+            const ctx = canvas.getContext('2d');
+            
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+                    datasets: [
+                        {
+                            label: 'Приемка',
+                            data: [3, 4, 6, 5, 3, 2, 4],
+                            borderColor: colors.primary,
+                            backgroundColor: hexToRgba(colors.primary, 0.1),
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'Отгрузка',
+                            data: [2, 3, 5, 4, 2, 1, 3],
+                            borderColor: colors.success,
+                            backgroundColor: hexToRgba(colors.success, 0.1),
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'Перемещение',
+                            data: [1, 2, 3, 2, 1, 1, 2],
+                            borderColor: colors.info,
+                            backgroundColor: hexToRgba(colors.info, 0.1),
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'Производство',
+                            data: [0, 1, 2, 1, 1, 0, 1],
+                            borderColor: colors.warning,
+                            backgroundColor: hexToRgba(colors.warning, 0.1),
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: colors.textColor
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: colors.gridColor
+                            },
+                            ticks: {
+                                color: colors.textColor
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: colors.gridColor
+                            },
+                            ticks: {
+                                color: colors.textColor
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Инициализация круговой диаграммы
+        function initTypesChart() {
+            console.log('Инициализация диаграммы типов...');
+            const canvas = document.getElementById('operationTypesChart');
+            if (!canvas) {
+                console.error('Элемент operationTypesChart не найден');
+                return null;
+            }
+            
+            const colors = getColors();
+            const ctx = canvas.getContext('2d');
+            
+            return new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Приемка', 'Отгрузка', 'Перемещение', 'Производство'],
+                    datasets: [{
+                        data: [40, 30, 20, 10],
+                        backgroundColor: [
+                            colors.primary,
+                            colors.success,
+                            colors.info,
+                            colors.warning
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: colors.textColor,
+                                padding: 15,
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+        
+        // Загрузка данных для графика операций
+        function loadOperationsData(period = 'week') {
+            console.log(`Загрузка данных операций за период: ${period}`);
+            
+            fetch(`/estokada/api/operations-chart-data/?period=${period}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Ошибка HTTP: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Получены данные для графика операций:', data);
+                    
+                    if (charts.operations) {
+                        charts.operations.data.labels = data.labels;
+                        
+                        data.datasets.forEach((dataset, i) => {
+                            if (charts.operations.data.datasets[i]) {
+                                charts.operations.data.datasets[i].data = dataset.data;
+                            }
+                        });
+                        
+                        charts.operations.update();
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при загрузке данных операций:', error);
+                });
+        }
+        
+        // Загрузка данных для круговой диаграммы
+        function loadTypesData(period = 'week') {
+            console.log(`Загрузка данных типов за период: ${period}`);
+            
+            fetch(`/estokada/api/types-chart-data/?period=${period}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Ошибка HTTP: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Получены данные для диаграммы типов:', data);
+                    
+                    if (charts.types) {
+                        charts.types.data.labels = data.labels;
+                        charts.types.data.datasets[0].data = data.data;
+                        charts.types.update();
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при загрузке данных типов:', error);
+                });
+        }
+        
+        // Обновление счетчика активных операций
+        function updateActiveCounter() {
+            const counter = document.getElementById('activeOperationsCount');
+            if (!counter) {
+                console.warn('Элемент счетчика активных операций не найден');
+                return;
+            }
+            
+            fetch('/estokada/api/active-movements-count/')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Ошибка HTTP: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Получены данные счетчика:', data);
+                    counter.textContent = data.count;
+                })
+                .catch(error => {
+                    console.error('Ошибка при обновлении счетчика:', error);
+                });
+        }
+        
+        // Обработка событий переключения периодов
+        function setupPeriodSwitching() {
+            const periodLinks = document.querySelectorAll('.chart-period');
+            const periodButton = document.getElementById('periodDropdown');
+            
+            periodLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const period = this.getAttribute('data-period');
+                    if (periodButton) {
+                        periodButton.textContent = this.textContent;
+                    }
+                    
+                    loadOperationsData(period);
+                    loadTypesData(period);
+                });
+            });
+        }
+        
+        // Инициализация темной темы
+        function setupDarkMode() {
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = document.getElementById('themeIcon');
+            
+            if (!themeToggle || !themeIcon) {
+                console.warn('Элементы переключателя темы не найдены');
+                return;
+            }
+            
+            // Проверка сохраненной темы
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark-mode');
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+            }
+            
+            // Переключение темы
+            themeToggle.addEventListener('click', function() {
+                const htmlElement = document.documentElement;
+                
+                if (htmlElement.classList.contains('dark-mode')) {
+                    htmlElement.classList.remove('dark-mode');
+                    themeIcon.classList.remove('fa-sun');
+                    themeIcon.classList.add('fa-moon');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    htmlElement.classList.add('dark-mode');
+                    themeIcon.classList.remove('fa-moon');
+                    themeIcon.classList.add('fa-sun');
+                    localStorage.setItem('theme', 'dark');
+                }
+                
+                // Обновление цветов графиков
+                updateChartsColors();
+            });
+        }
+        
+        // Обновление цветов графиков при смене темы
+        function updateChartsColors() {
+            const colors = getColors();
+            
+            if (charts.operations) {
+                const operationsChart = charts.operations;
+                
+                // Обновление цветов для каждого набора данных
+                operationsChart.data.datasets.forEach((dataset, i) => {
+                    const colorKey = ['primary', 'success', 'info', 'warning'][i];
+                    if (colorKey) {
+                        dataset.borderColor = colors[colorKey];
+                        dataset.backgroundColor = hexToRgba(colors[colorKey], 0.1);
+                    }
+                });
+                
+                // Обновление цветов легенды и осей
+                operationsChart.options.plugins.legend.labels.color = colors.textColor;
+                operationsChart.options.scales.x.grid.color = colors.gridColor;
+                operationsChart.options.scales.x.ticks.color = colors.textColor;
+                operationsChart.options.scales.y.grid.color = colors.gridColor;
+                operationsChart.options.scales.y.ticks.color = colors.textColor;
+                
+                operationsChart.update();
+            }
+            
+            if (charts.types) {
+                const typesChart = charts.types;
+                
+                // Обновление цветов для круговой диаграммы
+                typesChart.data.datasets[0].backgroundColor = [
+                    colors.primary,
+                    colors.success,
+                    colors.info,
+                    colors.warning
+                ];
+                
+                typesChart.options.plugins.legend.labels.color = colors.textColor;
+                typesChart.update();
+            }
+        }
+        
+        // Основная функция инициализации
+        function initialize() {
+            // Инициализация графиков
+            charts.operations = initOperationsChart();
+            charts.types = initTypesChart();
+            
+            // Настройка темной темы
+            setupDarkMode();
+            
+            // Настройка переключения периодов
+            setupPeriodSwitching();
+            
+            // Загрузка данных
+            loadOperationsData('week');
+            loadTypesData('week');
+            updateActiveCounter();
+            
+            // Периодическое обновление данных (каждую минуту)
+            setInterval(() => {
+                const periodButton = document.getElementById('periodDropdown');
+                let period = 'week';
+                
+                if (periodButton) {
+                    const text = periodButton.textContent.toLowerCase();
+                    if (text.includes('месяц')) {
+                        period = 'month';
+                    } else if (text.includes('квартал')) {
+                        period = 'quarter';
+                    }
+                }
+                
+                loadOperationsData(period);
+                loadTypesData(period);
+                updateActiveCounter();
+            }, 60000);
+        }
+        
+        // Запуск инициализации когда DOM загружен
+        document.addEventListener('DOMContentLoaded', initialize);
+        
+        // Если документ уже загружен, запускаем инициализацию немедленно
+        if (document.readyState === 'interactive' || document.readyState === 'complete') {
+            initialize();
+        }
+    })();
+</script>
+{% endblock %} 

@@ -1,0 +1,456 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        Редактирование операции
+    {% else %}
+        Новая операция {{ operation_type|default:"движения" }}
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Главная</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sales:sales_list' %}">Операции</a></li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {% if form.instance.pk %}
+                Редактирование операции
+            {% else %}
+                {% if operation_type == 'receive' %}
+                    Приемка
+                {% elif operation_type == 'sale' %}
+                    Продажа
+                {% elif operation_type == 'transfer' %}
+                    Перемещение
+                {% elif operation_type == 'production' %}
+                    Производство
+                {% else %}
+                    Новая операция
+                {% endif %}
+            {% endif %}
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        {% if form.instance.pk %}
+                            Редактирование операции {% if form.instance.movement.document_number %}№{{ form.instance.movement.document_number }}{% endif %}
+                        {% else %}
+                            {% if operation_type == 'receive' %}
+                                Новая операция приемки
+                            {% elif operation_type == 'sale' %}
+                                Новая операция продажи
+                            {% elif operation_type == 'transfer' %}
+                                Новая операция перемещения
+                            {% elif operation_type == 'production' %}
+                                Новая операция производства
+                            {% else %}
+                                Новая операция
+                            {% endif %}
+                        {% endif %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="movementForm">
+                        {% csrf_token %}
+                        
+                        {% if form.errors %}
+                            <div class="alert alert-danger">
+                                <strong>Пожалуйста, исправьте следующие ошибки:</strong>
+                                {{ form.non_field_errors }}
+                                {% for field in form %}
+                                    {% if field.errors %}
+                                        <div>{{ field.label }}: {{ field.errors }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Основная информация о движении -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="m-0 font-weight-bold text-primary">Основная информация</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
+                                            {{ form.date }}
+                                            {% if form.date.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.date.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="{{ form.document_number.id_for_label }}">{{ form.document_number.label }}</label>
+                                            {{ form.document_number }}
+                                            {% if form.document_number.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.document_number.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="{{ form.product.id_for_label }}">{{ form.product.label }}</label>
+                                            {{ form.product }}
+                                            {% if form.product.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.product.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="{{ form.quantity.id_for_label }}">{{ form.quantity.label }}</label>
+                                            {{ form.quantity }}
+                                            {% if form.quantity.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.quantity.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    {% if operation_type == 'receive' or operation_type == 'transfer' or operation_type == 'production' %}
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="{{ form.actual_weight.id_for_label }}">{{ form.actual_weight.label }}</label>
+                                            {{ form.actual_weight }}
+                                            {% if form.actual_weight.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.actual_weight.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="{{ form.difference.id_for_label }}">{{ form.difference.label }}</label>
+                                            {{ form.difference }}
+                                            {% if form.difference.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.difference.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if operation_type == 'sale' %}
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="{{ form.price_per_unit.id_for_label }}">{{ form.price_per_unit.label }}</label>
+                                            {{ form.price_per_unit }}
+                                            {% if form.price_per_unit.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.price_per_unit.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Информация о клиенте (для приемки и продажи) -->
+                        {% if operation_type == 'receive' or operation_type == 'sale' %}
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="m-0 font-weight-bold text-primary">Информация о клиенте</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="{{ form.client.id_for_label }}">{{ form.client.label }}</label>
+                                            {{ form.client }}
+                                            {% if form.client.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.client.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% if operation_type == 'sale' %}
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="{{ form.contract_number.id_for_label }}">{{ form.contract_number.label }}</label>
+                                            {{ form.contract_number }}
+                                            {% if form.contract_number.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.contract_number.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if operation_type == 'sale' %}
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="{{ form.invoice_number.id_for_label }}">{{ form.invoice_number.label }}</label>
+                                            {{ form.invoice_number }}
+                                            {% if form.invoice_number.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.invoice_number.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Информация о транспорте -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="m-0 font-weight-bold text-primary">Информация о транспорте</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="{{ form.transport_type.id_for_label }}">{{ form.transport_type.label }}</label>
+                                            {{ form.transport_type }}
+                                            {% if form.transport_type.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.transport_type.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="{{ form.transport_number.id_for_label }}">{{ form.transport_number.label }}</label>
+                                            {{ form.transport_number }}
+                                            {% if form.transport_number.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.transport_number.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 wagon-group" style="display: none;">
+                                        <div class="form-group">
+                                            <label for="{{ form.wagon_type.id_for_label }}">{{ form.wagon_type.label }}</label>
+                                            {{ form.wagon_type }}
+                                            {% if form.wagon_type.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.wagon_type.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Информация о источнике и назначении (для перемещения и производства) -->
+                        {% if operation_type == 'receive' or operation_type == 'sale' or operation_type == 'transfer' or operation_type == 'production' %}
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="m-0 font-weight-bold text-primary">
+                                    {% if operation_type == 'receive' %}
+                                        Информация о назначении
+                                    {% elif operation_type == 'sale' %}
+                                        Информация об источнике
+                                    {% elif operation_type == 'transfer' or operation_type == 'production' %}
+                                        Информация об источнике и назначении
+                                    {% endif %}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                {% if operation_type == 'transfer' or operation_type == 'production' or operation_type == 'sale' %}
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <h6 class="font-weight-bold">Источник</h6>
+                                        <div class="form-group">
+                                            <label for="{{ form.source_reservoir.id_for_label }}">{{ form.source_reservoir.label }}</label>
+                                            {{ form.source_reservoir }}
+                                            {% if form.source_reservoir.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.source_reservoir.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="{{ form.source_wagon.id_for_label }}">{{ form.source_wagon.label }}</label>
+                                            {{ form.source_wagon }}
+                                            {% if form.source_wagon.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.source_wagon.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if operation_type == 'transfer' or operation_type == 'production' or operation_type == 'receive' %}
+                                    <div class="col-md-6">
+                                        <h6 class="font-weight-bold">Назначение</h6>
+                                        <div class="form-group">
+                                            <label for="{{ form.target_reservoir.id_for_label }}">{{ form.target_reservoir.label }}</label>
+                                            {{ form.target_reservoir }}
+                                            {% if form.target_reservoir.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.target_reservoir.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="{{ form.target_wagon.id_for_label }}">{{ form.target_wagon.label }}</label>
+                                            {{ form.target_wagon }}
+                                            {% if form.target_wagon.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.target_wagon.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Дополнительная информация для производства -->
+                        {% if operation_type == 'production' %}
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="m-0 font-weight-bold text-primary">Информация о производстве</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="{{ form.produced_product.id_for_label }}">{{ form.produced_product.label }}</label>
+                                            {{ form.produced_product }}
+                                            {% if form.produced_product.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.produced_product.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="{{ form.expected_weight.id_for_label }}">{{ form.expected_weight.label }}</label>
+                                            {{ form.expected_weight }}
+                                            {% if form.expected_weight.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.expected_weight.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label for="{{ form.raw_materials.id_for_label }}">{{ form.raw_materials.label }}</label>
+                                            {{ form.raw_materials }}
+                                            {% if form.raw_materials.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.raw_materials.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Комментарий -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="m-0 font-weight-bold text-primary">Комментарий</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group mb-0">
+                                    <label for="{{ form.note.id_for_label }}">{{ form.note.label }}</label>
+                                    {{ form.note }}
+                                    {% if form.note.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.note.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">
+                                {% if form.instance.pk %}
+                                    Сохранить изменения
+                                {% else %}
+                                    Создать операцию
+                                {% endif %}
+                            </button>
+                            <a href="{% url 'sales:sales_list' %}" class="btn btn-secondary">Отмена</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Инициализация Select2 для более удобного выбора
+        $('select').select2({
+            theme: 'bootstrap4',
+            width: '100%'
+        });
+        
+        // Показывать/скрывать поля для железнодорожного транспорта
+        $('#{{ form.transport_type.id_for_label }}').change(function() {
+            if ($(this).val() === 'rail') {
+                $('.wagon-group').show();
+            } else {
+                $('.wagon-group').hide();
+            }
+        });
+        
+        // Вызываем событие change для установки начального состояния
+        $('#{{ form.transport_type.id_for_label }}').change();
+        
+        // Расчет разницы между плановым и фактическим весом
+        function calculateDifference() {
+            var quantity = parseFloat($('#{{ form.quantity.id_for_label }}').val()) || 0;
+            var actualWeight = parseFloat($('#{{ form.actual_weight.id_for_label }}').val()) || 0;
+            var difference = actualWeight - quantity;
+            $('#{{ form.difference.id_for_label }}').val(difference.toFixed(2));
+        }
+        
+        $('#{{ form.quantity.id_for_label }}, #{{ form.actual_weight.id_for_label }}').change(calculateDifference);
+        $('#{{ form.quantity.id_for_label }}, #{{ form.actual_weight.id_for_label }}').keyup(calculateDifference);
+    });
+</script>
+{% endblock %} 

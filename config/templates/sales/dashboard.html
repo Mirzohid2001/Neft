@@ -1,0 +1,1217 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Панель управления отдела продаж{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --primary: #6366f1;
+        --primary-dark: #4338ca;
+        --primary-light: #818cf8;
+        --secondary: #10b981;
+        --secondary-dark: #059669;
+        --secondary-light: #34d399;
+        --info: #06b6d4;
+        --info-dark: #0e7490;
+        --info-light: #22d3ee;
+        --warning: #f59e0b;
+        --warning-dark: #d97706;
+        --warning-light: #fbbf24;
+        --danger: #ef4444;
+        --danger-dark: #dc2626;
+        --danger-light: #f87171;
+        --success: #22c55e;
+        --success-dark: #16a34a;
+        --success-light: #4ade80;
+        --dark: #1e293b;
+        --darker: #0f172a;
+        --light: #f8fafc;
+        --card-bg: rgba(255, 255, 255, 0.95);
+        --card-border: rgba(255, 255, 255, 0.3);
+        --card-shadow: rgba(17, 12, 46, 0.15);
+    }
+    
+    body {
+        background: var(--darker);
+        color: var(--light);
+        font-family: 'Inter', sans-serif;
+        line-height: 1.6;
+    }
+    
+    .font-weight-bold {
+        font-weight: 700;
+    }
+    
+    /* Современный градиентный фон */
+    .glass-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+    }
+    
+    .glass-bg::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: 
+            radial-gradient(circle at 25% 25%, rgba(99, 102, 241, 0.12), transparent 500px),
+            radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.12), transparent 500px),
+            radial-gradient(circle at 15% 70%, rgba(245, 158, 11, 0.12), transparent 400px),
+            radial-gradient(circle at 75% 80%, rgba(6, 182, 212, 0.12), transparent 400px);
+        animation: rotate 60s linear infinite;
+    }
+    
+    /* Декоративные разделители и формы */
+    .bg-shapes {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        pointer-events: none;
+        opacity: 0.3;
+        overflow: hidden;
+    }
+    
+    .shape {
+        position: absolute;
+        background: linear-gradient(45deg, var(--primary-light), var(--primary));
+        border-radius: 50%;
+        filter: blur(60px);
+    }
+    
+    .shape-1 {
+        top: 10%;
+        left: 5%;
+        width: 500px;
+        height: 500px;
+        opacity: 0.3;
+        background: linear-gradient(45deg, var(--primary-light), var(--info));
+        animation: float 30s infinite alternate;
+    }
+    
+    .shape-2 {
+        bottom: 10%;
+        right: 5%;
+        width: 400px;
+        height: 400px;
+        opacity: 0.2;
+        background: linear-gradient(45deg, var(--warning), var(--secondary));
+        animation: float 25s infinite alternate-reverse;
+    }
+    
+    .shape-3 {
+        top: 50%;
+        left: 50%;
+        width: 600px;
+        height: 600px;
+        opacity: 0.1;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(45deg, var(--danger), var(--primary-dark));
+        animation: pulse 20s infinite;
+    }
+    
+    /* Декоративные плавающие иконки */
+    .floating-icons {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: -1;
+        overflow: hidden;
+    }
+    
+    .floating-icon {
+        position: absolute;
+        opacity: 0.04;
+        font-size: 2rem;
+        animation: float 20s linear infinite;
+    }
+    
+    /* Анимации */
+    @keyframes rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    @keyframes float {
+        0% { transform: translate(0, 0) rotate(0deg); }
+        25% { transform: translate(100px, 50px) rotate(90deg); }
+        50% { transform: translate(200px, 0) rotate(180deg); }
+        75% { transform: translate(100px, -50px) rotate(270deg); }
+        100% { transform: translate(0, 0) rotate(360deg); }
+    }
+    
+    @keyframes pulse {
+        0% { transform: translate(-50%, -50%) scale(1); opacity: 0.1; }
+        50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.15; }
+        100% { transform: translate(-50%, -50%) scale(1); opacity: 0.1; }
+    }
+    
+    .container-fluid {
+        padding: 2rem;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+    
+    /* Современный заголовок */
+    .page-header {
+        position: relative;
+        margin-bottom: 2.5rem;
+        padding-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .page-header h1 {
+        font-weight: 700;
+        font-size: 1.75rem;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        position: relative;
+        z-index: 1;
+        letter-spacing: -0.5px;
+        margin: 0;
+    }
+    
+    .page-header::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 4px;
+        width: 60px;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        border-radius: 4px;
+    }
+    
+    /* Общие стили компонентов */
+    .text-gradient {
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .text-gradient-warning {
+        background: linear-gradient(90deg, var(--warning), var(--warning-dark));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .text-gradient-info {
+        background: linear-gradient(90deg, var(--info), var(--info-dark));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .text-gradient-success {
+        background: linear-gradient(90deg, var(--success), var(--success-dark));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .text-gradient-danger {
+        background: linear-gradient(90deg, var(--danger), var(--danger-dark));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Современные карточки статистики */
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
+    }
+    
+    .stat-card {
+        position: relative;
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(120deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+        opacity: 0;
+        transition: opacity 0.5s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-8px) scale(1.01);
+        box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.2);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+    
+    .stat-card:hover::before {
+        opacity: 1;
+    }
+    
+    .stat-card-inner {
+        padding: 1.75rem;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        color: var(--light);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .stat-card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.25rem;
+    }
+    
+    .stat-icon-container {
+        padding: 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        color: white;
+    }
+    
+    .stat-icon.primary {
+        color: var(--primary);
+    }
+    
+    .stat-icon.warning {
+        color: var(--warning);
+    }
+    
+    .stat-icon.info {
+        color: var(--info);
+    }
+    
+    .stat-icon.success {
+        color: var(--success);
+    }
+    
+    .stat-change {
+        display: flex;
+        align-items: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .stat-change.up {
+        color: var(--success-light);
+    }
+    
+    .stat-change.down {
+        color: var(--danger-light);
+    }
+    
+    .stat-change i {
+        margin-right: 4px;
+        font-size: 0.75rem;
+    }
+    
+    .stat-content {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .stat-content h2 {
+        font-size: 2.25rem;
+        font-weight: 700;
+        margin: 0 0 4px 0;
+        line-height: 1.2;
+        color: white;
+    }
+    
+    .stat-content h2.primary {
+        color: var(--primary-light);
+    }
+    
+    .stat-content h2.warning {
+        color: var(--warning-light);
+    }
+    
+    .stat-content h2.info {
+        color: var(--info-light);
+    }
+    
+    .stat-content h2.success {
+        color: var(--success-light);
+    }
+    
+    .stat-content p {
+        margin: 0;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .stat-progress {
+        margin-top: auto;
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 1.25rem;
+    }
+    
+    .stat-progress-bar {
+        height: 100%;
+        border-radius: 3px;
+    }
+    
+    .stat-progress-bar.primary {
+        background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    }
+    
+    .stat-progress-bar.warning {
+        background: linear-gradient(90deg, var(--warning), var(--warning-light));
+    }
+    
+    .stat-progress-bar.info {
+        background: linear-gradient(90deg, var(--info), var(--info-light));
+    }
+    
+    .stat-progress-bar.success {
+        background: linear-gradient(90deg, var(--success), var(--success-light));
+    }
+    
+    /* Карточки действий */
+    .action-panel {
+        margin-bottom: 2rem;
+        border: 1px solid var(--card-border);
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 10px 30px var(--card-shadow);
+    }
+    
+    .action-panel-header {
+        padding: 1.5rem 2rem;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(to right, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.1));
+        border-bottom: 1px solid var(--card-border);
+    }
+    
+    .action-panel-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(120deg, rgba(255,255,255,0.2), rgba(255,255,255,0.1));
+        z-index: 0;
+    }
+    
+    .action-panel-header h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--dark);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .action-panel-body {
+        padding: 2rem;
+    }
+    
+    /* Современные плитки операций */
+    .operations-grid {
+        display: flex;
+        gap: 1rem;
+        margin: 3rem 0;
+        width: 100%;
+    }
+    
+    .operation-tile {
+        position: relative;
+        background: rgba(20, 20, 40, 0.5);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 1.5rem;
+        text-align: left;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        color: var(--light);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        height: 100%;
+        min-height: 120px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        flex: 1;
+    }
+    
+    .operation-tile::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(120deg, rgba(255,255,255,0.1), rgba(255,255,255,0.03));
+        opacity: 0;
+        transition: all 0.5s ease;
+        z-index: 0;
+    }
+    
+    .operation-tile:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .operation-tile:hover::before {
+        opacity: 1;
+    }
+    
+    .operation-icon {
+        width: 80px;
+        height: 80px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 20px;
+        position: relative;
+        z-index: 1;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        transition: all 0.4s ease;
+    }
+    
+    .operation-tile:hover .operation-icon {
+        transform: scale(1.1);
+    }
+    
+    .operation-icon i {
+        font-size: 2.5rem;
+        transition: all 0.5s ease;
+    }
+    
+    .operation-icon.receive {
+        background: linear-gradient(135deg, #ff9500, #ff5e3a);
+    }
+    
+    .operation-icon.sale {
+        background: linear-gradient(135deg, #00c9a7, #00e676);
+    }
+    
+    .operation-icon.transfer {
+        background: linear-gradient(135deg, #00c6fb, #005bea);
+    }
+    
+    .operation-icon.production {
+        background: linear-gradient(135deg, #a17fe0, #5c27fe);
+    }
+    
+    .operation-icon.receive i,
+    .operation-icon.sale i,
+    .operation-icon.transfer i,
+    .operation-icon.production i {
+        color: white;
+    }
+    
+    .operation-content {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+    }
+    
+    .operation-title {
+        font-weight: 700;
+        margin: 0;
+        font-size: 1.6rem;
+        letter-spacing: 0.5px;
+        color: white;
+        margin-bottom: 0.5rem;
+    }
+    
+    .operation-description {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.95rem;
+        margin: 0;
+        transition: all 0.3s ease;
+    }
+    
+    .operation-tile:hover .operation-description {
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .operation-background {
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
+        opacity: 0.06;
+        font-size: 5rem;
+        transform: rotate(-15deg);
+        transition: all 0.5s ease;
+        z-index: 0;
+    }
+    
+    .operation-tile:hover .operation-background {
+        transform: rotate(0) scale(1.2);
+        opacity: 0.1;
+    }
+    
+    .operation-tile.receive {
+        border-left: 4px solid #ff9500;
+    }
+    
+    .operation-tile.sale {
+        border-left: 4px solid #00e676;
+    }
+    
+    .operation-tile.transfer {
+        border-left: 4px solid #00c6fb;
+    }
+    
+    .operation-tile.production {
+        border-left: 4px solid #a17fe0;
+    }
+    
+    @media (max-width: 992px) {
+        .operations-grid {
+            flex-direction: column;
+        }
+        
+        .operation-tile {
+            width: 100%;
+        }
+    }
+    
+    /* Современная таблица заказов */
+    .orders-panel {
+        margin-bottom: 2.5rem;
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15);
+    }
+    
+    .orders-panel-header {
+        padding: 1.5rem 2rem;
+        position: relative;
+        background: rgba(255, 255, 255, 0.02);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .orders-panel-header h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: white;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+    }
+    
+    .orders-panel-header h2 i {
+        margin-right: 10px;
+        font-size: 1.3rem;
+        color: var(--primary-light);
+    }
+    
+    .orders-panel-body {
+        padding: 0;
+    }
+    
+    .orders-panel-footer {
+        padding: 1.25rem 2rem;
+        background: rgba(255, 255, 255, 0.02);
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        position: relative;
+    }
+    
+    .orders-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .orders-table th {
+        padding: 1.25rem 1.5rem;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: left;
+        color: rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.02);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .orders-table th i {
+        margin-right: 6px;
+        font-size: 0.85rem;
+    }
+    
+    .orders-table td {
+        padding: 1.25rem 1.5rem;
+        vertical-align: middle;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+    
+    .orders-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .orders-table tr {
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .orders-table tr:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+    
+    /* Современные бейджи статусов */
+    .badge {
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        min-width: 100px;
+    }
+    
+    .badge i {
+        font-size: 0.75rem;
+    }
+    
+    .badge-success {
+        background: rgba(34, 197, 94, 0.15);
+        color: var(--success-light);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    
+    .badge-warning {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--warning-light);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+    
+    .badge-info {
+        background: rgba(6, 182, 212, 0.15);
+        color: var(--info-light);
+        border: 1px solid rgba(6, 182, 212, 0.2);
+    }
+    
+    .badge-danger {
+        background: rgba(239, 68, 68, 0.15);
+        color: var(--danger-light);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    
+    /* Современные кнопки действий */
+    .action-btns {
+        display: flex;
+        gap: 0.75rem;
+    }
+    
+    .btn-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        transition: all 0.3s ease;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .btn-icon:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .btn-icon i {
+        font-size: 0.9rem;
+    }
+    
+    .btn-info {
+        background: rgba(6, 182, 212, 0.15);
+        color: var(--info-light);
+        border: 1px solid rgba(6, 182, 212, 0.2);
+    }
+    
+    .btn-info:hover {
+        background: rgba(6, 182, 212, 0.25);
+    }
+    
+    .btn-primary {
+        background: rgba(99, 102, 241, 0.15);
+        color: var(--primary-light);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+    
+    .btn-primary:hover {
+        background: rgba(99, 102, 241, 0.25);
+    }
+    
+    /* Современное пустое состояние */
+    .empty-state {
+        padding: 5rem 2rem;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.02);
+    }
+    
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        display: inline-block;
+        color: rgba(255, 255, 255, 0.2);
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    .empty-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .empty-text {
+        color: rgba(255, 255, 255, 0.5);
+        max-width: 500px;
+        margin: 0 auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Стеклянный градиентный фон -->
+<div class="glass-bg"></div>
+
+<!-- Декоративные плавающие иконки -->
+<div class="floating-icons">
+    <i class="fas fa-chart-line floating-icon icon-1"></i>
+    <i class="fas fa-truck-loading floating-icon icon-2"></i>
+    <i class="fas fa-oil-can floating-icon icon-3"></i>
+    <i class="fas fa-tachometer-alt floating-icon icon-4"></i>
+    <i class="fas fa-gas-pump floating-icon icon-5"></i>
+    <i class="fas fa-industry floating-icon icon-6"></i>
+    <i class="fas fa-water floating-icon" style="top: 30%; right: 40%; font-size: 2.6rem; color: var(--info); animation-delay: 3s; animation-duration: 38s;"></i>
+    <i class="fas fa-faucet floating-icon" style="top: 70%; left: 40%; font-size: 2.4rem; color: var(--primary); animation-delay: 9s; animation-duration: 32s;"></i>
+    <i class="fas fa-drum floating-icon" style="bottom: 40%; right: 30%; font-size: 3rem; color: var(--warning); animation-delay: 14s; animation-duration: 29s;"></i>
+    <i class="fas fa-temperature-high floating-icon" style="top: 65%; right: 15%; font-size: 2.5rem; color: var(--danger); animation-delay: 8s; animation-duration: 31s;"></i>
+    <i class="fas fa-burn floating-icon" style="top: 25%; left: 25%; font-size: 2.7rem; color: var(--danger); animation-delay: 11s; animation-duration: 34s;"></i>
+</div>
+
+<div class="container-fluid">
+    <!-- Заголовок страницы -->
+    <div class="page-header">
+        <h1 class="h3"><i class="fas fa-tachometer-alt mr-2"></i> Панель управления отдела продаж</h1>
+    </div>
+
+    <!-- Статистика -->
+    <div class="stats-row">
+        <!-- Всего заказов -->
+        <div class="stat-card">
+            <div class="stat-card-inner">
+                <div class="stat-icon-container">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <div class="stat-content">
+                    <h2>{{ total_orders }}</h2>
+                    <p>Всего заказов</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ожидают отгрузки -->
+        <div class="stat-card">
+            <div class="stat-card-inner">
+                <div class="stat-icon-container warning">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <h2 class="warning">{{ pending_shipments }}</h2>
+                    <p>Ожидают отгрузки</p>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- В процессе отгрузки -->
+        <div class="stat-card">
+            <div class="stat-card-inner">
+                <div class="stat-icon-container info">
+                    <i class="fas fa-truck-loading"></i>
+                </div>
+                <div class="stat-content">
+                    <h2 class="info">{{ in_progress_shipments }}</h2>
+                    <p>В процессе отгрузки</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Отгружено сегодня -->
+        <div class="stat-card">
+            <div class="stat-card-inner">
+                <div class="stat-icon-container success">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-content">
+                    <h2 class="success">{{ completed_today }}</h2>
+                    <p>Отгружено сегодня</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Типы операций -->
+    <div class="operations-grid">
+        <a href="{% url 'sales:reception_create' %}" class="operation-tile receive">
+            <div class="operation-icon receive">
+                <i class="fas fa-download"></i>
+            </div>
+            <div class="operation-content">
+                <h3 class="operation-title">Приемка</h3>
+                <p class="operation-description">Операция поступления товара на склад</p>
+            </div>
+            <i class="fas fa-boxes operation-background"></i>
+        </a>
+        <a href="{% url 'sales:sale_create' %}" class="operation-tile sale">
+            <div class="operation-icon sale">
+                <i class="fas fa-upload"></i>
+            </div>
+            <div class="operation-content">
+                <h3 class="operation-title">Продажа</h3>
+                <p class="operation-description">Операция реализации товара</p>
+            </div>
+            <i class="fas fa-money-bill-wave operation-background"></i>
+        </a>
+        <a href="{% url 'sales:transfer_create' %}" class="operation-tile transfer">
+            <div class="operation-icon transfer">
+                <i class="fas fa-exchange-alt"></i>
+            </div>
+            <div class="operation-content">
+                <h3 class="operation-title">Перемещение</h3>
+                <p class="operation-description">Операция перемещения товара между резервуарами</p>
+            </div>
+            <i class="fas fa-arrows-alt-h operation-background"></i>
+        </a>
+        <a href="{% url 'sales:production_create' %}" class="operation-tile production">
+            <div class="operation-icon production">
+                <i class="fas fa-cogs"></i>
+            </div>
+            <div class="operation-content">
+                <h3 class="operation-title">Производство</h3>
+                <p class="operation-description">Операция производства товара</p>
+            </div>
+            <i class="fas fa-industry operation-background"></i>
+        </a>
+    </div>
+
+    <!-- Последние заказы -->
+    <div class="orders-panel">
+        <div class="orders-panel-header">
+            <h2><i class="fas fa-clipboard-list"></i> Последние заказы</h2>
+        </div>
+        <div class="orders-panel-body">
+            <div class="table-container">
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th><i class="far fa-calendar-alt mr-2"></i>Дата</th>
+                            <th><i class="fas fa-hashtag mr-2"></i>№ Заказа</th>
+                            <th><i class="fas fa-user mr-2"></i>Клиент</th>
+                            <th><i class="fas fa-box mr-2"></i>Продукт</th>
+                            <th><i class="fas fa-weight mr-2"></i>Количество</th>
+                            <th><i class="fas fa-truck mr-2"></i>Статус отгрузки</th>
+                            <th><i class="fas fa-money-bill-wave mr-2"></i>Статус оплаты</th>
+                            <th><i class="fas fa-cogs mr-2"></i>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in recent_orders %}
+                        <tr>
+                            <td>{{ order.created_at|date:"d.m.Y" }}</td>
+                            <td>{{ order.order_number }}</td>
+                            <td>{{ order.client.name }}</td>
+                            <td>{{ order.product.name }}</td>
+                            <td>{{ order.quantity|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge {% if order.delivery_status == 'completed' %}badge-success{% elif order.delivery_status == 'pending' %}badge-warning{% elif order.delivery_status == 'cancelled' %}badge-danger{% else %}badge-info{% endif %}">
+                                    <i class="fas {% if order.delivery_status == 'completed' %}fa-check-circle{% elif order.delivery_status == 'pending' %}fa-clock{% elif order.delivery_status == 'cancelled' %}fa-times-circle{% else %}fa-info-circle{% endif %} mr-1"></i>
+                                    {{ order.get_delivery_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {% if order.payment_status == 'paid' %}badge-success{% elif order.payment_status == 'pending' %}badge-warning{% else %}badge-danger{% endif %}">
+                                    <i class="fas {% if order.payment_status == 'paid' %}fa-check-circle{% elif order.payment_status == 'pending' %}fa-clock{% else %}fa-times-circle{% endif %} mr-1"></i>
+                                    {{ order.get_payment_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="action-btns">
+                                    <a href="{% url 'sales:order_detail' order.pk %}" class="btn-icon btn-info" data-toggle="tooltip" title="Просмотр">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if order.delivery_status == 'pending' %}
+                                    <a href="{% url 'sales:order_edit' order.pk %}" class="btn-icon btn-primary" data-toggle="tooltip" title="Редактировать">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8">
+                                <div class="empty-state">
+                                    <i class="fas fa-inbox empty-icon"></i>
+                                    <h4 class="empty-title">Нет заказов</h4>
+                                    <p class="empty-text">Создайте новый заказ, нажав на кнопку "Новый заказ"</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<script>
+    $(document).ready(function() {
+        console.log("Dashboard JS initialized");
+        
+        // Фиксим иконки Font Awesome, если они не загрузились
+        if (typeof FontAwesome === 'undefined') {
+            // Загружаем Font Awesome, если не загружен
+            var cssId = 'fontAwesomeCDN';
+            if (!document.getElementById(cssId)) {
+                var head = document.getElementsByTagName('head')[0];
+                var link = document.createElement('link');
+                link.id = cssId;
+                link.rel = 'stylesheet';
+                link.type = 'text/css';
+                link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+                link.crossOrigin = 'anonymous';
+                head.appendChild(link);
+                console.log("Font Awesome подгружен");
+            }
+        }
+        
+        // Улучшенное взаимодействие с операционными плитками
+        $('.operation-tile').each(function() {
+            // Проверяем наличие иконок и добавляем их, если отсутствуют
+            var $icon = $(this).find('.operation-icon i');
+            var $background = $(this).find('.operation-background');
+            
+            if ($icon.length && !$icon.hasClass('fas') && !$icon.hasClass('far') && !$icon.hasClass('fab')) {
+                console.log("Иконка не имеет класса Font Awesome");
+                
+                // Если иконка приемки
+                if ($(this).hasClass('receive') && $icon.hasClass('bi-box-arrow-in-down')) {
+                    $icon.removeClass('bi-box-arrow-in-down').addClass('fas fa-download');
+                }
+                // Если иконка продажи
+                else if ($(this).hasClass('sale') && $icon.hasClass('bi-box-arrow-right')) {
+                    $icon.removeClass('bi-box-arrow-right').addClass('fas fa-upload');
+                }
+                // Если иконка перемещения
+                else if ($(this).hasClass('transfer') && $icon.hasClass('bi-arrow-left-right')) {
+                    $icon.removeClass('bi-arrow-left-right').addClass('fas fa-exchange-alt');
+                }
+                // Если иконка производства
+                else if ($(this).hasClass('production') && $icon.hasClass('bi-tools')) {
+                    $icon.removeClass('bi-tools').addClass('fas fa-cogs');
+                }
+            }
+            
+            // Добавляем фоновую иконку, если ее нет
+            if (!$background.length) {
+                if ($(this).hasClass('receive')) {
+                    $(this).append('<i class="fas fa-boxes operation-background"></i>');
+                }
+                else if ($(this).hasClass('sale')) {
+                    $(this).append('<i class="fas fa-money-bill-wave operation-background"></i>');
+                }
+                else if ($(this).hasClass('transfer')) {
+                    $(this).append('<i class="fas fa-arrows-alt-h operation-background"></i>');
+                }
+                else if ($(this).hasClass('production')) {
+                    $(this).append('<i class="fas fa-industry operation-background"></i>');
+                }
+            }
+        });
+        
+        // Включаем тултипы Bootstrap
+        $('[data-toggle="tooltip"]').tooltip();
+        
+        // Анимация для статистических карточек
+        $('.stat-card').each(function(index) {
+            $(this).css({ 
+                'opacity': 0,
+                'transform': 'translateY(20px)'
+            });
+            
+            setTimeout(function(el) {
+                $(el).css({
+                    'transition': 'all 0.6s cubic-bezier(0.215, 0.61, 0.355, 1)'
+                });
+                $(el).css({
+                    'opacity': 1,
+                    'transform': 'translateY(0)'
+                });
+            }, 300 * index, this);
+        });
+        
+        // Анимация для панелей
+        $('.action-panel, .orders-panel').each(function(index) {
+            $(this).css({
+                'opacity': 0,
+                'transform': 'translateY(20px)'
+            });
+            
+            setTimeout(function(el) {
+                $(el).css({
+                    'transition': 'all 0.6s cubic-bezier(0.215, 0.61, 0.355, 1)'
+                });
+                $(el).css({
+                    'opacity': 1,
+                    'transform': 'translateY(0)'
+                });
+            }, 600 + 300 * index, this);
+        });
+        
+        // Анимация для кнопок операций
+        $('.operation-tile').each(function(index) {
+            $(this).css({
+                'opacity': 0,
+                'transform': 'scale(0.9)'
+            });
+            
+            setTimeout(function(el) {
+                $(el).css({
+                    'transition': 'all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                });
+                $(el).css({
+                    'opacity': 1,
+                    'transform': 'scale(1)'
+                });
+            }, 900 + 150 * index, this);
+        });
+        
+        // Анимация для строк таблицы
+        $('.orders-table tbody tr').each(function(index) {
+            $(this).css({
+                'opacity': 0,
+                'transform': 'translateX(-20px)'
+            });
+            
+            setTimeout(function(el) {
+                $(el).css({
+                    'transition': 'all 0.5s ease'
+                });
+                $(el).css({
+                    'opacity': 1,
+                    'transform': 'translateX(0)'
+                });
+            }, 1200 + 100 * index, this);
+        });
+        
+        // Улучшенный эффект нажатия на кнопки и плитки
+        $('.btn, .btn-icon').on('mousedown', function() {
+            $(this).css('transform', 'scale(0.95)');
+        }).on('mouseup mouseleave', function() {
+            $(this).css('transform', '');
+        });
+        
+        $('.operation-tile').on('mousedown', function() {
+            $(this).css('transform', 'scale(0.98)');
+        }).on('mouseup mouseleave', function() {
+            $(this).css('transform', '');
+        }).on('mouseenter', function() {
+            $(this).find('.operation-icon').css('transform', 'rotate(5deg)');
+            $(this).find('.operation-icon i').css('transform', 'scale(1.2)');
+        }).on('mouseleave', function() {
+            $(this).find('.operation-icon').css('transform', '');
+            $(this).find('.operation-icon i').css('transform', '');
+        });
+        
+        // Плавная прокрутка при клике на кнопки
+        $('a[href^="#"]').on('click', function(e) {
+            e.preventDefault();
+            var target = $(this.hash);
+            if (target.length) {
+                $('html, body').animate({
+                    scrollTop: target.offset().top - 100
+                }, 500, 'swing');
+            }
+        });
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,664 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Статистика{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #6366f1;
+        --primary-dark: #4338ca;
+        --secondary: #10b981;
+        --secondary-dark: #059669;
+        --info: #06b6d4;
+        --info-dark: #0e7490;
+        --warning: #f59e0b;
+        --warning-dark: #d97706;
+        --danger: #ef4444;
+        --danger-dark: #dc2626;
+        --dark: #1e293b;
+        --light: #f8fafc;
+    }
+    
+    .stats-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stats-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stats-card .card-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(120deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+        z-index: 0;
+    }
+    
+    .stats-card .card-header h4 {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        color: var(--dark);
+    }
+    
+    .stats-card .card-header h4 i {
+        margin-right: 10px;
+        font-size: 1.25rem;
+    }
+    
+    .stats-card .card-body {
+        padding: 1.5rem;
+    }
+    
+    .summary-card {
+        background: linear-gradient(45deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 20px;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s ease;
+        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+    }
+    
+    .summary-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .summary-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1), transparent);
+        z-index: 0;
+    }
+    
+    .summary-card.reception {
+        background: linear-gradient(45deg, var(--warning), var(--warning-dark));
+        box-shadow: 0 10px 20px rgba(245, 158, 11, 0.2);
+    }
+    
+    .summary-card.sale {
+        background: linear-gradient(45deg, var(--secondary), var(--secondary-dark));
+        box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+    }
+    
+    .summary-card.transfer {
+        background: linear-gradient(45deg, var(--info), var(--info-dark));
+        box-shadow: 0 10px 20px rgba(6, 182, 212, 0.2);
+    }
+    
+    .summary-card.production {
+        background: linear-gradient(45deg, var(--primary), var(--primary-dark));
+        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+    }
+    
+    .summary-icon {
+        position: absolute;
+        right: 1.5rem;
+        bottom: 1.5rem;
+        font-size: 4rem;
+        opacity: 0.2;
+        z-index: 0;
+    }
+    
+    .summary-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .summary-label {
+        font-size: 1rem;
+        opacity: 0.8;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 20px;
+    }
+    
+    .product-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .product-item {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        transition: background-color 0.3s ease;
+    }
+    
+    .product-item:hover {
+        background-color: rgba(99, 102, 241, 0.05);
+    }
+    
+    .product-item:last-child {
+        border-bottom: none;
+    }
+    
+    .product-name {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--dark);
+    }
+    
+    .product-stats {
+        display: flex;
+        justify-content: space-between;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .filter-form {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        padding: 1.5rem;
+        border-radius: 15px;
+        margin-bottom: 1.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    }
+    
+    .filter-form .form-label {
+        font-weight: 600;
+        color: var(--dark);
+    }
+    
+    .filter-form .form-select {
+        border-radius: 10px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 0.75rem 1rem;
+    }
+    
+    .filter-form .btn {
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 1px;
+    }
+    
+    .transport-card {
+        background: linear-gradient(45deg, #3a86ff, #4361ee);
+        color: #fff;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 20px;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s ease;
+        box-shadow: 0 10px 20px rgba(58, 134, 255, 0.2);
+    }
+    
+    .transport-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .transport-card.truck {
+        background: linear-gradient(45deg, #3a86ff, #4361ee);
+    }
+    
+    .transport-card.wagon {
+        background: linear-gradient(45deg, #7209b7, #560bad);
+    }
+    
+    .glass-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        opacity: 0.95;
+    }
+    
+    .glass-bg::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: 
+            radial-gradient(circle at 25% 25%, rgba(99, 102, 241, 0.15), transparent),
+            radial-gradient(circle at 75% 75%, rgba(16, 185, 129, 0.15), transparent);
+        animation: rotate 20s linear infinite;
+    }
+    
+    @keyframes rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Стеклянный градиентный фон -->
+<div class="glass-bg"></div>
+
+<div class="container-fluid py-4">
+    <!-- Фильтры -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="stats-card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="bi bi-funnel"></i> Фильтры</h4>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="filter-form">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Период</label>
+                                    <select name="period" class="form-select">
+                                        <option value="day" {% if period == 'day' %}selected{% endif %}>За день</option>
+                                        <option value="week" {% if period == 'week' %}selected{% endif %}>За неделю</option>
+                                        <option value="month" {% if period == 'month' %}selected{% endif %}>За месяц</option>
+                                        <option value="year" {% if period == 'year' %}selected{% endif %}>За год</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Тип операции</label>
+                                    <select name="movement_type" class="form-select">
+                                        <option value="">Все</option>
+                                        <option value="in" {% if movement_type == 'in' %}selected{% endif %}>Приёмка</option>
+                                        <option value="out" {% if movement_type == 'out' %}selected{% endif %}>Продажа</option>
+                                        <option value="transfer" {% if movement_type == 'transfer' %}selected{% endif %}>Перемещение</option>
+                                        <option value="production" {% if movement_type == 'production' %}selected{% endif %}>Производство</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Продукт</label>
+                                    <select name="product" class="form-select">
+                                        <option value="">Все продукты</option>
+                                        {% for product in products %}
+                                        <option value="{{ product.id }}" {% if selected_product == product.id %}selected{% endif %}>
+                                            {{ product.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">&nbsp;</label>
+                                    <button type="submit" class="btn btn-primary d-block w-100">
+                                        <i class="bi bi-search"></i> Применить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Сводная информация -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="summary-card">
+                <div class="summary-value">{{ total_operations }}</div>
+                <div class="summary-label">Всего операций</div>
+                <i class="bi bi-box summary-icon"></i>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="summary-card">
+                <div class="summary-value">{{ total_quantity|floatformat:2 }} т</div>
+                <div class="summary-label">Общий объем</div>
+                <i class="bi bi-box2 summary-icon"></i>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="summary-card">
+                <div class="summary-value">{{ profit_loss|floatformat:2 }} т</div>
+                <div class="summary-label">Прибыль/Убыток</div>
+                <i class="bi bi-graph-up-arrow summary-icon"></i>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="summary-card">
+                <div class="summary-value">{{ average_difference|floatformat:2 }} т</div>
+                <div class="summary-label">Средняя разница</div>
+                <i class="bi bi-arrows-expand summary-icon"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Статистика по типам операций -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="summary-card reception">
+                <div class="summary-value">{{ operations_stats.reception }}</div>
+                <div class="summary-label">Приемка</div>
+                <div class="mt-2">{{ volume_stats.reception|floatformat:2 }} т</div>
+                <i class="bi bi-truck summary-icon"></i>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="summary-card sale">
+                <div class="summary-value">{{ operations_stats.sale }}</div>
+                <div class="summary-label">Продажа</div>
+                <div class="mt-2">{{ volume_stats.sale|floatformat:2 }} т</div>
+                <i class="bi bi-cart4 summary-icon"></i>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="summary-card transfer">
+                <div class="summary-value">{{ operations_stats.transfer }}</div>
+                <div class="summary-label">Перемещение</div>
+                <div class="mt-2">{{ volume_stats.transfer|floatformat:2 }} т</div>
+                <i class="bi bi-arrow-left-right summary-icon"></i>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="summary-card production">
+                <div class="summary-value">{{ operations_stats.production }}</div>
+                <div class="summary-label">Производство</div>
+                <div class="mt-2">{{ volume_stats.production|floatformat:2 }} т</div>
+                <i class="bi bi-gear summary-icon"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Статистика по транспорту -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="transport-card truck">
+                <div class="summary-value">{{ transport_stats.truck }}</div>
+                <div class="summary-label">Грузовики</div>
+                <div class="mt-2">{{ transport_stats.truck_volume|floatformat:2 }} т</div>
+                <i class="bi bi-truck summary-icon"></i>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="transport-card wagon">
+                <div class="summary-value">{{ transport_stats.wagon }}</div>
+                <div class="summary-label">Вагоны</div>
+                <div class="mt-2">{{ transport_stats.wagon_volume|floatformat:2 }} т</div>
+                <i class="bi bi-train-freight-front summary-icon"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <!-- График операций -->
+        <div class="col-md-8">
+            <div class="stats-card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="bi bi-graph-up"></i> Динамика операций</h4>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="operationsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- График распределения по типам операций -->
+            <div class="stats-card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="bi bi-pie-chart"></i> Распределение операций</h4>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="operationsPieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Топ продуктов и транспорт -->
+        <div class="col-md-4">
+            <div class="stats-card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="bi bi-trophy"></i> Топ продуктов</h4>
+                </div>
+                <div class="card-body">
+                    <div class="product-list">
+                        {% for product in top_products %}
+                        <div class="product-item">
+                            <div class="product-name">{{ product.name }}</div>
+                            <div class="product-stats">
+                                <span><i class="bi bi-box me-1"></i> {{ product.quantity|floatformat:2 }} т</span>
+                                <span><i class="bi bi-arrow-repeat me-1"></i> {{ product.operations_count }} операций</span>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-center text-muted">Нет данных</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- График по транспорту -->
+            <div class="stats-card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="bi bi-truck"></i> Распределение транспорта</h4>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="transportChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // График операций по времени
+    const operationsChart = new Chart(
+        document.getElementById('operationsChart'),
+        {
+            type: 'line',
+            data: {
+                labels: {{ chart_dates|safe }},
+                datasets: [
+                    {
+                        label: 'Приемка',
+                        data: {{ chart_reception|safe }},
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Продажа',
+                        data: {{ chart_sale|safe }},
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Перемещение',
+                        data: {{ chart_transfer|safe }},
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Производство',
+                        data: {{ chart_production|safe }},
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        grid: {
+                            drawBorder: false,
+                            color: 'rgba(0,0,0,0.05)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            drawBorder: false,
+                            color: 'rgba(0,0,0,0.05)'
+                        },
+                        ticks: {
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    );
+    
+    // График распределения операций
+    const operationsPieChart = new Chart(
+        document.getElementById('operationsPieChart'),
+        {
+            type: 'doughnut',
+            data: {
+                labels: ['Приемка', 'Продажа', 'Перемещение', 'Производство'],
+                datasets: [
+                    {
+                        data: [
+                            {{ operations_stats.reception }}, 
+                            {{ operations_stats.sale }}, 
+                            {{ operations_stats.transfer }}, 
+                            {{ operations_stats.production }}
+                        ],
+                        backgroundColor: [
+                            '#f59e0b',
+                            '#10b981',
+                            '#06b6d4',
+                            '#6366f1'
+                        ],
+                        borderWidth: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                },
+                cutout: '60%'
+            }
+        }
+    );
+    
+    // График распределения транспорта
+    const transportChart = new Chart(
+        document.getElementById('transportChart'),
+        {
+            type: 'pie',
+            data: {
+                labels: ['Грузовики', 'Вагоны'],
+                datasets: [
+                    {
+                        data: [{{ transport_stats.truck }}, {{ transport_stats.wagon }}],
+                        backgroundColor: [
+                            '#3a86ff',
+                            '#7209b7'
+                        ],
+                        borderWidth: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        }
+    );
+});
+</script>
+{% endblock %} 

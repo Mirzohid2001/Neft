@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Добавление транспорта{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .form-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        padding: 1.5rem;
+    }
+    
+    .form-card .card-body {
+        padding: 1.5rem;
+    }
+    
+    .wagon-fields {
+        display: none;
+    }
+    
+    .wagon-fields.active {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="mb-0">Добавление транспорта</h2>
+                <a href="{% url 'warehouse:movement_detail' movement.id %}" class="btn btn-secondary">
+                    <i class="bi bi-x"></i> Отмена
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <form method="post" id="transportForm">
+                {% csrf_token %}
+                
+                <div class="form-card">
+                    <div class="card-header">
+                        <h4 class="mb-0">Информация о транспорте</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Тип транспорта</label>
+                                    {{ form.transport_type }}
+                                    {% if form.transport_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.transport_type.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Номер транспорта</label>
+                                    {{ form.transport_number }}
+                                    {% if form.transport_number.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.transport_number.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Поля для вагона -->
+                        <div class="wagon-fields" id="wagonFields">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Тип вагона</label>
+                                        {{ form.wagon_type }}
+                                        {% if form.wagon_type.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.wagon_type.errors.0 }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Вагон</label>
+                                        {{ form.wagon }}
+                                        {% if form.wagon.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.wagon.errors.0 }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Общие поля измерений -->
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Плотность</label>
+                                    {{ form.density }}
+                                    {% if form.density.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.density.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Температура (°C)</label>
+                                    {{ form.temperature }}
+                                    {% if form.temperature.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.temperature.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Объем (л)</label>
+                                    {{ form.volume }}
+                                    {% if form.volume.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.volume.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Количество (тонн)</label>
+                                    {{ form.quantity }}
+                                    {% if form.quantity.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.quantity.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Количество по документам (тонн)</label>
+                                    {{ form.doc_quantity }}
+                                    {% if form.doc_quantity.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.doc_quantity.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label class="form-label">Склад</label>
+                                    {{ form.warehouse }}
+                                    {% if form.warehouse.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.warehouse.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label class="form-label">Примечания</label>
+                                    {{ form.notes }}
+                                    {% if form.notes.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.notes.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check2"></i> Сохранить
+                    </button>
+                    <a href="{% url 'warehouse:movement_detail' movement.id %}" class="btn btn-secondary">
+                        <i class="bi bi-x"></i> Отмена
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Инструкции -->
+            <div class="form-card">
+                <div class="card-header">
+                    <h4 class="mb-0">Инструкции</h4>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li class="mb-2">Выберите тип транспорта (вагон или грузовик)</li>
+                        <li class="mb-2">Для вагона:
+                            <ul class="mt-2">
+                                <li>Выберите тип вагона из списка</li>
+                                <li>Выберите конкретный вагон</li>
+                            </ul>
+                        </li>
+                        <li class="mb-2">Заполните измерения:
+                            <ul class="mt-2">
+                                <li>Плотность продукта</li>
+                                <li>Температуру</li>
+                                <li>Объем</li>
+                            </ul>
+                        </li>
+                        <li class="mb-2">Укажите фактическое количество и количество по документам</li>
+                        <li>При необходимости добавьте примечания</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const transportType = document.getElementById('id_transport_type');
+    const wagonFields = document.getElementById('wagonFields');
+    
+    function toggleWagonFields() {
+        if (transportType.value === 'wagon') {
+            wagonFields.classList.add('active');
+        } else {
+            wagonFields.classList.remove('active');
+        }
+    }
+    
+    transportType.addEventListener('change', toggleWagonFields);
+    toggleWagonFields(); // Initial state
+});
+</script>
+{% endblock %}
+
+{% endblock %} 

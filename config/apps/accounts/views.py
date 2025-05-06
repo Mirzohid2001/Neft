@@ -110,6 +110,10 @@ class LoginView(View):
         if request.user.is_authenticated:
             if request.user.role == 'infrastructure':
                 return redirect('infrastruction:dashboard')
+            elif request.user.role == 'estokada':
+                return redirect('estokada:dashboard')
+            elif request.user.role == 'sales':
+                return redirect('sales:dashboard')
             return redirect('dashboard:dashboard')
         return render(request, 'accounts/login.html')
 
@@ -123,6 +127,10 @@ class LoginView(View):
             login(request, user)
             if user.role == 'infrastructure':
                 return redirect('infrastruction:dashboard')
+            elif user.role == 'estokada':
+                return redirect('estokada:dashboard')
+            elif user.role == 'sales':
+                return redirect('sales:dashboard')
             return redirect('dashboard:dashboard')
         else:
             messages.error(request, 'Неверное имя пользователя или пароль.')

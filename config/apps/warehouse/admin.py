@@ -86,39 +86,28 @@ class ReservoirMovementAdmin(admin.ModelAdmin):
 
 @admin.register(Movement)
 class MovementAdmin(admin.ModelAdmin):
-    list_display = ("date", "movement_type", "status", "product", "quantity", "difference", "client")
+    list_display = ("date", "movement_type", "status", "product", "quantity")
     list_filter = ("movement_type", "status", "date")
-    search_fields = ("document_number", "product__name", "client__title")
-    readonly_fields = ("created_at", "updated_at", "difference")
+    search_fields = ("document_number", "product__name")
+    readonly_fields = ("created_at", "updated_at")
     autocomplete_fields = [
-        "product", "client", "source_warehouse", "target_warehouse",
-        "source_reservoir", "target_reservoir", "source_wagon", "target_wagon",
-        "created_by", "confirmed_by", "batch"
+        "product", "source_warehouse", "target_warehouse",
+        "created_by", "confirmed_by"
     ]
     fieldsets = (
         ("Asosiy ma'lumotlar", {
             "fields": ("document_number", "date", "movement_type", "status")
         }),
-        ("Klient", {
-            "fields": ("client_type", "client")
-        }),
         ("Mahsulot", {
-            "fields": ("product", "quantity", "expected_quantity", "difference", "batch")
-        }),
-        ("Xarakteristikalar", {
-            "fields": ("temperature", "density", "liter", "specific_weight")
+            "fields": ("product", "quantity")
         }),
         ("Manbalar va Manzillar", {
             "fields": (
-                ("source_warehouse", "source_reservoir", "source_wagon"),
-                ("target_warehouse", "target_reservoir", "target_wagon"),
+                ("source_warehouse", "target_warehouse"),
             )
         }),
-        ("Transport", {
-            "fields": ("transport_number", "transport_photo")
-        }),
         ("Narxlar va Izohlar", {
-            "fields": ("price_sum", "price_usd", "note")
+            "fields": ("note",)
         }),
         ("Audit", {
             "fields": ("created_by", "confirmed_by", "created_at", "updated_at")
@@ -147,9 +136,10 @@ class AuditLogAdmin(admin.ModelAdmin):
 
 @admin.register(Transport)
 class TransportAdmin(admin.ModelAdmin):
-    list_display = ("transport_number", "movement", "quantity", "density", "liter")
-    search_fields = ("transport_number",)
-    autocomplete_fields = ["movement", "warehouse"]
+    list_display = ['transport_type', 'transport_number', 'quantity', 'doc_quantity', 'difference']
+    list_filter = ['transport_type', 'warehouse']
+    search_fields = ['transport_number']
+    readonly_fields = ['difference']
 
 
 @admin.register(ProductionSource)

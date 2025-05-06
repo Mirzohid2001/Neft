@@ -33,4 +33,6 @@ urlpatterns = [
     path('infrastruction/', include('apps.infrastruction.urls')),
     path('quality_control/', include('apps.quality_control.urls')),
     path('analytics/', include('apps.analytics.urls')),
+    path('estokada/', include('apps.estokada.urls')),
+    path('sales/', include('apps.sales.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

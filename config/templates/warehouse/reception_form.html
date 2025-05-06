@@ -1,0 +1,506 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Приемка товара{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #6366f1;
+        --primary-dark: #4338ca;
+        --secondary: #10b981;
+        --secondary-dark: #059669;
+        --info: #06b6d4;
+        --info-dark: #0e7490;
+        --warning: #f59e0b;
+        --warning-dark: #d97706;
+        --danger: #ef4444;
+        --danger-dark: #dc2626;
+        --dark: #1e293b;
+        --light: #f8fafc;
+    }
+
+    .reception-form {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .form-section {
+        margin-bottom: 20px;
+        border-radius: 10px;
+        padding: 15px;
+        background-color: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .form-section h3 {
+        margin-bottom: 15px;
+        color: var(--dark);
+        font-weight: 600;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 8px 12px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        border-color: var(--primary);
+    }
+
+    .btn-reception {
+        background: linear-gradient(to right, var(--warning), var(--warning-dark));
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-reception:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .transport-item {
+        border-radius: 10px;
+        background-color: rgba(255, 255, 255, 0.8);
+        transition: all 0.3s ease;
+    }
+
+    .transport-item:hover {
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    }
+
+    .action-icon {
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .action-icon:hover {
+        transform: scale(1.2);
+    }
+
+    .delete-icon {
+        color: var(--danger);
+    }
+
+    .add-icon {
+        color: var(--primary);
+    }
+
+    /* Анимации */
+    .transport-item {
+        animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 animate__animated animate__fadeIn">
+    <h1 class="mb-4 text-center text-gradient">Приемка товара</h1>
+    
+    <div class="reception-form">
+        <form method="post" id="receptionForm">
+            {% csrf_token %}
+            <input type="hidden" name="quantity" id="movement-quantity" value="0">
+            
+            <!-- Основная информация -->
+            <div class="form-section">
+                <h3><i class="bi bi-info-circle"></i> Основная информация</h3>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="id_transaction_type">Тип транзакции:</label>
+                        <input type="text" id="id_transaction_type" class="form-control" value="Приемка" readonly>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.document_number.id_for_label }}">Номер документа:</label>
+                        {{ form.document_number }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.date.id_for_label }}">Дата:</label>
+                        {{ form.date }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.product.id_for_label }}">Продукт:</label>
+                        {{ form.product }}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.client.id_for_label }}">Клиент:</label>
+                        {{ form.client }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Информация о транспорте -->
+            <div class="form-section">
+                <h3><i class="bi bi-truck"></i> Информация о транспорте</h3>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="transport_type">Тип транспорта:</label>
+                        <select id="transport_type" name="transport_type" class="form-control">
+                            <option value="">Выберите тип транспорта</option>
+                            <option value="truck">Автомобильный</option>
+                            <option value="wagon">Железнодорожный</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="transports-container">
+                    <!-- Шаблон для элемента транспорта -->
+                    <div class="transport-item mb-3 p-3 border rounded position-relative d-none" id="transport-template">
+                        <button type="button" class="btn-close position-absolute top-0 end-0 m-2 remove-transport"></button>
+                        
+                        <!-- Общие поля для всех типов транспорта -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label>Номер транспорта:</label>
+                                <input type="text" name="transport_number[]" class="form-control" required>
+                            </div>
+                        </div>
+                        
+                        <!-- Поля для автомобильного транспорта -->
+                        <div class="truck-fields">
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label>Плотность:</label>
+                                    <input type="number" name="density[]" class="form-control density-input" step="0.01">
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Температура:</label>
+                                    <input type="number" name="temperature[]" class="form-control temperature-input" value="20">
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Объем (литры):</label>
+                                    <input type="number" name="liter[]" class="form-control liter-input" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Поля для железнодорожного транспорта -->
+                        <div class="wagon-fields" style="display:none;">
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label>Тип вагона:</label>
+                                    <select name="wagon_type[]" class="form-control">
+                                        <option value="">Выберите тип</option>
+                                        {% for wagon_type in wagon_types %}
+                                        <option value="{{ wagon_type.id }}">{{ wagon_type.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Грузоподъемность (тонн):</label>
+                                    <input type="number" name="capacity[]" class="form-control capacity-input" step="0.01">
+                                </div>
+                                <div class="col-md-4">
+                                    <label>Тара вагона (кг):</label>
+                                    <input type="number" name="tare_weight[]" class="form-control tare-weight-input" step="1">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Общие поля веса -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label>Количество (кг):</label>
+                                <input type="number" name="quantity[]" class="form-control quantity-input" step="0.01" required value="0">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Документальный вес (кг):</label>
+                                <input type="number" name="doc_ton[]" class="form-control doc-ton-input" step="0.01">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Разница (кг):</label>
+                                <input type="number" name="difference[]" class="form-control difference-input" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-center mt-3">
+                    <button type="button" id="add-transport" class="btn btn-reception">
+                        <i class="bi bi-plus-circle"></i> Добавить транспорт
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Куда положить товар -->
+            <div class="form-section">
+                <h3><i class="bi bi-box-seam"></i> Куда положить товар</h3>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="placement_type" id="placement_reservoir" value="reservoir" checked>
+                            <label class="form-check-label" for="placement_reservoir">
+                                Резервуар
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="placement_type" id="placement_wagon" value="wagon">
+                            <label class="form-check-label" for="placement_wagon">
+                                Вагон
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="reservoir-selection" class="mt-3">
+                    <label for="reservoir">Выберите резервуар:</label>
+                    <select name="reservoir" id="reservoir" class="form-control">
+                        <option value="">Выберите резервуар</option>
+                        {% for reservoir in reservoirs %}
+                        <option value="{{ reservoir.id }}">{{ reservoir.name }} ({{ reservoir.current_quantity }}/{{ reservoir.capacity }} тонн)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div id="wagon-selection" class="mt-3" style="display:none;">
+                    <label for="wagon">Выберите вагон:</label>
+                    <select name="wagon" id="wagon" class="form-control">
+                        <option value="">Выберите вагон</option>
+                        {% for wagon in wagons %}
+                        <option value="{{ wagon.id }}">{{ wagon.wagon_number }} ({{ wagon.current_quantity }}/{{ wagon.capacity }} тонн)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Дополнительная информация -->
+            <div class="form-section">
+                <h3><i class="bi bi-card-text"></i> Дополнительная информация</h3>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.note.id_for_label }}">Комментарий:</label>
+                        {{ form.note }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Кнопки действий -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{% url 'warehouse:movement_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад
+                </a>
+                <button type="submit" class="btn btn-reception">
+                    <i class="bi bi-check-circle"></i> Сохранить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Получаем ссылки на важные элементы
+    const transportType = document.getElementById('transport_type');
+    const transportTemplate = document.getElementById('transport-template');
+    const transportsContainer = document.getElementById('transports-container');
+    const addTransportBtn = document.getElementById('add-transport');
+    const placementReservoir = document.getElementById('placement_reservoir');
+    const placementWagon = document.getElementById('placement_wagon');
+    const reservoirSelection = document.getElementById('reservoir-selection');
+    const wagonSelection = document.getElementById('wagon-selection');
+    
+    // Проверяем, что поля формы существуют в документе
+    if (!transportType || !transportTemplate || !transportsContainer || !addTransportBtn) {
+        console.error('Не удалось найти некоторые элементы формы!');
+        return;
+    }
+
+    // Отображаем правильное поле для размещения в зависимости от радиокнопок
+    placementReservoir.addEventListener('change', function() {
+        reservoirSelection.style.display = 'block';
+        wagonSelection.style.display = 'none';
+    });
+    
+    placementWagon.addEventListener('change', function() {
+        reservoirSelection.style.display = 'none';
+        wagonSelection.style.display = 'block';
+    });
+    
+    // Функция для обновления общего количества
+    function updateTotalQuantity() {
+        let total = 0;
+        document.querySelectorAll('.quantity-input').forEach(input => {
+            if (!input.closest('.d-none') && input.value) {
+                total += parseFloat(input.value);
+            }
+        });
+        document.getElementById('movement-quantity').value = total;
+        console.log('Общее количество обновлено:', total);
+    }
+    
+    // Функция для расчета разницы
+    function calculateDifference(transportItem) {
+        const quantity = parseFloat(transportItem.querySelector('.quantity-input').value) || 0;
+        const docTon = parseFloat(transportItem.querySelector('.doc-ton-input').value) || 0;
+        const difference = quantity - docTon;
+        transportItem.querySelector('.difference-input').value = difference.toFixed(2);
+        console.log('Разница рассчитана:', difference);
+    }
+    
+    // Функция для добавления нового транспорта
+    function addTransport() {
+        if (!transportType.value) {
+            alert('Пожалуйста, выберите тип транспорта');
+            return;
+        }
+        
+        console.log('Добавление транспорта типа:', transportType.value);
+        
+        // Клонируем шаблон
+        const newTransport = transportTemplate.cloneNode(true);
+        newTransport.classList.remove('d-none');
+        newTransport.id = 'transport-' + Date.now();
+        
+        // Настраиваем поля в зависимости от типа транспорта
+        if (transportType.value === 'truck') {
+            newTransport.querySelector('.truck-fields').style.display = 'block';
+            newTransport.querySelector('.wagon-fields').style.display = 'none';
+            console.log('Отображаем поля для автомобильного транспорта');
+        } else if (transportType.value === 'wagon') {
+            newTransport.querySelector('.truck-fields').style.display = 'none';
+            newTransport.querySelector('.wagon-fields').style.display = 'block';
+            console.log('Отображаем поля для железнодорожного транспорта');
+        }
+        
+        // Добавляем обработчики событий к новому транспорту
+        newTransport.querySelector('.remove-transport').addEventListener('click', function() {
+            newTransport.remove();
+            updateTotalQuantity();
+            console.log('Транспорт удален');
+        });
+        
+        // Добавляем обработчики событий для расчетов
+        const quantityInput = newTransport.querySelector('.quantity-input');
+        const docTonInput = newTransport.querySelector('.doc-ton-input');
+        
+        if (quantityInput) {
+            quantityInput.addEventListener('input', function() {
+                calculateDifference(newTransport);
+                updateTotalQuantity();
+            });
+        }
+        
+        if (docTonInput) {
+            docTonInput.addEventListener('input', function() {
+                calculateDifference(newTransport);
+            });
+        }
+        
+        // Добавляем автоматический расчет плотности для грузовиков
+        if (transportType.value === 'truck') {
+            const literInput = newTransport.querySelector('.liter-input');
+            const densityInput = newTransport.querySelector('.density-input');
+            
+            if (literInput && densityInput && quantityInput) {
+                literInput.addEventListener('input', function() {
+                    if (literInput.value && densityInput.value) {
+                        const liter = parseFloat(literInput.value);
+                        const density = parseFloat(densityInput.value);
+                        const quantity = liter * density;
+                        quantityInput.value = quantity.toFixed(2);
+                        calculateDifference(newTransport);
+                        updateTotalQuantity();
+                        console.log('Автоматический расчет количества по объему и плотности:', quantity);
+                    }
+                });
+                
+                densityInput.addEventListener('input', function() {
+                    if (literInput.value && densityInput.value) {
+                        const liter = parseFloat(literInput.value);
+                        const density = parseFloat(densityInput.value);
+                        const quantity = liter * density;
+                        quantityInput.value = quantity.toFixed(2);
+                        calculateDifference(newTransport);
+                        updateTotalQuantity();
+                        console.log('Автоматический расчет количества по плотности:', quantity);
+                    }
+                });
+            }
+        }
+        
+        // Добавляем новый транспорт в контейнер
+        transportsContainer.appendChild(newTransport);
+        console.log('Транспорт добавлен в контейнер');
+    }
+    
+    // Обработчик клика на кнопку добавления транспорта
+    addTransportBtn.addEventListener('click', addTransport);
+    console.log('Обработчик для кнопки добавления транспорта установлен');
+    
+    // Обработка отправки формы
+    document.getElementById('receptionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Проверяем, есть ли хотя бы один транспорт
+        const transports = document.querySelectorAll('.transport-item:not(.d-none)');
+        if (transports.length === 0) {
+            alert('Добавьте хотя бы один транспорт');
+            return;
+        }
+        
+        // Собираем все данные о транспорте в JSON для бэкенда
+        let transportData = [];
+        transports.forEach(transport => {
+            const data = {
+                transport_type: transportType.value,
+                transport_number: transport.querySelector('[name="transport_number[]"]').value,
+                quantity: transport.querySelector('[name="quantity[]"]').value,
+                doc_ton: transport.querySelector('[name="doc_ton[]"]').value || '0'
+            };
+            
+            if (transportType.value === 'truck') {
+                data.density = transport.querySelector('[name="density[]"]').value || '0';
+                data.temperature = transport.querySelector('[name="temperature[]"]').value || '20';
+                data.liter = transport.querySelector('[name="liter[]"]').value || '0';
+            } else if (transportType.value === 'wagon') {
+                data.wagon_type = transport.querySelector('[name="wagon_type[]"]').value || '';
+                data.capacity = transport.querySelector('[name="capacity[]"]').value || '0';
+                data.tare_weight = transport.querySelector('[name="tare_weight[]"]').value || '0';
+            }
+            
+            transportData.push(data);
+        });
+        
+        console.log('Данные о транспорте собраны:', transportData);
+        
+        // Добавляем скрытое поле с данными JSON о транспорте
+        const transportDataInput = document.createElement('input');
+        transportDataInput.type = 'hidden';
+        transportDataInput.name = 'transports_json';
+        transportDataInput.value = JSON.stringify(transportData);
+        this.appendChild(transportDataInput);
+        
+        // Отправляем форму
+        console.log('Форма отправляется');
+        this.submit();
+    });
+    
+    console.log('Инициализация скрипта для формы приемки завершена');
+});
+</script>
+{% endblock %} 

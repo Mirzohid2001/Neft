@@ -1,0 +1,352 @@
+{% extends 'warehouse/base.html' %}
+{% load static %}
+
+{% block title %}Детали операции эстокады{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .detail-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        padding: 1.5rem;
+    }
+    
+    .detail-card .card-body {
+        padding: 1.5rem;
+    }
+    
+    .info-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-group:last-child {
+        margin-bottom: 0;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    
+    .info-value {
+        font-size: 1.1rem;
+    }
+    
+    .transport-card {
+        border-left: 4px solid #17a2b8;
+        background: #f8f9fa;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0 5px 5px 0;
+    }
+    
+    .difference-block {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-top: 1rem;
+    }
+    
+    .difference-positive {
+        background-color: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+    }
+    
+    .difference-negative {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+    }
+    
+    .status-badge {
+        padding: 0.5em 1em;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    
+    .status-pending {
+        background-color: #ffc107;
+        color: #000;
+    }
+    
+    .status-in-progress {
+        background-color: #17a2b8;
+        color: #fff;
+    }
+    
+    .status-completed {
+        background-color: #28a745;
+        color: #fff;
+    }
+    
+    .status-cancelled {
+        background-color: #dc3545;
+        color: #fff;
+    }
+    
+    .timeline {
+        position: relative;
+        padding: 20px 0;
+    }
+    .timeline-item {
+        position: relative;
+        padding-left: 50px;
+        margin-bottom: 20px;
+    }
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: 20px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e3e6f0;
+    }
+    .timeline-item:after {
+        content: '';
+        position: absolute;
+        left: 16px;
+        top: 0;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #4e73df;
+    }
+    .timeline-date {
+        font-size: 0.8rem;
+        color: #858796;
+        margin-bottom: 5px;
+    }
+    .timeline-content {
+        background: #f8f9fc;
+        padding: 15px;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 text-gray-800">
+            Операция эстокады #{{ operation.movement.document_number }}
+            <span class="badge badge-{% if operation.status == 'completed' %}success{% elif operation.status == 'cancelled' %}danger{% elif operation.status == 'pending' %}warning{% else %}info{% endif %}">
+                {{ operation.get_status_display }}
+            </span>
+        </h1>
+        <div>
+            <a href="{% url 'warehouse:estokada_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Назад к списку
+            </a>
+            {% if operation.status != 'completed' and operation.status != 'cancelled' %}
+            <a href="{% url 'warehouse:estokada_process' operation.pk %}" class="btn btn-primary">
+                <i class="fas fa-cogs"></i> Обработать
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Основная информация -->
+        <div class="col-xl-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Основная информация</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th style="width: 40%">Номер документа:</th>
+                            <td>{{ operation.movement.document_number }}</td>
+                        </tr>
+                        <tr>
+                            <th>Дата создания:</th>
+                            <td>{{ operation.created_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Тип движения:</th>
+                            <td>{{ operation.movement.get_movement_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>Продукт:</th>
+                            <td>{{ operation.movement.product.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Статус:</th>
+                            <td>
+                                <span class="badge badge-{% if operation.status == 'completed' %}success{% elif operation.status == 'cancelled' %}danger{% elif operation.status == 'pending' %}warning{% else %}info{% endif %}">
+                                    {{ operation.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% if operation.result %}
+                        <tr>
+                            <th>Результат:</th>
+                            <td>
+                                <span class="badge badge-{% if operation.result == 'match' %}success{% elif operation.result == 'positive_diff' %}warning{% else %}danger{% endif %}">
+                                    {{ operation.get_result_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Данные измерений -->
+        <div class="col-xl-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Данные измерений</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card bg-light mb-3">
+                                <div class="card-header">По документам</div>
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ operation.movement.quantity|floatformat:3 }} тонн</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light mb-3">
+                                <div class="card-header">Фактически</div>
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ operation.actual_quantity|floatformat:3 }} тонн</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <table class="table table-borderless mt-3">
+                        <tr>
+                            <th style="width: 40%">Разница:</th>
+                            <td class="{% if operation.difference_quantity > 0 %}text-success{% elif operation.difference_quantity < 0 %}text-danger{% endif %}">
+                                {{ operation.difference_quantity|floatformat:3 }} тонн
+                                {% if operation.difference_percentage %}
+                                ({{ operation.difference_percentage|floatformat:2 }}%)
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Плотность:</th>
+                            <td>{{ operation.actual_density|default:"-"|floatformat:3 }}</td>
+                        </tr>
+                        <tr>
+                            <th>Температура:</th>
+                            <td>{{ operation.actual_temperature|default:"-"|floatformat:1 }}°C</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- История обработки -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">История обработки</h6>
+        </div>
+        <div class="card-body">
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h3 class="timeline-title">Создание</h3>
+                        <p>{{ operation.created_at|date:"d.m.Y H:i" }}</p>
+                    </div>
+                </div>
+
+                {% if operation.processed_at %}
+                <div class="timeline-item">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h3 class="timeline-title">Обработка</h3>
+                        <p>{{ operation.processed_at|date:"d.m.Y H:i" }}</p>
+                        <p>Обработал: {{ operation.processed_by.get_full_name|default:operation.processed_by.username }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if operation.status == 'completed' or operation.status == 'cancelled' %}
+                <div class="timeline-item">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h3 class="timeline-title">{{ operation.get_status_display }}</h3>
+                        <p>{{ operation.updated_at|date:"d.m.Y H:i" }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if operation.notes %}
+            <div class="mt-4">
+                <h6 class="font-weight-bold">Примечания:</h6>
+                <p class="mb-0">{{ operation.notes|linebreaks }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding: 20px 0;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 40px;
+    margin-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background-color: #4e73df;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 3px #4e73df;
+}
+
+.timeline-content {
+    position: relative;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.timeline-title {
+    font-size: 1rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.timeline-item:last-child .timeline-content {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.timeline:before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 0;
+    height: 100%;
+    width: 2px;
+    background-color: #e3e6f0;
+}
+</style>
+{% endblock %} 

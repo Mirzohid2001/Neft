@@ -299,194 +299,91 @@ class Movement(models.Model):
         ('out', "Продажа"),
         ('production', "Производство"),
         ('transfer', "Перемещение"),
-    )
-    
-    CLIENT_TYPES = (
-        ('local', "Локальный"),
-        ('international', "Международный"),
+        ('return', "Возврат"),
+        ('adjustment', "Корректировка"),
     )
     
     STATUS_CHOICES = (
-        ('created', "Создан"),
-        ('confirmed', "Подтвержден"),
-        ('processed', "Обработан"),
+        ('draft', "Черновик"),
+        ('pending', "Ожидает обработки"),
+        ('in_progress', "В обработке"),
         ('completed', "Завершен"),
         ('cancelled', "Отменен"),
     )
-    # Общие поля
+    
+    # Основные поля
     document_number = models.CharField(max_length=50, verbose_name="Номер документа", blank=True, null=True)
     date = models.DateField(verbose_name="Дата", default=timezone.now)
-    movement_type = models.CharField(max_length=10, choices=MOVEMENT_TYPES, verbose_name="Тип движения")
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='created', verbose_name="Статус")
+    movement_type = models.CharField(max_length=20, choices=MOVEMENT_TYPES, verbose_name="Тип движения")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
     
-    # Поля для клиента
-    client_type = models.CharField(max_length=15, choices=CLIENT_TYPES, verbose_name="Тип клиента", blank=True, null=True)
-    local_client = models.ForeignKey('warehouse.LocalClient', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Локальный клиент")
-    client = models.ForeignKey('warehouse.Client', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Клиент")
-    
-    # Поля для продукта
+    # Продукт и количество
     product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name="Продукт")
-    quantity = models.FloatField(verbose_name="Фактическое количество (тонн)", default=0)
-    expected_quantity = models.FloatField(verbose_name="Ожидаемое количество (по документам)", default=0, blank=True, null=True)
-    difference = models.FloatField(verbose_name="Разница", default=0, editable=False)
+    quantity = models.FloatField(verbose_name="Количество (тонн)", default=0)
     
-    # Параметры продукта
-    temperature = models.FloatField(verbose_name="Температура", default=20, null=True, blank=True)
-    density = models.FloatField(verbose_name="Плотность", default=0, null=True, blank=True)
-    liter = models.FloatField(verbose_name="Объем (литры)", default=0, null=True, blank=True)
-    specific_weight = models.FloatField(verbose_name="Удельный вес", default=0, null=True, blank=True)
+    # Склады
+    source_warehouse = models.ForeignKey(
+        Warehouse, 
+        related_name='source_movements',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name="Исходный склад"
+    )
+    target_warehouse = models.ForeignKey(
+        Warehouse,
+        related_name='target_movements',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name="Целевой склад"
+    )
     
-    # Поля для места хранения
-    source_warehouse = models.ForeignKey(Warehouse, related_name='source_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Исходный склад")
-    source_reservoir = models.ForeignKey(Reservoir, related_name='source_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Исходный резервуар")
-    source_wagon = models.ForeignKey('Wagon', related_name='source_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Исходный вагон")
-    target_warehouse = models.ForeignKey(Warehouse, related_name='target_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Целевой склад")
-    target_reservoir = models.ForeignKey(Reservoir, related_name='target_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Целевой резервуар")
-    target_wagon = models.ForeignKey('Wagon', related_name='target_movements', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Целевой вагон")
-    transport_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="Номер транспортного средства")
-    transport_photo = models.ImageField(upload_to='transport_photos/', blank=True, null=True, verbose_name="Фото транспорта")
-    production_loss = models.FloatField(verbose_name="Потери при производстве", default=0, blank=True, null=True)
-    production_loss_reason = models.TextField(verbose_name="Причина потерь", blank=True, null=True)
-    price_sum = models.FloatField(verbose_name="Цена (сум)", default=0, blank=True, null=True)
-    price_usd = models.FloatField(verbose_name="Цена (USD)", default=0, blank=True, null=True)
-    batch = models.ForeignKey(Batch, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Партия")
+    # Дополнительные поля
     note = models.TextField(verbose_name="Примечание", blank=True, null=True)
-    created_by = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_movements', verbose_name="Создано пользователем")
-    confirmed_by = models.ForeignKey('accounts.CustomUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_movements', verbose_name="Подтверждено пользователем")
+    created_by = models.ForeignKey(
+        'accounts.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='created_movements',
+        verbose_name="Создано пользователем"
+    )
+    confirmed_by = models.ForeignKey(
+        'accounts.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='confirmed_movements',
+        verbose_name="Подтверждено пользователем"
+    )
+    
+    # Метаданные
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
-    
+
     def clean(self):
-        # Проверки для приемки
-        if self.movement_type == 'in':
-            if not self.target_warehouse and not self.target_reservoir and not self.target_wagon:
-                raise ValidationError("Для приёмки необходимо указать целевое место хранения (склад, резервуар или вагон)")
+        if self.movement_type in ['in', 'transfer'] and not self.target_warehouse:
+            raise ValidationError("Для приемки и перемещения необходимо указать целевой склад")
         
-        # Проверки для продажи
-        elif self.movement_type == 'out':
-            if not self.source_warehouse and not self.source_reservoir and not self.source_wagon:
-                raise ValidationError("Для продажи необходимо указать источник (склад, резервуар или вагон)")
-            
-            if not self.client:
-                raise ValidationError("Для продажи необходимо указать клиента")
-                
-            # Проверка доступного количества
-            available_qty = 0
-            if self.source_reservoir:
-                available_qty = self.source_reservoir.current_quantity
-            elif self.source_wagon:
-                available_qty = self.source_wagon.current_quantity
-                
-            if self.quantity > available_qty:
-                raise ValidationError(f"Недостаточное количество продукта. Доступно: {available_qty}, запрошено: {self.quantity}")
+        if self.movement_type in ['out', 'transfer'] and not self.source_warehouse:
+            raise ValidationError("Для продажи и перемещения необходимо указать исходный склад")
         
-        # Проверки для производства
-        elif self.movement_type == 'production':
-            if not self.source_reservoir and not self.source_wagon:
-                raise ValidationError("Для производства необходимо указать исходный резервуар или вагон")
-                
-            if not self.target_reservoir and not self.target_wagon:
-                raise ValidationError("Для производства необходимо указать целевой резервуар или вагон")
-        
-        # Проверки для перемещения
-        elif self.movement_type == 'transfer':
-            if not self.source_reservoir and not self.source_wagon:
-                raise ValidationError("Для перемещения необходимо указать исходный резервуар или вагон")
-                
-            if not self.target_reservoir and not self.target_wagon:
-                raise ValidationError("Для перемещения необходимо указать целевой резервуар или вагон")
-                
-            if self.source_reservoir and self.source_reservoir == self.target_reservoir:
-                raise ValidationError("Исходный и целевой резервуары не могут быть одинаковыми")
-                
-            if self.source_wagon and self.source_wagon == self.target_wagon:
-                raise ValidationError("Исходный и целевой вагоны не могут быть одинаковыми")
-        
+        if self.movement_type == 'transfer' and self.source_warehouse == self.target_warehouse:
+            raise ValidationError("Исходный и целевой склад не могут быть одинаковыми")
+
     def save(self, *args, **kwargs):
-        # Расчет разницы между ожидаемым и фактическим количеством
-        if self.expected_quantity and self.quantity:
-            self.difference = self.quantity - self.expected_quantity
-        
-        # Если это новый объект (не обновление существующего)
-        is_new = self.pk is None
-        
-        # Специальные расчеты для разных типов движения
-        if self.movement_type == 'in':
-            # Для приемки нужно увеличить количество в резервуаре или вагоне
-            if is_new or not hasattr(self, '_original_quantity'):
-                quantity_change = self.quantity
-            else:
-                quantity_change = self.quantity - self._original_quantity
-                
-            if self.target_reservoir:
-                self.target_reservoir.current_quantity += quantity_change
-                self.target_reservoir.save()
-            elif self.target_wagon:
-                self.target_wagon.current_quantity += quantity_change
-                self.target_wagon.save()
-                
-        elif self.movement_type == 'out':
-            # Для продажи нужно уменьшить количество в резервуаре или вагоне
-            if is_new or not hasattr(self, '_original_quantity'):
-                quantity_change = self.quantity
-            else:
-                quantity_change = self.quantity - self._original_quantity
-                
-            if self.source_reservoir:
-                self.source_reservoir.current_quantity -= quantity_change
-                self.source_reservoir.save()
-            elif self.source_wagon:
-                self.source_wagon.current_quantity -= quantity_change
-                self.source_wagon.save()
-                
-        elif self.movement_type == 'transfer':
-            # Для перемещения нужно уменьшить в источнике и увеличить в назначении
-            if is_new or not hasattr(self, '_original_quantity'):
-                quantity_change = self.quantity
-            else:
-                quantity_change = self.quantity - self._original_quantity
-                
-            if self.source_reservoir:
-                self.source_reservoir.current_quantity -= quantity_change
-                self.source_reservoir.save()
-            elif self.source_wagon:
-                self.source_wagon.current_quantity -= quantity_change
-                self.source_wagon.save()
-                
-            if self.target_reservoir:
-                self.target_reservoir.current_quantity += quantity_change
-                self.target_reservoir.save()
-            elif self.target_wagon:
-                self.target_wagon.current_quantity += quantity_change
-                self.target_wagon.save()
-        
-        # Для расчета параметров если задана плотность и объем
-        if self.density and self.liter:
-            computed_value = self.density * self.liter / 1000  # Переводим в тонны
-            self.quantity = computed_value
-            self.specific_weight = self.density
-            
-        # Обновляем количество в продукте
-        if self.product:
-            if self.movement_type == 'in' or self.movement_type == 'production':
-                self.product.in_qty += self.quantity
-            elif self.movement_type == 'out':
-                self.product.out_qty += self.quantity
-            self.product.save()
-            
+        self.full_clean()
         super().save(*args, **kwargs)
-        
-        # Сохраняем оригинальное значение для следующего обновления
-        self._original_quantity = self.quantity
-    
+
     def __str__(self):
-        return f"{self.get_movement_type_display()} - {self.product.name} ({self.quantity} т) от {self.date}"
-    
+        return f"{self.get_movement_type_display()} №{self.document_number or self.id}"
+
     class Meta:
-        ordering = ['-date']
+        ordering = ['-date', '-created_at']
         verbose_name = "Движение"
         verbose_name_plural = "Движения"
-
+        indexes = [
+            models.Index(fields=['movement_type', 'status']),
+            models.Index(fields=['date']),
+            models.Index(fields=['created_at']),
+        ]
 
 class Inventory(models.Model):
     product = models.OneToOneField(Product, on_delete=models.CASCADE, verbose_name="Mahsulot")
@@ -534,22 +431,149 @@ class AuditLog(models.Model):
     def __str__(self):
         return f"{self.model_name} [{self.object_id}] {self.action} at {self.timestamp}"
 
-class Transport(models.Model):
-    movement = models.ForeignKey(Movement, on_delete=models.CASCADE, related_name='transports')
-    transport_number = models.CharField(max_length=100)
-    density = models.FloatField(null=True, blank=True)
-    temperature = models.FloatField(default=20)
-    liter = models.FloatField(null=True, blank=True)
-    quantity = models.FloatField()  # Mass in kg
-    doc_ton = models.FloatField(null=True, blank=True)
-    warehouse = models.ForeignKey(Warehouse, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Ombor")
+class EstokadaOperation(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Ожидает обработки'),
+        ('measuring', 'Измерение'),
+        ('processing', 'Обработка данных'),
+        ('completed', 'Завершен'),
+        ('cancelled', 'Отменен'),
+    )
+
+    OPERATION_RESULT = (
+        ('match', 'Совпадает'),
+        ('positive_diff', 'Положительная разница'),
+        ('negative_diff', 'Отрицательная разница'),
+    )
+
+    movement = models.OneToOneField(Movement, on_delete=models.CASCADE, related_name='estokada_operation', verbose_name='Операция движения')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='Статус')
+    result = models.CharField(max_length=20, choices=OPERATION_RESULT, null=True, blank=True, verbose_name='Результат')
     
-    class Meta:
-        verbose_name = "Transport"
-        verbose_name_plural = "Transports"
+    # Фактические данные эстокады
+    actual_quantity = models.FloatField(verbose_name='Фактическое количество (тонн)', default=0)
+    actual_density = models.FloatField(verbose_name='Фактическая плотность', null=True, blank=True)
+    actual_temperature = models.FloatField(verbose_name='Фактическая температура', null=True, blank=True)
     
+    # Расчетные поля
+    difference_quantity = models.FloatField(verbose_name='Разница в количестве (тонн)', default=0)
+    difference_percentage = models.FloatField(verbose_name='Разница в процентах', default=0)
+    
+    # Метаданные
+    processed_by = models.ForeignKey(
+        'accounts.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='processed_estokada_operations',
+        verbose_name='Обработано пользователем'
+    )
+    processed_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата обработки')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    notes = models.TextField(verbose_name='Примечания', blank=True, null=True)
+
+    def clean(self):
+        if self.actual_quantity < 0:
+            raise ValidationError('Фактическое количество не может быть отрицательным')
+        
+        if self.actual_density and self.actual_density <= 0:
+            raise ValidationError('Плотность должна быть положительным числом')
+            
+        if self.actual_temperature and (self.actual_temperature < -50 or self.actual_temperature > 100):
+            raise ValidationError('Температура должна быть в диапазоне от -50 до 100 градусов')
+
+    def calculate_differences(self):
+        """Расчет разницы между документальным и фактическим количеством"""
+        self.difference_quantity = self.actual_quantity - self.movement.quantity
+        
+        if self.movement.quantity != 0:
+            self.difference_percentage = (self.difference_quantity / self.movement.quantity) * 100
+        else:
+            self.difference_percentage = 0
+            
+        # Определение результата
+        if abs(self.difference_percentage) <= 0.1:  # Допустимая погрешность 0.1%
+            self.result = 'match'
+        else:
+            self.result = 'positive_diff' if self.difference_quantity > 0 else 'negative_diff'
+
+    def process_operation(self, user):
+        """Обработка операции эстокады"""
+        if self.status not in ['pending', 'measuring']:
+            raise ValidationError('Невозможно обработать операцию в текущем статусе')
+            
+        self.calculate_differences()
+        self.processed_by = user
+        self.processed_at = timezone.now()
+        self.status = 'completed'
+
+    def cancel_operation(self, user, reason=None):
+        """Отмена операции"""
+        if self.status == 'completed':
+            raise ValidationError('Невозможно отменить завершенную операцию')
+            
+        self.status = 'cancelled'
+        self.processed_by = user
+        self.processed_at = timezone.now()
+        if reason:
+            self.notes = f"Отменено: {reason}"
+
+    def save(self, *args, **kwargs):
+        if not self.pk:  # Новая запись
+            self.calculate_differences()
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.transport_number} - {self.movement.document_number}"
+        return f"Эстокада {self.movement.document_number} ({self.get_status_display()})"
+
+    class Meta:
+        verbose_name = 'Операция эстокады'
+        verbose_name_plural = 'Операции эстокады'
+        ordering = ['-created_at']
+
+# Обновляем модель Transport
+class Transport(models.Model):
+    TRANSPORT_TYPES = (
+        ('truck', 'Грузовик'),
+        ('wagon', 'Вагон'),
+    )
+
+    movement = models.ForeignKey(Movement, on_delete=models.CASCADE, related_name='transports')
+    transport_type = models.CharField(max_length=10, choices=TRANSPORT_TYPES, verbose_name='Тип транспорта')
+    transport_number = models.CharField(max_length=100, verbose_name='Номер транспорта')
+    
+    # Поля для вагона
+    wagon = models.ForeignKey('Wagon', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Вагон')
+    wagon_type = models.ForeignKey('WagonType', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Тип вагона')
+    
+    # Общие поля для измерений
+    density = models.FloatField(verbose_name='Плотность', null=True, blank=True)
+    temperature = models.FloatField(verbose_name='Температура', default=20)
+    volume = models.FloatField(verbose_name='Объем (л)', null=True, blank=True)
+    quantity = models.FloatField(verbose_name='Количество (тонн)')
+    
+    # Документальные данные
+    doc_quantity = models.FloatField(verbose_name='Количество по документам (тонн)', null=True, blank=True)
+    difference = models.FloatField(verbose_name='Разница (тонн)', default=0)
+    
+    # Дополнительные поля
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Склад')
+    notes = models.TextField(verbose_name='Примечания', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создано')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлено')
+
+    def save(self, *args, **kwargs):
+        if self.doc_quantity:
+            self.difference = self.quantity - self.doc_quantity
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.get_transport_type_display()} {self.transport_number}"
+
+    class Meta:
+        verbose_name = 'Транспорт'
+        verbose_name_plural = 'Транспорт'
+        ordering = ['-created_at']
 
 class ProductionSource(models.Model):
     """

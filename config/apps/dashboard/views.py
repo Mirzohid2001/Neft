@@ -21,9 +21,9 @@ def dashboard(request):
     elif request.user.role == 'boss':
         return render(request, 'dashboard/dashboard.html', context)
     elif request.user.role == 'sales':
-        return redirect('warehouse:sales_department_dashboard')
+        return redirect('sales:dashboard')
     elif request.user.role == 'estokada':
-        return redirect('warehouse:estokada_dashboard')
+        return redirect('estokada:dashboard')
     elif request.user.role == 'finance':
         return redirect('accounting:financial_dashboard')
     elif request.user.role == 'accounting':

@@ -1,0 +1,418 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Операции{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Главная</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Операции</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Операции</h1>
+        <div class="dropdown">
+            <button class="btn btn-primary dropdown-toggle" type="button" id="createOperationDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <i class="fas fa-plus fa-sm text-white-50"></i> Создать операцию
+            </button>
+            <div class="dropdown-menu" aria-labelledby="createOperationDropdown">
+                <a class="dropdown-item" href="{% url 'sales:create_operation' operation_type='receive' %}">Приемка</a>
+                <a class="dropdown-item" href="{% url 'sales:create_operation' operation_type='sale' %}">Продажа</a>
+                <a class="dropdown-item" href="{% url 'sales:create_operation' operation_type='transfer' %}">Перемещение</a>
+                <a class="dropdown-item" href="{% url 'sales:create_operation' operation_type='production' %}">Производство</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Фильтры</h6>
+        </div>
+        <div class="card-body">
+            <form method="get" class="form-inline">
+                <div class="form-group mb-2 mr-2">
+                    <label for="operation_type" class="sr-only">Тип операции</label>
+                    <select name="operation_type" id="operation_type" class="form-control">
+                        <option value="">Все типы операций</option>
+                        <option value="receive" {% if request.GET.operation_type == 'receive' %}selected{% endif %}>Приемка</option>
+                        <option value="sale" {% if request.GET.operation_type == 'sale' %}selected{% endif %}>Продажа</option>
+                        <option value="transfer" {% if request.GET.operation_type == 'transfer' %}selected{% endif %}>Перемещение</option>
+                        <option value="production" {% if request.GET.operation_type == 'production' %}selected{% endif %}>Производство</option>
+                    </select>
+                </div>
+                <div class="form-group mb-2 mr-2">
+                    <label for="date_from" class="sr-only">Дата с</label>
+                    <input type="date" name="date_from" id="date_from" class="form-control" placeholder="Дата с" 
+                           value="{{ request.GET.date_from|default:'' }}">
+                </div>
+                <div class="form-group mb-2 mr-2">
+                    <label for="date_to" class="sr-only">Дата по</label>
+                    <input type="date" name="date_to" id="date_to" class="form-control" placeholder="Дата по" 
+                           value="{{ request.GET.date_to|default:'' }}">
+                </div>
+                <div class="form-group mb-2 mr-2">
+                    <label for="product" class="sr-only">Продукт</label>
+                    <select name="product" id="product" class="form-control">
+                        <option value="">Все продукты</option>
+                        {% for product in products %}
+                            <option value="{{ product.id }}" {% if request.GET.product == product.id|stringformat:"i" %}selected{% endif %}>
+                                {{ product.title }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-2 mr-2">
+                    <label for="client" class="sr-only">Клиент</label>
+                    <select name="client" id="client" class="form-control">
+                        <option value="">Все клиенты</option>
+                        {% for client in clients %}
+                            <option value="{{ client.id }}" {% if request.GET.client == client.id|stringformat:"i" %}selected{% endif %}>
+                                {{ client.title }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-2 mr-2">
+                    <label for="estokada_processed" class="sr-only">Обработано эстокадой</label>
+                    <select name="estokada_processed" id="estokada_processed" class="form-control">
+                        <option value="">Все операции</option>
+                        <option value="true" {% if request.GET.estokada_processed == 'true' %}selected{% endif %}>Обработано эстокадой</option>
+                        <option value="false" {% if request.GET.estokada_processed == 'false' %}selected{% endif %}>Не обработано эстокадой</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary mb-2">Применить</button>
+                <a href="{% url 'sales:operation_list' %}" class="btn btn-secondary mb-2 ml-2">Сбросить</a>
+            </form>
+        </div>
+    </div>
+
+    <!-- Operations Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Список операций</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="operationsTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Тип операции</th>
+                            <th>Дата</th>
+                            <th>Док. №</th>
+                            <th>Продукт</th>
+                            <th>Кол-во (план)</th>
+                            <th>Кол-во (факт)</th>
+                            <th>Разница</th>
+                            <th>Клиент/Поставщик</th>
+                            <th>Статус эстокады</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for operation in operations %}
+                        <tr class="{% if operation.difference and operation.difference < 0 %}table-danger{% elif operation.difference and operation.difference > 0 %}table-success{% endif %}">
+                            <td>{{ operation.id }}</td>
+                            <td>
+                                {% if operation.movement_type == 'in' %}
+                                    <span class="badge badge-success">Приемка</span>
+                                {% elif operation.movement_type == 'out' %}
+                                    <span class="badge badge-danger">Продажа</span>
+                                {% elif operation.movement_type == 'transfer' %}
+                                    <span class="badge badge-info">Перемещение</span>
+                                {% elif operation.movement_type == 'production' %}
+                                    <span class="badge badge-warning">Производство</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ operation.movement_type }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ operation.date|date:"d.m.Y" }}</td>
+                            <td>{{ operation.document_number|default:"-" }}</td>
+                            <td>{{ operation.product.title }}</td>
+                            <td>{{ operation.quantity }}</td>
+                            <td>{{ operation.actual_weight|default:"-" }}</td>
+                            <td>
+                                {% if operation.difference %}
+                                    <span class="{% if operation.difference < 0 %}text-danger{% elif operation.difference > 0 %}text-success{% endif %}">
+                                        {{ operation.difference }}
+                                    </span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if operation.client %}
+                                    {{ operation.client.title }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if operation.estokada_processed %}
+                                    <span class="badge badge-success">Обработано</span>
+                                {% else %}
+                                    <span class="badge badge-warning">Ожидает</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'sales:operation_detail' pk=operation.id %}" class="btn btn-info btn-sm">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'sales:operation_update' pk=operation.id %}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% if not operation.estokada_processed %}
+                                <a href="{% url 'sales:operation_delete' pk=operation.id %}" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                {% endif %}
+                                
+                                {% if not operation.estokada_processed %}
+                                <a href="{% url 'sales:estokada_process' pk=operation.id %}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-truck-loading"></i> Эстокада
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="11" class="text-center">Операции не найдены</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if operations.paginator.num_pages > 1 %}
+            <div class="mt-4 d-flex justify-content-center">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination">
+                        {% if operations.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="First">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ operations.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" aria-label="First">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for i in operations.paginator.page_range %}
+                            {% if operations.number == i %}
+                                <li class="page-item active"><a class="page-link" href="#">{{ i }}</a></li>
+                            {% elif i > operations.number|add:'-3' and i < operations.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if operations.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ operations.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ operations.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Last">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" aria-label="Last">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Operation Statistics -->
+    <div class="row">
+        <!-- Total Operations by Type -->
+        <div class="col-xl-6 col-md-12 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Операции по типам</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-pie pt-4 pb-2">
+                        <canvas id="operationsTypeChart"></canvas>
+                    </div>
+                    <div class="mt-4 text-center small">
+                        <span class="mr-2">
+                            <i class="fas fa-circle text-success"></i> Приемка
+                        </span>
+                        <span class="mr-2">
+                            <i class="fas fa-circle text-danger"></i> Продажа
+                        </span>
+                        <span class="mr-2">
+                            <i class="fas fa-circle text-info"></i> Перемещение
+                        </span>
+                        <span class="mr-2">
+                            <i class="fas fa-circle text-warning"></i> Производство
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Weight Difference Statistics -->
+        <div class="col-xl-6 col-md-12 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Статистика разницы веса</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Тип операции</th>
+                                <th>Планово (т)</th>
+                                <th>Фактически (т)</th>
+                                <th>Разница (т)</th>
+                                <th>Разница (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in weight_stats %}
+                            <tr>
+                                <td>{{ stat.type_name }}</td>
+                                <td>{{ stat.planned_weight }}</td>
+                                <td>{{ stat.actual_weight }}</td>
+                                <td class="{% if stat.difference < 0 %}text-danger{% elif stat.difference > 0 %}text-success{% endif %}">
+                                    {{ stat.difference }}
+                                </td>
+                                <td class="{% if stat.percentage < 0 %}text-danger{% elif stat.percentage > 0 %}text-success{% endif %}">
+                                    {{ stat.percentage }}%
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="font-weight-bold">
+                                <td>Всего</td>
+                                <td>{{ total_stats.planned_weight }}</td>
+                                <td>{{ total_stats.actual_weight }}</td>
+                                <td class="{% if total_stats.difference < 0 %}text-danger{% elif total_stats.difference > 0 %}text-success{% endif %}">
+                                    {{ total_stats.difference }}
+                                </td>
+                                <td class="{% if total_stats.percentage < 0 %}text-danger{% elif total_stats.percentage > 0 %}text-success{% endif %}">
+                                    {{ total_stats.percentage }}%
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/chart.js/Chart.min.js' %}"></script>
+<script>
+    $(document).ready(function() {
+        // Инициализация Select2 для более удобного выбора
+        $('#product, #client, #operation_type, #estokada_processed').select2({
+            theme: 'bootstrap4',
+            width: '100%'
+        });
+        
+        // Настройка таблицы с операциями
+        $('#operationsTable').DataTable({
+            "paging": false,
+            "ordering": true,
+            "info": false,
+            "searching": false,
+            "language": {
+                "emptyTable": "Нет доступных данных",
+                "info": "Показано с _START_ по _END_ из _TOTAL_ записей",
+                "infoEmpty": "Показано 0 записей",
+                "infoFiltered": "(отфильтровано из _MAX_ записей)",
+                "lengthMenu": "Показать _MENU_ записей",
+                "loadingRecords": "Загрузка...",
+                "processing": "Обработка...",
+                "search": "Поиск:",
+                "zeroRecords": "Не найдено подходящих записей",
+                "paginate": {
+                    "first": "Первая",
+                    "last": "Последняя",
+                    "next": "Следующая",
+                    "previous": "Предыдущая"
+                }
+            }
+        });
+        
+        // Круговая диаграмма по типам операций
+        var ctx = document.getElementById("operationsTypeChart");
+        var operationsTypeChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ["Приемка", "Продажа", "Перемещение", "Производство"],
+                datasets: [{
+                    data: [
+                        {{ operation_counts.receive|default:0 }}, 
+                        {{ operation_counts.sale|default:0 }}, 
+                        {{ operation_counts.transfer|default:0 }}, 
+                        {{ operation_counts.production|default:0 }}
+                    ],
+                    backgroundColor: ['#1cc88a', '#e74a3b', '#36b9cc', '#f6c23e'],
+                    hoverBackgroundColor: ['#17a673', '#c73c2e', '#2c9faf', '#dfa82a'],
+                    hoverBorderColor: "rgba(234, 236, 244, 1)",
+                }],
+            },
+            options: {
+                maintainAspectRatio: false,
+                tooltips: {
+                    backgroundColor: "rgb(255,255,255)",
+                    bodyFontColor: "#858796",
+                    borderColor: '#dddfeb',
+                    borderWidth: 1,
+                    xPadding: 15,
+                    yPadding: 15,
+                    displayColors: false,
+                    caretPadding: 10,
+                },
+                legend: {
+                    display: false
+                },
+                cutoutPercentage: 80,
+            },
+        });
+    });
+</script>
+{% endblock %} 

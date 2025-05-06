@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        Редактирование заказа
+    {% else %}
+        Новый заказ
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Главная</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'sales:order_list' %}">Заказы</a></li>
+        <li class="breadcrumb-item active" aria-current="page">
+            {% if form.instance.pk %}
+                Редактирование заказа
+            {% else %}
+                Новый заказ
+            {% endif %}
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        {% if form.instance.pk %}
+                            Редактирование заказа № {{ form.instance.order_number }}
+                        {% else %}
+                            Новый заказ
+                        {% endif %}
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="orderForm">
+                        {% csrf_token %}
+                        
+                        {% if form.errors %}
+                            <div class="alert alert-danger">
+                                <strong>Пожалуйста, исправьте следующие ошибки:</strong>
+                                {{ form.non_field_errors }}
+                                {% for field in form %}
+                                    {% if field.errors %}
+                                        <div>{{ field.label }}: {{ field.errors }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.client.id_for_label }}">{{ form.client.label }}</label>
+                                    {{ form.client }}
+                                    {% if form.client.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.client.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.contract.id_for_label }}">{{ form.contract.label }}</label>
+                                    {{ form.contract }}
+                                    {% if form.contract.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.contract.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.order_date.id_for_label }}">{{ form.order_date.label }}</label>
+                                    {{ form.order_date }}
+                                    {% if form.order_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.order_date.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.delivery_date.id_for_label }}">{{ form.delivery_date.label }}</label>
+                                    {{ form.delivery_date }}
+                                    {% if form.delivery_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.delivery_date.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.shipping_method.id_for_label }}">{{ form.shipping_method.label }}</label>
+                                    {{ form.shipping_method }}
+                                    {% if form.shipping_method.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.shipping_method.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="{{ form.payment_method.id_for_label }}">{{ form.payment_method.label }}</label>
+                                    {{ form.payment_method }}
+                                    {% if form.payment_method.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.payment_method.errors }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label for="{{ form.shipping_address.id_for_label }}">{{ form.shipping_address.label }}</label>
+                            {{ form.shipping_address }}
+                            {% if form.shipping_address.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.shipping_address.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group mb-4">
+                            <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.notes.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">
+                                {% if form.instance.pk %}
+                                    Сохранить изменения
+                                {% else %}
+                                    Создать заказ
+                                {% endif %}
+                            </button>
+                            <a href="{% url 'sales:order_list' %}" class="btn btn-secondary">Отмена</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if form.instance.pk %}
+                <!-- Секция с товарными позициями заказа, если это редактирование -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-primary">Товарные позиции</h6>
+                        <a href="{% url 'sales:add_order_item' order_id=form.instance.pk %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-plus"></i> Добавить позицию
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% if form.instance.items.all %}
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Продукт</th>
+                                            <th>Количество</th>
+                                            <th>Цена за ед.</th>
+                                            <th>Скидка</th>
+                                            <th>Итого</th>
+                                            <th>Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in form.instance.items.all %}
+                                            <tr>
+                                                <td>{{ item.product }}</td>
+                                                <td>{{ item.quantity }}</td>
+                                                <td>{{ item.unit_price }}</td>
+                                                <td>{{ item.discount_percent }}%</td>
+                                                <td>{{ item.total_price }}</td>
+                                                <td>
+                                                    <a href="{% url 'sales:edit_order_item' pk=item.pk %}" class="btn btn-sm btn-info">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    <a href="{% url 'sales:delete_order_item' pk=item.pk %}" class="btn btn-sm btn-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th colspan="4" class="text-right">Общая сумма:</th>
+                                            <th>{{ form.instance.total_amount }}</th>
+                                            <th></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                У этого заказа пока нет товарных позиций. 
+                                <a href="{% url 'sales:add_order_item' order_id=form.instance.pk %}">Добавить первую позицию</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Секция с платежами заказа, если это редактирование -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-primary">Платежи</h6>
+                        <a href="{% url 'sales:add_payment' order_id=form.instance.pk %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-plus"></i> Добавить платеж
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% if form.instance.payments.all %}
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Номер</th>
+                                            <th>Дата</th>
+                                            <th>Сумма</th>
+                                            <th>Тип</th>
+                                            <th>Статус</th>
+                                            <th>Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for payment in form.instance.payments.all %}
+                                            <tr>
+                                                <td>{{ payment.payment_number }}</td>
+                                                <td>{{ payment.payment_date }}</td>
+                                                <td>{{ payment.amount }}</td>
+                                                <td>{{ payment.get_payment_type_display }}</td>
+                                                <td>
+                                                    <span class="badge {% if payment.status == 'completed' %}badge-success{% elif payment.status == 'pending' %}badge-warning{% elif payment.status == 'failed' %}badge-danger{% else %}badge-secondary{% endif %}">
+                                                        {{ payment.get_status_display }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <a href="{% url 'sales:edit_payment' pk=payment.pk %}" class="btn btn-sm btn-info">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    <a href="{% url 'sales:delete_payment' pk=payment.pk %}" class="btn btn-sm btn-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th colspan="2" class="text-right">Всего оплачено:</th>
+                                            <th>{{ form.instance.paid_amount }}</th>
+                                            <th colspan="2" class="text-right">Осталось оплатить:</th>
+                                            <th>
+                                                {% with total=form.instance.total_amount|default:0 paid=form.instance.paid_amount|default:0 %}
+                                                    {{ total|add:"-"|add:paid }}
+                                                {% endwith %}
+                                            </th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                У этого заказа пока нет платежей. 
+                                <a href="{% url 'sales:add_payment' order_id=form.instance.pk %}">Добавить первый платеж</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Обновление списка доступных контрактов при изменении клиента
+        $('#{{ form.client.id_for_label }}').change(function() {
+            var clientId = $(this).val();
+            if (clientId) {
+                $.ajax({
+                    url: '{% url "sales:get_client_contracts" %}',
+                    data: {
+                        'client_id': clientId
+                    },
+                    dataType: 'json',
+                    success: function(data) {
+                        var contractSelect = $('#{{ form.contract.id_for_label }}');
+                        contractSelect.empty();
+                        contractSelect.append('<option value="">---------</option>');
+                        $.each(data.contracts, function(index, contract) {
+                            contractSelect.append('<option value="' + contract.id + '">' + contract.text + '</option>');
+                        });
+                    }
+                });
+            }
+        });
+    });
+</script>
+{% endblock %} 

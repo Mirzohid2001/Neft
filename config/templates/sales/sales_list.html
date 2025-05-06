@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Список операций{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-2 text-gray-800">Список операций</h1>
+    
+    <!-- Фильтры -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Фильтры</h6>
+        </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label for="movement_type" class="form-label">Тип операции</label>
+                    <select name="movement_type" id="movement_type" class="form-select">
+                        <option value="">Все</option>
+                        <option value="in" {% if request.GET.movement_type == 'in' %}selected{% endif %}>Приемка</option>
+                        <option value="out" {% if request.GET.movement_type == 'out' %}selected{% endif %}>Продажа</option>
+                        <option value="production" {% if request.GET.movement_type == 'production' %}selected{% endif %}>Производство</option>
+                        <option value="transfer" {% if request.GET.movement_type == 'transfer' %}selected{% endif %}>Перемещение</option>
+                        </select>
+                    </div>
+                <div class="col-md-2">
+                    <label for="transport_type" class="form-label">Тип транспорта</label>
+                    <select name="transport_type" id="transport_type" class="form-select">
+                        <option value="">Все</option>
+                        <option value="auto" {% if request.GET.transport_type == 'auto' %}selected{% endif %}>Автомобильный</option>
+                        <option value="rail" {% if request.GET.transport_type == 'rail' %}selected{% endif %}>Железнодорожный</option>
+                        <option value="sea" {% if request.GET.transport_type == 'sea' %}selected{% endif %}>Морской</option>
+                        <option value="pipeline" {% if request.GET.transport_type == 'pipeline' %}selected{% endif %}>Трубопроводный</option>
+                        </select>
+                    </div>
+                <div class="col-md-2">
+                        <label for="date_from" class="form-label">Дата с</label>
+                    <input type="date" class="form-control" id="date_from" name="date_from" value="{{ request.GET.date_from }}">
+                    </div>
+                <div class="col-md-2">
+                        <label for="date_to" class="form-label">Дата по</label>
+                    <input type="date" class="form-control" id="date_to" name="date_to" value="{{ request.GET.date_to }}">
+                    </div>
+                <div class="col-md-2">
+                    <label for="client" class="form-label">Клиент</label>
+                    <select name="client" id="client" class="form-select">
+                            <option value="">Все</option>
+                        {% for client in clients %}
+                        <option value="{{ client.id }}" {% if request.GET.client == client.id|stringformat:"i" %}selected{% endif %}>
+                            {{ client.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                <div class="col-12 mt-3">
+                    <button type="submit" class="btn btn-primary">Применить фильтры</button>
+                    <a href="{% url 'sales:sales_list' %}" class="btn btn-secondary">Сбросить</a>
+                    </div>
+                </form>
+        </div>
+    </div>
+
+    <!-- Быстрые действия -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="btn-group">
+                <a href="{% url 'sales:sales_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus mr-2"></i>Новая операция
+                </a>
+                <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-expanded="false">
+                    <span class="sr-only">Выбрать</span>
+                </button>
+                <div class="dropdown-menu">
+                    <a class="dropdown-item" href="{% url 'sales:receive_create' %}">Приемка</a>
+                    <a class="dropdown-item" href="{% url 'sales:sale_create' %}">Продажа</a>
+                    <a class="dropdown-item" href="{% url 'sales:transfer_create' %}">Перемещение</a>
+                    <a class="dropdown-item" href="{% url 'sales:production_create' %}">Производство</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Таблица операций -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Список операций</h6>
+            <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="view-all-operations">Все</button>
+                <button type="button" class="btn btn-sm btn-outline-success" id="view-receive">Приемка</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="view-sale">Продажа</button>
+                <button type="button" class="btn btn-sm btn-outline-warning" id="view-production">Производство</button>
+                <button type="button" class="btn btn-sm btn-outline-info" id="view-transfer">Перемещение</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Тип</th>
+                            <th>№ Документа</th>
+                            <th>Продукт</th>
+                            <th>Клиент</th>
+                            <th>Транспорт</th>
+                            <th>Количество (кг)</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sale in sales %}
+                        <tr class="operation-row" data-type="{{ sale.movement.movement_type }}">
+                            <td>{{ sale.movement.date|date:"d.m.Y" }}</td>
+                            <td>
+                                {% if sale.movement.movement_type == 'in' %}
+                                <span class="badge badge-success">Приемка</span>
+                                {% elif sale.movement.movement_type == 'out' %}
+                                <span class="badge badge-danger">Продажа</span>
+                                {% elif sale.movement.movement_type == 'production' %}
+                                <span class="badge badge-warning">Производство</span>
+                                {% elif sale.movement.movement_type == 'transfer' %}
+                                <span class="badge badge-info">Перемещение</span>
+                                {% else %}
+                                <span class="badge badge-secondary">{{ sale.movement.get_movement_type_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ sale.movement.document_number }}</td>
+                            <td>{{ sale.movement.product.name }}</td>
+                            <td>{{ sale.client.name }}</td>
+                            <td>
+                                {% if sale.transport_type %}
+                                {{ sale.get_transport_type_display }} {% if sale.transport_number %}№{{ sale.transport_number }}{% endif %}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ sale.movement.quantity|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge badge-{% if sale.movement.status == 'completed' %}success{% elif sale.movement.status == 'in_progress' %}warning{% elif sale.movement.status == 'cancelled' %}danger{% else %}secondary{% endif %}">
+                                    {{ sale.movement.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'sales:sales_detail' sale.pk %}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if sale.movement.status != 'completed' and sale.movement.status != 'cancelled' %}
+                                    <a href="{% url 'sales:sales_edit' sale.pk %}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center">Нет операций</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+    </div>
+    
+    <!-- Пагинация -->
+    {% if is_paginated %}
+            <div class="mt-3">
+                <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.movement_type %}&movement_type={{ request.GET.movement_type }}{% endif %}{% if request.GET.transport_type %}&transport_type={{ request.GET.transport_type }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.client %}&client={{ request.GET.client }}{% endif %}">&laquo; Первая</a>
+            </li>
+            <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.movement_type %}&movement_type={{ request.GET.movement_type }}{% endif %}{% if request.GET.transport_type %}&transport_type={{ request.GET.transport_type }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.client %}&client={{ request.GET.client }}{% endif %}">Предыдущая</a>
+            </li>
+            {% endif %}
+            
+                        <li class="page-item active">
+                            <span class="page-link">
+                                Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+                            </span>
+                        </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.movement_type %}&movement_type={{ request.GET.movement_type }}{% endif %}{% if request.GET.transport_type %}&transport_type={{ request.GET.transport_type }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.client %}&client={{ request.GET.client }}{% endif %}">Следующая</a>
+            </li>
+            <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.movement_type %}&movement_type={{ request.GET.movement_type }}{% endif %}{% if request.GET.transport_type %}&transport_type={{ request.GET.transport_type }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.client %}&client={{ request.GET.client }}{% endif %}">Последняя &raquo;</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+            </div>
+    {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Инициализация DataTable
+        var table = $('#dataTable').DataTable({
+            "paging": false,
+            "ordering": true,
+            "info": false,
+            "searching": true,
+            "language": {
+                "search": "Поиск:",
+                "zeroRecords": "Нет данных для отображения"
+            }
+        });
+        
+        // Фильтрация по типу операции
+        $('#view-all-operations').click(function() {
+            $('.operation-row').show();
+        });
+        
+        $('#view-receive').click(function() {
+            $('.operation-row').hide();
+            $('.operation-row[data-type="in"]').show();
+        });
+        
+        $('#view-sale').click(function() {
+            $('.operation-row').hide();
+            $('.operation-row[data-type="out"]').show();
+        });
+        
+        $('#view-production').click(function() {
+            $('.operation-row').hide();
+            $('.operation-row[data-type="production"]').show();
+        });
+        
+        $('#view-transfer').click(function() {
+            $('.operation-row').hide();
+            $('.operation-row[data-type="transfer"]').show();
+        });
+    });
+</script>
+{% endblock %} 
